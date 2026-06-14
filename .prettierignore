@@ -1,0 +1,35 @@
+# Dependencies
+node_modules
+dist
+dist-ssr
+*.local
+
+# Build outputs
+build
+.output
+.nuxt
+.cache
+
+# Logs
+logs
+*.log
+
+# Lock files
+package-lock.json
+yarn.lock
+pnpm-lock.yaml
+
+# IDE
+.vscode
+.idea
+
+# Environment variables
+.env
+.env.*
+
+# Public assets (don't format)
+public/
+
+# Config files
+*.config.js
+*.config.ts

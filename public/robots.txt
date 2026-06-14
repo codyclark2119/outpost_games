@@ -1,0 +1,13 @@
+# robots.txt for The Outpost Games
+# This file tells search engine crawlers which pages they can and cannot access
+
+# Allow all well-behaved bots to crawl all public pages
+User-agent: *
+Allow: /
+
+# Disallow admin pages from being indexed for security and privacy
+Disallow: /admin
+Disallow: /x/outpostAdmin
+
+# XML Sitemap location - helps search engines discover all pages
+Sitemap: https://outpost-games-rgv.fly.dev/sitemap.xml

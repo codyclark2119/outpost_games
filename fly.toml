@@ -1,0 +1,48 @@
+# fly.toml app configuration file generated for outpost-games-rgv on 2026-02-27T16:09:14-06:00
+#
+# ✅ PRODUCTION CONFIGURATION for outpostgamesrgv.com
+#
+# App: outpost-games-rgv
+# Region: Dallas (dfw)
+# Domain: outpostgamesrgv.com (Cloudflare CDN + Fly.io)
+# SSL: Let's Encrypt (auto-renewed)
+# Auto-sleep: Enabled (5 minute timeout)
+# Cost: $0.10-$1.94/month (with auto-sleep)
+#
+# See https://fly.io/docs/reference/configuration/ for information about how to use this file.
+#
+
+app = 'outpost-games-rgv'
+primary_region = 'dfw'  # Dallas region (optimal for Texas location)
+
+[build]
+  dockerfile = 'Dockerfile.combined'  # Single container (nginx + Node.js) for cost savings
+
+[env]
+  NODE_ENV = 'production'
+  PORT = '8080'
+  VITE_API_URL = '/api'  # API served from same domain
+
+[[mounts]]
+  source = 'outpost_redis_data'  # Persistent volume for Redis data
+  destination = '/data'
+  initial_size = '1gb'
+
+[http_service]
+  internal_port = 80
+  force_https = true  # Always redirect HTTP to HTTPS
+  auto_stop_machines = true  # ✅ Enable auto-sleep to save costs
+  auto_start_machines = true  # ✅ Auto-wake on incoming requests (~500ms)
+  min_machines_running = 0  # Allow all machines to sleep when idle
+
+  [[http_service.checks]]
+    interval = '30s'  # Health check every 30 seconds
+    timeout = '5s'
+    grace_period = '10s'
+    method = 'GET'
+    path = '/'  # Check main page responds
+
+[[vm]]
+  cpu_kind = 'shared'  # Shared CPU (most cost-effective)
+  cpus = 1
+  memory_mb = 256  # Minimal RAM for our needs (~150MB actual usage)

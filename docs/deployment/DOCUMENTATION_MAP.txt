@@ -1,0 +1,204 @@
+╔══════════════════════════════════════════════════════════════════════╗
+║                    DEPLOYMENT DOCUMENTATION MAP                       ║
+║              The Outpost Games - Cost Optimization Package            ║
+║                     📁 Organized File Structure                       ║
+╚══════════════════════════════════════════════════════════════════════╝
+
+📂 Project Structure:
+──────────────────────────────────────────────────────────────────────
+/
+├── docs/
+│   ├── README.md                    # Documentation index
+│   └── deployment/
+│       ├── README.md                # 📖 START HERE - Main deployment guide
+│       ├── DEPLOY_GUIDE.md          # Step-by-step deployment walkthrough
+│       ├── DEPLOYMENT.md            # Additional deployment info
+│       ├── PRODUCTION_STATUS.md     # Current live status & metrics
+│       └── DOCUMENTATION_MAP.txt    # This file
+│
+├── scripts/
+│   ├── README.md                    # Scripts documentation
+│   ├── check-optimization.sh        # Check optimization status
+│   ├── test-deploy.sh               # Validate configurations
+│   └── deploy.sh                    # Interactive deployment
+│
+├── local-dev/                       # Local development files
+│   ├── README.md                    # Local dev guide
+│   ├── quick-start.sh               # One-command startup
+│   ├── setup-domain.sh              # Domain configuration
+│   ├── DOCKER_SETUP.md              # Detailed Docker docs
+│   ├── docker-compose.yml           # Development orchestration
+│   └── nginx.conf                   # Development nginx config
+│
+├── (project root - production configs)
+│   ├── Dockerfile
+│   ├── Dockerfile.combined
+│   ├── docker-compose.prod.yml
+│   ├── fly.toml
+│   ├── nginx.prod.conf
+│   └── .env.example
+
+┌─────────────────────────────────────────────────────────────────────┐
+│                         📚 START HERE                                │
+│                                                                       │
+│                   📖 docs/deployment/README.md                       │
+│                         (Master Guide)                                │
+│                                                                       │
+│  • Ultra-fast deployment (5 min)                                     │
+│  • Complete setup instructions                                        │
+│  • Fly.io deployment guide                                            │
+│  • Quick commands reference                                           │
+│  • Troubleshooting                                                    │
+└─────────────────────────────────────────────────────────────────────┘
+                                  │
+                    ┌─────────────┼─────────────┐
+                    │             │             │
+                    ▼             ▼             ▼
+        ┌───────────────┐ ┌──────────────┐ ┌────────────────────┐
+        │  🚀 DEPLOY    │ │ 📊 STATUS    │ │ ⚙️  CONFIG         │
+        │               │ │              │ │                    │
+        │ DEPLOY_       │ │ PRODUCTION_  │ │ DEPLOYMENT        │
+        │ GUIDE.md      │ │ STATUS.md    │ │ .md               │
+        │               │ │              │ │                    │
+        │               │ │              │ │                    │
+        │ • Step-by-step│ │ • Live setup │ │ • Additional      │
+        │ • Fly.io      │ │ • Metrics    │ │   config          │
+        │ • Railway     │ │ • Resources  │ │ • Docker          │
+        │ • VPS         │ │ • Domains    │ │ • Nginx           │
+        │ • Health      │ │ • URLs       │ │ • Environment     │
+        │   checks      │ │              │ │                    │
+        └───────────────┘ └──────────────┘ └────────────────────┘
+                │                                      │
+                │                                      │
+                └──────────────┬──────────────────────┘
+                               │
+                               ▼
+                    ┌──────────────────────┐
+                    │   ✅ DEPLOYED!       │
+                    │                      │
+                    │  Run verification:   │
+                    │                      │
+                    │  ./scripts/check-   │
+                    │  optimization.sh     │
+                    │                      │
+                    │  • Checks setup      │
+                    │  • Shows status      │
+                    │  • Validates config  │
+                    │  • Recommends        │
+                    │    actions           │
+                    └──────────────────────┘
+
+═══════════════════════════════════════════════════════════════════════
+
+                        📋 SUPPORTING FILES
+
+┌─────────────────┬───────────────────────────────────────────────────┐
+│ File            │ Purpose                                           │
+├─────────────────┼───────────────────────────────────────────────────┤
+│ .env.example    │ Environment configuration template                │
+│ README.md       │ Main project docs (updated with deployment)      │
+│ fly.toml        │ Fly.io config (256MB RAM, auto-sleep)            │
+│ docker-compose  │ Production Docker with resource limits            │
+│ .prod.yml       │                                                   │
+│ Dockerfile      │ Multi-stage build for frontend                    │
+│ .combined       │                                                   │
+│ nginx.prod.conf │ Production nginx with security                    │
+│ deploy.sh       │ Interactive deployment script                     │
+│ test-deploy.sh  │ Validates Docker configurations                   │
+└─────────────────┴───────────────────────────────────────────────────┘
+
+═══════════════════════════════════════════════════════════════════════
+
+                    💡 COST-SAVING STRATEGIES
+
+┌───┬─────────────────────────┬──────────┬──────────────┬────────────┐
+│ # │ Strategy                │ Time     │ Savings      │ Priority   │
+├───┼─────────────────────────┼──────────┼──────────────┼────────────┤
+│ 1 │ External Redis (Upstash)│ 10 min   │ Smaller      │ ⭐⭐⭐ HIGH │
+│   │                         │          │ instances    │            │
+├───┼─────────────────────────┼──────────┼──────────────┼────────────┤
+│ 2 │ CDN Setup (Cloudflare)  │ 20 min   │ 10x capacity │ ⭐⭐⭐ HIGH │
+│   │                         │          │ same cost    │            │
+├───┼─────────────────────────┼──────────┼──────────────┼────────────┤
+│ 3 │ Combined Container      │ 5 min    │ 50% cost     │ ⭐⭐ MED    │
+│   │                         │          │ reduction    │            │
+├───┼─────────────────────────┼──────────┼──────────────┼────────────┤
+│ 4 │ Auto-Sleep              │ 2 min    │ Up to 95%    │ ⭐⭐⭐ HIGH │
+│   │                         │          │ when idle    │            │
+├───┼─────────────────────────┼──────────┼──────────────┼────────────┤
+│ 5 │ Image Optimization      │ 30 min   │ 50-70%       │ ⭐⭐ MED    │
+│   │ (Cloudinary)            │          │ bandwidth    │            │
+├───┼─────────────────────────┼──────────┼──────────────┼────────────┤
+│ 6 │ Static Site Generation  │ 2-4 hrs  │ Could be $0  │ ⭐ LOW     │
+│   │ (Future)                │          │              │            │
+└───┴─────────────────────────┴──────────┴──────────────┴────────────┘
+
+═══════════════════════════════════════════════════════════════════════
+
+                        💰 COST BREAKDOWN
+
+┌──────────────────────────────────────────────────────────────────────┐
+│                                                                       │
+│  WITHOUT OPTIMIZATION                                                 │
+│  ─────────────────────                                                │
+│  Fly.io (256MB):              $1.94/month                            │
+│  Local Redis:                 (included, uses memory)                │
+│  ───────────────────────────────────────────────────────             │
+│  TOTAL:                       $1.94/month                            │
+│  Capacity:                    500-1,000 users/day                    │
+│                                                                       │
+└──────────────────────────────────────────────────────────────────────┘
+
+┌──────────────────────────────────────────────────────────────────────┐
+│                                                                       │
+│  WITH HIGH-PRIORITY OPTIMIZATIONS (32 min work)                      │
+│  ────────────────────────────────────────────                        │
+│  Fly.io (256MB, auto-sleep):  $0.10 - $1.94/month*                  │
+│  Upstash Redis (free):        $0.00/month                            │
+│  Cloudflare CDN (free):       $0.00/month                            │
+│  Domain:                      $0.83/month                            │
+│  ───────────────────────────────────────────────────────             │
+│  TOTAL:                       $0.93 - $2.77/month                    │
+│  Capacity:                    5,000-10,000 users/day (10x!)          │
+│                                                                       │
+│  *Typical with business hours: ~$0.97/month                          │
+│                                                                       │
+└──────────────────────────────────────────────────────────────────────┘
+
+═══════════════════════════════════════════════════════════════════════
+
+                        🚀 QUICK COMMANDS
+
+┌──────────────────────────────────────────────────────────────────────┐
+│                                                                       │
+│  DEPLOY                                                               │
+│  ─────────────────────────────────────────────────────────           │
+│  flyctl auth login                                                   │
+│  flyctl launch --name your-app-name                                 │
+│  flyctl deploy                                                       │
+│                                                                       │
+│  CHECK OPTIMIZATION STATUS                                            │
+│  ─────────────────────────────────────────────────────────           │
+│  ./scripts/check-optimization.sh                                     │
+│                                                                       │
+│  TEST CONFIGURATIONS                                                  │
+│  ─────────────────────────────────────────────────────────           │
+│  ./scripts/test-deploy.sh                                            │
+│                                                                       │
+│  INTERACTIVE DEPLOYMENT                                               │
+│  ─────────────────────────────────────────────────────────           │
+│  ./scripts/deploy.sh                                                 │
+│                                                                       │
+│  MONITOR                                                              │
+│  ─────────────────────────────────────────────────────────           │
+│  flyctl status                                                       │
+│  flyctl logs                                                         │
+│  flyctl metrics                                                      │
+│                                                                       │
+└──────────────────────────────────────────────────────────────────────┘
+
+═══════════════════════════════════════════════════════════════════════
+
+For detailed information, see docs/deployment/README.md
+
+Built with ❤️ for The Outpost Games

@@ -1,0 +1,122 @@
+# Multi-stage build for ultra-low-cost deployment
+# Combines frontend, backend, and serves them from a single container
+# Perfect for platforms that charge per container (Fly.io, Railway, etc.)
+
+# ============================================
+# Stage 1: Build Frontend
+# ============================================
+FROM node:20-alpine AS frontend-builder
+
+WORKDIR /app
+
+# Copy frontend package files
+COPY package*.json ./
+
+# Install dependencies
+RUN npm ci --prefer-offline --no-audit
+
+# Copy frontend source
+COPY . .
+
+# Build for production
+RUN npm run build
+
+# ============================================
+# Stage 2: Build Backend
+# ============================================
+FROM node:20-alpine AS backend-builder
+
+WORKDIR /app/api
+
+# Copy API package files
+COPY api/package*.json ./
+
+# Install production dependencies only
+RUN npm ci --only=production --prefer-offline --no-audit
+
+# Copy API source
+COPY api/ ./
+
+# ============================================
+# Stage 3: Production Runtime
+# ============================================
+FROM nginx:alpine
+
+# Install Node.js runtime for API (minimal)
+RUN apk add --no-cache nodejs npm wget
+
+WORKDIR /app
+
+# Copy built frontend to nginx
+COPY --from=frontend-builder /app/dist /usr/share/nginx/html
+
+# Copy nginx configuration for combined container (localhost:3001)
+COPY nginx.combined.conf /etc/nginx/conf.d/default.conf
+
+# Copy backend
+COPY --from=backend-builder /app/api /app/api
+
+# Fix permissions
+RUN chmod -R 755 /usr/share/nginx/html && \
+    find /usr/share/nginx/html -type f -exec chmod 644 {} \; && \
+    chmod +x /app/api/server.js
+
+# Create startup script with better error handling and logging
+RUN echo '#!/bin/sh' > /startup.sh && \
+    echo 'set -e' >> /startup.sh && \
+    echo '' >> /startup.sh && \
+    echo '# Function to tail logs in background' >> /startup.sh && \
+    echo 'tail_logs() {' >> /startup.sh && \
+    echo '  sleep 2' >> /startup.sh && \
+    echo '  if [ -f /var/log/api.log ]; then' >> /startup.sh && \
+    echo '    echo "=== API Server Logs ==="' >> /startup.sh && \
+    echo '    cat /var/log/api.log' >> /startup.sh && \
+    echo '  fi' >> /startup.sh && \
+    echo '}' >> /startup.sh && \
+    echo '' >> /startup.sh && \
+    echo 'echo "Starting API server..."' >> /startup.sh && \
+    echo 'cd /app/api' >> /startup.sh && \
+    echo '' >> /startup.sh && \
+    echo '# Start API with logging' >> /startup.sh && \
+    echo 'node server.js 2>&1 | tee /var/log/api.log &' >> /startup.sh && \
+    echo 'API_PID=$!' >> /startup.sh && \
+    echo 'echo "API server started with PID $API_PID"' >> /startup.sh && \
+    echo '' >> /startup.sh && \
+    echo '# Start log tailing in background' >> /startup.sh && \
+    echo 'tail_logs &' >> /startup.sh && \
+    echo '' >> /startup.sh && \
+    echo '# Give API time to crash if it will' >> /startup.sh && \
+    echo 'sleep 3' >> /startup.sh && \
+    echo '' >> /startup.sh && \
+    echo '# Check if API process is still alive' >> /startup.sh && \
+    echo 'if ! kill -0 $API_PID 2>/dev/null; then' >> /startup.sh && \
+    echo '  echo "ERROR: API server crashed on startup!"' >> /startup.sh && \
+    echo '  echo "=== API Server Logs ==="' >> /startup.sh && \
+    echo '  cat /var/log/api.log 2>/dev/null || echo "No log file found"' >> /startup.sh && \
+    echo '  exit 1' >> /startup.sh && \
+    echo 'fi' >> /startup.sh && \
+    echo '' >> /startup.sh && \
+    echo '# Wait for API to respond' >> /startup.sh && \
+    echo 'echo "Waiting for API to respond..."' >> /startup.sh && \
+    echo 'for i in 1 2 3 4 5; do' >> /startup.sh && \
+    echo '  if wget -q -O- http://localhost:3001/api/health >/dev/null 2>&1; then' >> /startup.sh && \
+    echo '    echo "✅ API is ready!"' >> /startup.sh && \
+    echo '    break' >> /startup.sh && \
+    echo '  fi' >> /startup.sh && \
+    echo '  echo "Waiting for API... attempt $i"' >> /startup.sh && \
+    echo '  sleep 2' >> /startup.sh && \
+    echo 'done' >> /startup.sh && \
+    echo '' >> /startup.sh && \
+    echo 'echo "Starting nginx..."' >> /startup.sh && \
+    echo 'exec nginx -g "daemon off;"' >> /startup.sh && \
+    chmod +x /startup.sh
+
+# Expose ports
+EXPOSE 80 3001
+
+# Health check
+HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
+    CMD wget --no-verbose --tries=1 --spider http://localhost/ || exit 1
+
+# Start both services
+CMD ["/startup.sh"]

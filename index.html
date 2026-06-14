@@ -1,0 +1,122 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+
+    <!-- Critical: Favicon -->
+    <link rel="icon" type="image/svg+xml" href="/vite.svg" />
+
+    <!-- Viewport for responsive design -->
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+
+    <!-- SEO Meta Tags -->
+    <meta
+      name="description"
+      content="The Outpost Games - Your premier destination for Magic: The Gathering in Rio Grande City, Texas. Weekly tournaments, events, and a welcoming community."
+    />
+    <meta
+      name="keywords"
+      content="Magic the Gathering, MTG, Rio Grande City, card games, tournaments, TCG"
+    />
+    <meta name="author" content="The Outpost Games" />
+    <meta
+      name="robots"
+      content="index, follow, max-image-preview:large, max-snippet:-1, max-video-preview:-1"
+    />
+
+    <!-- Canonical URL (update with production domain) -->
+    <link rel="canonical" href="https://outpost-games-rgv.fly.dev/" />
+
+    <!-- Theme Color for mobile browsers -->
+    <meta name="theme-color" content="#1e3a8a" />
+
+    <!-- Preconnect to external domains for faster resource loading -->
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+
+    <!-- Load Google Fonts asynchronously to avoid blocking render -->
+    <link
+      rel="stylesheet"
+      href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;500;600;700&family=Crimson+Text:ital,wght@0,400;0,600;1,400&display=swap"
+      media="print"
+      onload="this.media = 'all'"
+    />
+    <noscript>
+      <link
+        rel="stylesheet"
+        href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;500;600;700&family=Crimson+Text:ital,wght@0,400;0,600;1,400&display=swap"
+      />
+    </noscript>
+
+    <!-- Open Graph / Facebook -->
+    <meta property="og:type" content="website" />
+    <meta property="og:url" content="https://outpost-games-rgv.fly.dev/" />
+    <meta property="og:title" content="The Outpost Games - MTG Hub" />
+    <meta
+      property="og:description"
+      content="Your premier destination for Magic: The Gathering in Rio Grande City, Texas."
+    />
+    <meta property="og:site_name" content="The Outpost Games" />
+    <meta property="og:locale" content="en_US" />
+
+    <!-- Twitter -->
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="The Outpost Games - MTG Hub" />
+    <meta
+      name="twitter:description"
+      content="Your premier destination for Magic: The Gathering in Rio Grande City, Texas."
+    />
+
+    <title>The Outpost Games - Magic: The Gathering Hub</title>
+
+    <!-- Inline critical CSS for instant render -->
+    <style>
+      /* Critical CSS - Prevents FOUC */
+      *,
+      ::before,
+      ::after {
+        box-sizing: border-box;
+        border-width: 0;
+        border-style: solid;
+      }
+      html {
+        line-height: 1.5;
+        -webkit-text-size-adjust: 100%;
+        font-family: ui-sans-serif, system-ui, sans-serif;
+      }
+      body {
+        margin: 0;
+        line-height: inherit;
+        background: #0f2436;
+      }
+      #app {
+        min-height: 100vh;
+      }
+      /* Critical hero styles for faster LCP */
+      .hero-section {
+        min-height: 100vh;
+        background: linear-gradient(135deg, #0f2436 0%, #16304a 100%);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+      }
+      .hero-section h1 {
+        font-family: 'Cinzel', serif;
+        font-weight: 700;
+        color: #fff;
+        margin: 0;
+      }
+      .text-gradient {
+        background: linear-gradient(to right, #d4af37, #e6c85c);
+        -webkit-background-clip: text;
+        background-clip: text;
+        -webkit-text-fill-color: transparent;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="app"></div>
+    <!-- Module script - non-blocking by default -->
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>
