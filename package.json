@@ -14,6 +14,8 @@
     "type-check": "vue-tsc --noEmit",
     "pre-deploy": "npm run format:check && npm run lint && npm run type-check",
     "docker:up": "cd local-dev && docker-compose up -d",
+    "docker:rebuild": "cd local-dev && docker-compose up --build -d",
+    "docker:rebuild:web": "cd local-dev && docker-compose up --build -d web",
     "docker:down": "cd local-dev && docker-compose down",
     "docker:logs": "cd local-dev && docker-compose logs -f",
     "docker:restart": "cd local-dev && docker-compose restart",

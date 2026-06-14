@@ -3,14 +3,18 @@
 ## Dev Servers
 
 ```bash
-# Frontend (http://localhost:5173)
+# Frontend only (http://localhost:5173, proxies /api → :3001)
 npm run dev
 
-# API (http://localhost:3001)
+# API only (http://localhost:3001)
 cd api && npm run dev
 
 # Full stack with Docker
-npm run docker:up
+npm run docker:up           # Start existing containers
+npm run docker:rebuild      # Rebuild ALL images then start (use after any code change)
+npm run docker:rebuild:web  # Rebuild frontend image only (faster — skips API/Redis)
+npm run docker:logs         # Tail all container logs
+npm run docker:down         # Stop and remove containers
 ```
 
 ## Admin Panel

@@ -17,23 +17,6 @@
           }"
         ></div>
       </div>
-      <!-- Left Carousel - TMNT -->
-      <div class="hidden xl:flex xl:items-center w-80 flex-shrink-0">
-        <div class="relative w-full">
-          <transition name="slide-left" mode="out-in">
-            <img
-              :key="currentLeftBanner"
-              :src="tmntBanners[currentLeftBanner]"
-              alt="TMNT Banner"
-              class="w-full h-auto max-h-[800px] object-contain rounded-r-xl shadow-2xl"
-              fetchpriority="high"
-              width="320"
-              height="800"
-              loading="eager"
-            />
-          </transition>
-        </div>
-      </div>
 
       <!-- Center Content -->
       <div class="container mx-auto text-center z-10">
@@ -56,24 +39,6 @@
           </div>
         </div>
       </div>
-
-      <!-- Right Carousel - Lorwyn -->
-      <div class="hidden xl:flex xl:items-center w-80 flex-shrink-0">
-        <div class="relative w-full">
-          <transition name="slide-right" mode="out-in">
-            <img
-              :key="currentRightBanner"
-              :src="lorwynBanners[currentRightBanner]"
-              alt="Lorwyn Banner"
-              class="w-full h-auto max-h-[800px] object-contain rounded-l-xl shadow-2xl"
-              fetchpriority="high"
-              width="320"
-              height="800"
-              loading="eager"
-            />
-          </transition>
-        </div>
-      </div>
     </section>
 
     <!-- Section Divider -->
@@ -82,7 +47,9 @@
     <!-- Featured Event Banner -->
     <transition name="fade-in">
       <section v-if="displayEvent" class="py-10 bg-outpost-navy relative overflow-hidden">
-        <div class="absolute inset-0 bg-gradient-to-r from-outpost-gold/10 via-transparent to-outpost-gold/5 pointer-events-none"></div>
+        <div
+          class="absolute inset-0 bg-gradient-to-r from-outpost-gold/10 via-transparent to-outpost-gold/5 pointer-events-none"
+        ></div>
         <div class="container mx-auto px-4 relative z-10">
           <div class="max-w-4xl mx-auto flex flex-col md:flex-row items-center gap-6">
             <!-- Left: label + details -->
@@ -91,14 +58,23 @@
                 <p class="text-outpost-gold text-xs font-bold uppercase tracking-widest">
                   {{ displayEvent.isWeekly ? 'Next Weekly Event' : 'Next Special Event' }}
                 </p>
-                <span v-if="displayEvent.isWeekly" class="inline-flex items-center gap-1 text-xs text-outpost-gold/60 border border-outpost-gold/30 rounded-full px-2 py-0.5">
+                <span
+                  v-if="displayEvent.isWeekly"
+                  class="inline-flex items-center gap-1 text-xs text-outpost-gold/60 border border-outpost-gold/30 rounded-full px-2 py-0.5"
+                >
                   <svg class="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
-                    <path fill-rule="evenodd" d="M4 2a1 1 0 011 1v2.101a7.002 7.002 0 0111.601 2.566 1 1 0 11-1.885.666A5.002 5.002 0 005.999 7H9a1 1 0 010 2H4a1 1 0 01-1-1V3a1 1 0 011-1zm.008 9.057a1 1 0 011.276.61A5.002 5.002 0 0014.001 13H11a1 1 0 110-2h5a1 1 0 011 1v5a1 1 0 11-2 0v-2.101a7.002 7.002 0 01-11.601-2.566 1 1 0 01.61-1.276z" clip-rule="evenodd" />
+                    <path
+                      fill-rule="evenodd"
+                      d="M4 2a1 1 0 011 1v2.101a7.002 7.002 0 0111.601 2.566 1 1 0 11-1.885.666A5.002 5.002 0 005.999 7H9a1 1 0 010 2H4a1 1 0 01-1-1V3a1 1 0 011-1zm.008 9.057a1 1 0 011.276.61A5.002 5.002 0 0014.001 13H11a1 1 0 110-2h5a1 1 0 011 1v5a1 1 0 11-2 0v-2.101a7.002 7.002 0 01-11.601-2.566 1 1 0 01.61-1.276z"
+                      clip-rule="evenodd"
+                    />
                   </svg>
                   Every week
                 </span>
               </div>
-              <h2 class="font-cinzel text-2xl md:text-3xl font-bold text-white mb-2">{{ displayEvent.title }}</h2>
+              <h2 class="font-cinzel text-2xl md:text-3xl font-bold text-white mb-2">
+                {{ displayEvent.title }}
+              </h2>
               <div class="flex flex-wrap gap-4 text-gray-300 text-sm mb-3">
                 <span>📅 {{ displayEvent.date }}</span>
                 <span>🕐 {{ displayEvent.time }}</span>
@@ -106,7 +82,11 @@
                 <span
                   v-if="displayEvent.gameTypeName"
                   class="inline-block px-2 py-0.5 rounded-full text-xs font-semibold"
-                  :class="displayEvent.gameTypeId === 'pokemon' ? 'bg-yellow-400/20 text-yellow-300' : 'bg-outpost-gold/20 text-outpost-gold'"
+                  :class="
+                    displayEvent.gameTypeId === 'pokemon'
+                      ? 'bg-yellow-400/20 text-yellow-300'
+                      : 'bg-outpost-gold/20 text-outpost-gold'
+                  "
                 >
                   {{ displayEvent.gameTypeName }}
                 </span>
@@ -121,7 +101,12 @@
               >
                 View All Events
                 <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7l5 5m0 0l-5 5m5-5H6" />
+                  <path
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                    stroke-width="2"
+                    d="M13 7l5 5m0 0l-5 5m5-5H6"
+                  />
                 </svg>
               </router-link>
             </div>
@@ -135,12 +120,16 @@
 
     <!-- Featured Products Carousel -->
     <section class="py-20 bg-outpost-navy relative overflow-hidden">
-      <div class="absolute inset-0 bg-gradient-radial from-outpost-gold/10 via-transparent to-transparent opacity-30"></div>
+      <div
+        class="absolute inset-0 bg-gradient-radial from-outpost-gold/10 via-transparent to-transparent opacity-30"
+      ></div>
 
       <div class="container mx-auto px-4 relative z-10">
         <transition name="slide-left" mode="out-in">
           <div :key="currentFeaturedIndex">
-            <h2 class="font-cinzel text-4xl font-bold text-center mb-4 text-outpost-gold section-heading">
+            <h2
+              class="font-cinzel text-4xl font-bold text-center mb-4 text-outpost-gold section-heading"
+            >
               {{ currentSlide.title }}
             </h2>
             <p class="text-center text-gray-300 mb-12 text-lg">
@@ -148,7 +137,9 @@
             </p>
             <div class="max-w-5xl mx-auto">
               <div class="featured-image-container relative group">
-                <div class="absolute inset-0 bg-gradient-to-t from-outpost-navy via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500 rounded-2xl"></div>
+                <div
+                  class="absolute inset-0 bg-gradient-to-t from-outpost-navy via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500 rounded-2xl"
+                ></div>
                 <img
                   :src="currentSlide.imageUrl"
                   :alt="currentSlide.title"
@@ -176,7 +167,11 @@
             v-for="(slide, i) in featuredSlides"
             :key="slide.id"
             class="transition-all duration-300 rounded-full"
-            :class="i === currentFeaturedIndex ? 'w-6 h-2 bg-outpost-gold' : 'w-2 h-2 bg-outpost-gold/30 hover:bg-outpost-gold/60'"
+            :class="
+              i === currentFeaturedIndex
+                ? 'w-6 h-2 bg-outpost-gold'
+                : 'w-2 h-2 bg-outpost-gold/30 hover:bg-outpost-gold/60'
+            "
             :aria-label="`Go to slide ${i + 1}: ${slide.title}`"
             @click="goToSlide(i)"
           />
@@ -296,7 +291,7 @@
               class="absolute inset-0 bg-gradient-to-t from-outpost-navy/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500"
             ></div>
             <img
-              src="/src/assets/logo.jpg"
+              src="/src/assets/outpost_logo_transparent.png"
               alt="The Outpost Games"
               class="w-full h-full object-contain"
               loading="lazy"
@@ -350,10 +345,30 @@ interface DisplayEvent {
 }
 
 const weeklyDefs = [
-  { jsDay: 4, dayName: 'Thursday', eventName: 'Standard',    description: 'Standard format tournament with prizes for top finishers' },
-  { jsDay: 5, dayName: 'Friday',   eventName: 'cEDH',        description: 'Competitive Commander tournament for experienced players' },
-  { jsDay: 6, dayName: 'Saturday', eventName: 'Bracket 3',   description: 'Swiss tournament format with elimination rounds' },
-  { jsDay: 0, dayName: 'Sunday',   eventName: 'League Event', description: 'Ongoing league play with seasonal prizes' },
+  {
+    jsDay: 4,
+    dayName: 'Thursday',
+    eventName: 'Standard',
+    description: 'Standard format tournament with prizes for top finishers',
+  },
+  {
+    jsDay: 5,
+    dayName: 'Friday',
+    eventName: 'cEDH',
+    description: 'Competitive Commander tournament for experienced players',
+  },
+  {
+    jsDay: 6,
+    dayName: 'Saturday',
+    eventName: 'Bracket 3',
+    description: 'Swiss tournament format with elimination rounds',
+  },
+  {
+    jsDay: 0,
+    dayName: 'Sunday',
+    eventName: 'League Event',
+    description: 'Ongoing league play with seasonal prizes',
+  },
 ]
 
 const nextWeeklyEvent = computed((): DisplayEvent | null => {
@@ -411,7 +426,9 @@ const featuredSlides: FeaturedSlide[] = [
 ]
 
 const currentFeaturedIndex = ref(0)
-const currentSlide = computed(() => featuredSlides[currentFeaturedIndex.value] ?? featuredSlides[0]!)
+const currentSlide = computed(
+  () => featuredSlides[currentFeaturedIndex.value] ?? featuredSlides[0]!
+)
 let featuredInterval: number | null = null
 
 const startFeaturedInterval = () => {
@@ -428,40 +445,21 @@ const goToSlide = (index: number) => {
   startFeaturedInterval()
 }
 
-// ── Hero side-carousels ───────────────────────────────────────────────────────
-const tmntBanners = ['/wpn-assets/tmnt/banners/TMT_oversized_art_34x80_en.jpg']
-const lorwynBanners = ['/wpn-assets/lorwyn-eclipsed/banners/ECL_oversized_art_34x80_en.png']
-
-const currentLeftBanner = ref(0)
-const currentRightBanner = ref(0)
-let leftInterval: number | null = null
-let rightInterval: number | null = null
-
 onMounted(() => {
   eventsStore.fetchEvents()
-
-  leftInterval = window.setInterval(() => {
-    currentLeftBanner.value = (currentLeftBanner.value + 1) % tmntBanners.length
-  }, 5000)
-
-  rightInterval = window.setInterval(() => {
-    currentRightBanner.value = (currentRightBanner.value + 1) % lorwynBanners.length
-  }, 6000)
 
   startFeaturedInterval()
 })
 
 onUnmounted(() => {
-  if (leftInterval) clearInterval(leftInterval)
-  if (rightInterval) clearInterval(rightInterval)
   if (featuredInterval) clearInterval(featuredInterval)
 })
 
 const weeklyEvents = [
-  { day: 'Thursday', event: 'Standard',    time: '6:00 PM' },
-  { day: 'Friday',   event: 'cEDH',        time: '6:00 PM' },
-  { day: 'Saturday', event: 'Bracket 3',   time: '6:00 PM' },
-  { day: 'Sunday',   event: 'League Event', time: '6:00 PM' },
+  { day: 'Thursday', event: 'Standard', time: '6:00 PM' },
+  { day: 'Friday', event: 'cEDH', time: '6:00 PM' },
+  { day: 'Saturday', event: 'Bracket 3', time: '6:00 PM' },
+  { day: 'Sunday', event: 'League Event', time: '6:00 PM' },
 ]
 </script>
 
@@ -590,8 +588,12 @@ const weeklyEvents = [
   transition: filter 0.3s ease;
 }
 
-.fade-in-enter-active { transition: opacity 0.4s ease; }
-.fade-in-enter-from { opacity: 0; }
+.fade-in-enter-active {
+  transition: opacity 0.4s ease;
+}
+.fade-in-enter-from {
+  opacity: 0;
+}
 
 /* Radial gradient utility */
 .bg-gradient-radial {

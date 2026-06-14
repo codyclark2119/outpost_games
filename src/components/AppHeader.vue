@@ -7,12 +7,8 @@
           <img
             src="/src/assets/outpost_text_only.png"
             alt="The Outpost Games Logo"
-            class="w-12 h-12 rounded-lg object-contain"
+            class="h-12 w-auto max-w-[220px] object-contain"
           />
-          <div>
-            <h1 class="font-cinzel text-2xl font-bold text-gradient">The Outpost Games</h1>
-            <p class="text-sm text-gray-300">Magic: The Gathering Hub</p>
-          </div>
         </div>
 
         <!-- Desktop Navigation - Right aligned -->
@@ -34,17 +30,11 @@
         <!-- Logo and Brand -->
         <div class="flex items-center space-x-4">
           <img
-            src="/src/assets/logo.jpg"
+            src="/src/assets/outpost_text_only.png"
             alt="The Outpost Games Logo"
-            class="w-12 h-12 rounded-lg object-contain"
+            class="h-12 w-auto max-w-[220px] object-contain"
             fetchpriority="high"
-            width="48"
-            height="48"
           />
-          <div>
-            <h1 class="font-cinzel text-2xl font-bold text-gradient">The Outpost Games</h1>
-            <p class="text-sm text-gray-300">Magic: The Gathering Hub</p>
-          </div>
         </div>
 
         <!-- Mobile Menu Button -->
