@@ -1,0 +1,21 @@
+# syntax=docker/dockerfile:1
+# Local development image — WPN assets are volume-mounted, not baked in.
+# See Dockerfile.dev.dockerignore for what is excluded from the build context.
+# Use: docker-compose (local-dev) with npm run docker:rebuild:web
+
+FROM node:20-alpine AS builder
+WORKDIR /app
+
+COPY package*.json ./
+
+# Cache npm downloads between rebuilds (~300MB saved per rebuild)
+RUN --mount=type=cache,target=/root/.npm npm ci
+
+COPY . .
+RUN npm run build
+
+FROM nginx:alpine
+COPY --from=builder /app/dist /usr/share/nginx/html
+COPY nginx.compose.conf /etc/nginx/conf.d/default.conf
+EXPOSE 80
+CMD ["nginx", "-g", "daemon off;"]

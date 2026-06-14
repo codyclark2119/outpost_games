@@ -38,16 +38,19 @@ services:
       timeout: 3s
       retries: 3
 
-  # Frontend
+  # Frontend — uses Dockerfile.dev (excludes WPN assets from image, mounts them instead)
   web:
     build:
       context: ..
-      dockerfile: Dockerfile
+      dockerfile: Dockerfile.dev
     container_name: outpost-web
     environment:
       - VITE_API_URL=/api
     ports:
       - "80:80"
+    volumes:
+      # Mount WPN assets directly from host — keeps ~1GB out of the image
+      - ../public/wpn-assets:/usr/share/nginx/html/wpn-assets:ro
     depends_on:
       - api
     restart: unless-stopped

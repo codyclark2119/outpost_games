@@ -1,0 +1,32 @@
+# Everything from the main .dockerignore
+dist
+dist-ssr
+*.local
+node_modules
+logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+.vscode/*
+!.vscode/extensions.json
+.idea
+.DS_Store
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+.env.local
+.env.*.local
+api/node_modules
+.git
+.gitignore
+README.md
+WPN_ASSET_ACCESS_GUIDE.md
+
+# Dev-only: exclude WPN assets from build context — they are volume-mounted instead.
+# This removes ~1GB from the build context and the final image.
+public/wpn-assets
