@@ -17,6 +17,22 @@ console.log('🔧 Environment:', process.env.NODE_ENV || 'development')
 import express from 'express'
 import cors from 'cors'
 import { createClient } from 'redis'
+import {
+  initSquarespaceCache,
+  bootstrapSquarespaceCache,
+  getSquarespaceCatalog,
+  refreshSquarespaceCatalog,
+  getSquarespaceStatus,
+  getAllAssignments,
+  setAssignment,
+} from './squarespaceCache.js'
+import {
+  initSquarespaceOAuth,
+  getAuthorizeUrl,
+  handleOAuthCallback,
+  getOAuthStatus,
+} from './squarespaceOAuth.js'
+import { SquarespaceNotConfiguredError, SquarespaceNotAuthorizedError } from './squarespaceErrors.js'
 
 console.log('✅ Modules imported successfully')
 
@@ -54,6 +70,12 @@ redisClient.on('reconnecting', () => console.log('🔄 Reconnecting to Redis...'
 
 let redisConnected = false
 
+// Wire the Squarespace cache + OAuth token store to server.js's single Redis
+// client + the live connection flag (passed as a getter so it always reads
+// the current value).
+initSquarespaceCache({ redisClient, isRedisConnected: () => redisConnected })
+initSquarespaceOAuth({ redisClient, isRedisConnected: () => redisConnected })
+
 // Try to connect to Redis (non-blocking)
 ;(async () => {
   try {
@@ -65,6 +87,10 @@ let redisConnected = false
   } catch (err) {
     console.warn('⚠️  Redis not available, running without persistence:', err.message)
     console.log('📝 Events will be stored in memory only')
+  } finally {
+    // Kick off the initial Squarespace refresh once the Redis state is settled
+    // (connected or not). No-ops with a one-time warning if no API key is set.
+    bootstrapSquarespaceCache()
   }
 })()
 
@@ -767,6 +793,130 @@ app.delete('/api/products/items/:itemId', async (req, res) => {
   } catch (error) {
     console.error('❌ Error deleting product:', error.message)
     res.status(500).json({ error: 'Failed to delete product' })
+  }
+})
+
+// ─── Squarespace Integration (read-only) ─────────────────────────────────────
+// New, additive surface backed by the shop's real Squarespace store. Kept fully
+// separate from the manual outpost:products catalog above. Logic lives in
+// api/squarespaceClient.js (HTTP), api/squarespaceCache.js (cache + merge), and
+// api/squarespaceOAuth.js (OAuth 2.0 — only needed on plans without Developer
+// API Keys; squarespaceClient.js uses SQUARESPACE_API_KEY instead when set).
+
+// GET /api/squarespace/products — merged/normalized catalog, each product carrying
+// its current manual-catalog assignment.
+app.get('/api/squarespace/products', async (req, res) => {
+  try {
+    const [{ fetchedAt, products }, assignments] = await Promise.all([
+      getSquarespaceCatalog(),
+      getAllAssignments(),
+    ])
+    const withAssignments = products.map(p => ({
+      ...p,
+      assignment: Object.hasOwn(assignments, p.id)
+        ? assignments[p.id]
+        : { typeId: null, setId: null },
+    }))
+    res.json({ fetchedAt, products: withAssignments })
+  } catch (error) {
+    console.error('❌ Error fetching Squarespace products:', error.message)
+    res.status(500).json({ error: 'Failed to fetch Squarespace products' })
+  }
+})
+
+// POST /api/squarespace/refresh — force a synchronous full refresh from Squarespace.
+app.post('/api/squarespace/refresh', async (req, res) => {
+  try {
+    const cache = await refreshSquarespaceCatalog()
+    res.json({ fetchedAt: cache.fetchedAt, productCount: cache.products.length })
+  } catch (error) {
+    if (error instanceof SquarespaceNotConfiguredError) {
+      return res
+        .status(503)
+        .json({ error: 'Squarespace is not configured', message: error.message })
+    }
+    if (error instanceof SquarespaceNotAuthorizedError) {
+      return res.status(503).json({
+        error: 'Squarespace is not authorized',
+        message: error.message,
+        authorizeUrl: '/api/squarespace/oauth/authorize',
+      })
+    }
+    console.error('❌ Squarespace refresh failed:', error.message)
+    res.status(502).json({ error: 'Failed to refresh from Squarespace', message: error.message })
+  }
+})
+
+// GET /api/squarespace/status — merges cache/product status with OAuth status
+// (configured/authorized/token expiry) so both auth paths are visible at once.
+app.get('/api/squarespace/status', async (req, res) => {
+  const oauthStatus = await getOAuthStatus()
+  res.json({ ...getSquarespaceStatus(), oauth: oauthStatus })
+})
+
+// GET /api/squarespace/oauth/authorize — one-time human step: open this in a
+// browser after setting SQUARESPACE_CLIENT_ID/SECRET/REDIRECT_URI to grant
+// access on Squarespace's confirmation page. Only needed on plans without
+// Developer API Keys; skip entirely if using SQUARESPACE_API_KEY instead.
+app.get('/api/squarespace/oauth/authorize', (req, res) => {
+  try {
+    res.redirect(getAuthorizeUrl())
+  } catch (error) {
+    res.status(503).json({ error: "Squarespace OAuth isn't configured yet", message: error.message })
+  }
+})
+
+// GET /api/squarespace/oauth/callback — this must be the exact redirect_uri
+// registered with Squarespace. Exchanges the one-time code for tokens.
+// Responds with JSON (not res.send of an interpolated string) deliberately —
+// query params here are attacker-controlled since this is a public GET route,
+// and JSON can't be interpreted as HTML/script by a browser the way a
+// text/html response with reflected input could.
+app.get('/api/squarespace/oauth/callback', async (req, res) => {
+  try {
+    await handleOAuthCallback({
+      code: req.query.code,
+      state: req.query.state,
+      error: req.query.error,
+    })
+    res.json({ success: true, message: 'Squarespace connected successfully. You can close this tab.' })
+  } catch (error) {
+    console.error('❌ Squarespace OAuth callback failed:', error.message)
+    res.status(400).json({ success: false, error: error.message })
+  }
+})
+
+// PUT /api/squarespace/products/:productId/assignment — tag a Squarespace product
+// with a typeId/setId pointing into the manual catalog (or null to unassign).
+app.put('/api/squarespace/products/:productId/assignment', async (req, res) => {
+  try {
+    const { productId } = req.params
+    const { typeId = null, setId = null } = req.body || {}
+
+    if (typeId !== null) {
+      const catalog = await getCatalog()
+      const type = catalog.types.find(t => t.id === typeId)
+      if (!type) {
+        return res.status(400).json({ error: `Unknown typeId: ${typeId}` })
+      }
+      if (setId !== null) {
+        const set = (type.sets || []).find(s => s.id === setId)
+        if (!set) {
+          return res
+            .status(400)
+            .json({ error: `setId "${setId}" does not belong to type "${typeId}"` })
+        }
+      }
+    } else if (setId !== null) {
+      // A setId can't be validated without a typeId to scope it to.
+      return res.status(400).json({ error: 'setId requires a typeId' })
+    }
+
+    const assignment = await setAssignment(productId, { typeId, setId })
+    res.json({ productId, assignment })
+  } catch (error) {
+    console.error('❌ Error setting Squarespace assignment:', error.message)
+    res.status(500).json({ error: 'Failed to set assignment' })
   }
 })
 

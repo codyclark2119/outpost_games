@@ -95,7 +95,7 @@ export default [
     },
     rules: {
       'vue/multi-word-component-names': ['warn', {
-        ignores: ['About', 'Cart', 'Contact', 'Events', 'Home', 'Products', 'Shop']
+        ignores: ['About', 'Cart', 'Contact', 'Events', 'Home', 'Privacy', 'Products', 'Shop', 'Terms']
       }],
       'vue/no-unused-vars': 'error',
       'vue/require-default-prop': 'off',

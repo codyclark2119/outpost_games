@@ -115,6 +115,20 @@
           <p class="text-sm text-gray-300 mb-4 md:mb-0">
             &copy; {{ currentYear }} The Outpost Games. All rights reserved.
           </p>
+          <div class="flex items-center space-x-4 mb-4 md:mb-0">
+            <router-link
+              to="/terms"
+              class="text-xs text-gray-400 hover:text-outpost-gold transition-colors duration-200"
+            >
+              Terms
+            </router-link>
+            <router-link
+              to="/privacy"
+              class="text-xs text-gray-400 hover:text-outpost-gold transition-colors duration-200"
+            >
+              Privacy
+            </router-link>
+          </div>
           <p class="text-xs text-gray-400">
             Built with ❤️ for the MTG community in Rio Grande City, TX
           </p>
