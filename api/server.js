@@ -45,7 +45,10 @@ import {
   handleOAuthCallback,
   getOAuthStatus,
 } from './squarespaceOAuth.js'
-import { SquarespaceNotConfiguredError, SquarespaceNotAuthorizedError } from './squarespaceErrors.js'
+import {
+  SquarespaceNotConfiguredError,
+  SquarespaceNotAuthorizedError,
+} from './squarespaceErrors.js'
 import {
   getSquareConfigurationStatus,
   testSquareConnection,
@@ -63,12 +66,26 @@ import {
   SquareVersionMismatchError,
 } from './squarePosClient.js'
 import { getSquareSalesReport } from './squareOrdersClient.js'
-import { initAuth, verifyCredentials, createSession, destroySession, requireAdminAuth } from './auth.js'
+import {
+  initAuth,
+  verifyCredentials,
+  createSession,
+  destroySession,
+  requireAdminAuth,
+} from './auth.js'
 import multer from 'multer'
 
 console.log('✅ Modules imported successfully')
 
 const app = express()
+
+// Requests arrive through two trusted proxy hops in production — Cloudflare's edge,
+// then Fly.io's own internal proxy — both of which append to X-Forwarded-For. Without
+// this, Express's default `trust proxy: false` makes express-rate-limit reject every
+// request outright (it refuses to trust an X-Forwarded-For header it wasn't told to
+// expect), and req.ip would resolve to the last proxy rather than the real client.
+app.set('trust proxy', 2)
+
 const PORT = process.env.API_PORT || 3001
 const REDIS_URL = process.env.REDIS_URL || 'redis://redis:6379'
 
@@ -88,14 +105,16 @@ const allowedOrigins = (process.env.CORS_ALLOWED_ORIGINS || '')
   .filter(Boolean)
   .concat(DEFAULT_ALLOWED_ORIGINS)
 
-app.use(cors({
-  origin: (origin, callback) => {
-    // Same-origin requests (curl, server-to-server, no Origin header) have no origin at all.
-    if (!origin || allowedOrigins.includes(origin)) return callback(null, true)
-    callback(new Error('Not allowed by CORS'))
-  },
-  credentials: true,
-}))
+app.use(
+  cors({
+    origin: (origin, callback) => {
+      // Same-origin requests (curl, server-to-server, no Origin header) have no origin at all.
+      if (!origin || allowedOrigins.includes(origin)) return callback(null, true)
+      callback(new Error('Not allowed by CORS'))
+    },
+    credentials: true,
+  })
+)
 app.use(express.json())
 app.use(cookieParser())
 
@@ -629,16 +648,92 @@ const DEFAULT_CATALOG = {
       isVisible: true,
       sortOrder: 0,
       sets: [
-        { id: 'tarkir-dragonstorm', name: 'Tarkir: Dragonstorm', imageUrl: '/wpn-assets/tarkir-dragonstorm/product-images/set-symbols/TDM_expsym_m_3in.png', isVisible: true, sortOrder: 0, products: [] },
-        { id: 'edge-eternities', name: 'Edge of Eternities', imageUrl: '/wpn-assets/edge-eternities/product-images/set-symbols/EOE_expsym_m_3in.png', isVisible: true, sortOrder: 1, products: [] },
-        { id: 'final-fantasy', name: 'Final Fantasy', imageUrl: '/wpn-assets/final-fantasy/product-images/set-symbols/FIN_main_expsym_m_3in.png', isVisible: true, sortOrder: 2, products: [] },
-        { id: 'avatar-last-airbender', name: 'Avatar: The Last Airbender', imageUrl: '/wpn-assets/avatar-last-airbender/product-images/set-symbols/TLAMythic_3in.png', isVisible: true, sortOrder: 3, products: [] },
-        { id: 'spiderman', name: 'Spider-Man', imageUrl: '/wpn-assets/spiderman/product-images/set-symbols/SPM_expsym_m_3in.png', isVisible: true, sortOrder: 4, products: [] },
-        { id: 'tmnt', name: 'Teenage Mutant Ninja Turtles', imageUrl: '/wpn-assets/tmnt/product-images/set-symbols/MTGTMT_expsym_M.png', isVisible: true, sortOrder: 5, products: [] },
-        { id: 'lorwyn-eclipsed', name: 'Lorwyn Eclipsed', imageUrl: '/wpn-assets/lorwyn-eclipsed/product-images/set-symbols/MTGECL_expsymb_m.png', isVisible: true, sortOrder: 6, products: [] },
-        { id: 'duskmourn', name: 'Duskmourn: House of Horror', imageUrl: '/wpn-assets/duskmourn-house-horror/product-images/set-symbols/SetSymbol_Web/DSKC_expsym_m_web_800x800.png', isVisible: true, sortOrder: 7, products: [] },
-        { id: 'outlaws-thunder-junction', name: 'Outlaws of Thunder Junction', imageUrl: '/wpn-assets/outlaws-thunder-junction/product-images/set-symbols/OTJ_expsym_m_web_800x800.png', isVisible: true, sortOrder: 8, products: [] },
-        { id: 'secrets-strixhaven', name: 'Secrets of Strixhaven', imageUrl: '/wpn-assets/secrets-strixhaven/product-images/set-logos/MTGSOS_EN_SetLogo_4C.png', isVisible: false, sortOrder: 9, products: [] },
+        {
+          id: 'tarkir-dragonstorm',
+          name: 'Tarkir: Dragonstorm',
+          imageUrl:
+            '/wpn-assets/tarkir-dragonstorm/product-images/set-symbols/TDM_expsym_m_3in.png',
+          isVisible: true,
+          sortOrder: 0,
+          products: [],
+        },
+        {
+          id: 'edge-eternities',
+          name: 'Edge of Eternities',
+          imageUrl: '/wpn-assets/edge-eternities/product-images/set-symbols/EOE_expsym_m_3in.png',
+          isVisible: true,
+          sortOrder: 1,
+          products: [],
+        },
+        {
+          id: 'final-fantasy',
+          name: 'Final Fantasy',
+          imageUrl:
+            '/wpn-assets/final-fantasy/product-images/set-symbols/FIN_main_expsym_m_3in.png',
+          isVisible: true,
+          sortOrder: 2,
+          products: [],
+        },
+        {
+          id: 'avatar-last-airbender',
+          name: 'Avatar: The Last Airbender',
+          imageUrl:
+            '/wpn-assets/avatar-last-airbender/product-images/set-symbols/TLAMythic_3in.png',
+          isVisible: true,
+          sortOrder: 3,
+          products: [],
+        },
+        {
+          id: 'spiderman',
+          name: 'Spider-Man',
+          imageUrl: '/wpn-assets/spiderman/product-images/set-symbols/SPM_expsym_m_3in.png',
+          isVisible: true,
+          sortOrder: 4,
+          products: [],
+        },
+        {
+          id: 'tmnt',
+          name: 'Teenage Mutant Ninja Turtles',
+          imageUrl: '/wpn-assets/tmnt/product-images/set-symbols/MTGTMT_expsym_M.png',
+          isVisible: true,
+          sortOrder: 5,
+          products: [],
+        },
+        {
+          id: 'lorwyn-eclipsed',
+          name: 'Lorwyn Eclipsed',
+          imageUrl: '/wpn-assets/lorwyn-eclipsed/product-images/set-symbols/MTGECL_expsymb_m.png',
+          isVisible: true,
+          sortOrder: 6,
+          products: [],
+        },
+        {
+          id: 'duskmourn',
+          name: 'Duskmourn: House of Horror',
+          imageUrl:
+            '/wpn-assets/duskmourn-house-horror/product-images/set-symbols/SetSymbol_Web/DSKC_expsym_m_web_800x800.png',
+          isVisible: true,
+          sortOrder: 7,
+          products: [],
+        },
+        {
+          id: 'outlaws-thunder-junction',
+          name: 'Outlaws of Thunder Junction',
+          imageUrl:
+            '/wpn-assets/outlaws-thunder-junction/product-images/set-symbols/OTJ_expsym_m_web_800x800.png',
+          isVisible: true,
+          sortOrder: 8,
+          products: [],
+        },
+        {
+          id: 'secrets-strixhaven',
+          name: 'Secrets of Strixhaven',
+          imageUrl:
+            '/wpn-assets/secrets-strixhaven/product-images/set-logos/MTGSOS_EN_SetLogo_4C.png',
+          isVisible: false,
+          sortOrder: 9,
+          products: [],
+        },
       ],
     },
     {
@@ -678,13 +773,19 @@ const getCatalog = async () => {
 }
 
 const saveCatalog = async catalog => {
-  if (!redisConnected) { memoryCatalog = JSON.parse(JSON.stringify(catalog)); return }
+  if (!redisConnected) {
+    memoryCatalog = JSON.parse(JSON.stringify(catalog))
+    return
+  }
   await redisClient.set(PRODUCTS_KEY, JSON.stringify(catalog))
 }
 
 const initializeCatalog = async () => {
   try {
-    if (!redisConnected) { memoryCatalog = JSON.parse(JSON.stringify(DEFAULT_CATALOG)); return }
+    if (!redisConnected) {
+      memoryCatalog = JSON.parse(JSON.stringify(DEFAULT_CATALOG))
+      return
+    }
     const exists = await redisClient.exists(PRODUCTS_KEY)
     if (!exists) {
       await redisClient.set(PRODUCTS_KEY, JSON.stringify(DEFAULT_CATALOG))
@@ -713,7 +814,13 @@ app.post('/api/products/types', requireAdminAuth, async (req, res) => {
     const { name } = req.body
     if (!name) return res.status(400).json({ error: 'name is required' })
     const catalog = await getCatalog()
-    const newType = { id: `type-${Date.now()}`, name, isVisible: true, sortOrder: catalog.types.length, sets: [] }
+    const newType = {
+      id: `type-${Date.now()}`,
+      name,
+      isVisible: true,
+      sortOrder: catalog.types.length,
+      sets: [],
+    }
     catalog.types.push(newType)
     await saveCatalog(catalog)
     res.status(201).json(newType)
@@ -766,7 +873,14 @@ app.post('/api/products/types/:typeId/sets', requireAdminAuth, async (req, res) 
     const catalog = await getCatalog()
     const type = catalog.types.find(t => t.id === typeId)
     if (!type) return res.status(404).json({ error: 'Type not found' })
-    const newSet = { id: `set-${Date.now()}`, name, imageUrl: imageUrl || null, isVisible: true, sortOrder: type.sets.length, products: [] }
+    const newSet = {
+      id: `set-${Date.now()}`,
+      name,
+      imageUrl: imageUrl || null,
+      isVisible: true,
+      sortOrder: type.sets.length,
+      products: [],
+    }
     type.sets.push(newSet)
     await saveCatalog(catalog)
     res.status(201).json(newSet)
@@ -785,7 +899,10 @@ app.put('/api/products/sets/:setId', requireAdminAuth, async (req, res) => {
     let found = null
     for (const type of catalog.types) {
       const set = type.sets.find(s => s.id === setId)
-      if (set) { found = set; break }
+      if (set) {
+        found = set
+        break
+      }
     }
     if (!found) return res.status(404).json({ error: 'Set not found' })
     const products = found.products
@@ -806,7 +923,11 @@ app.delete('/api/products/sets/:setId', requireAdminAuth, async (req, res) => {
     let deleted = false
     for (const type of catalog.types) {
       const idx = type.sets.findIndex(s => s.id === setId)
-      if (idx !== -1) { type.sets.splice(idx, 1); deleted = true; break }
+      if (idx !== -1) {
+        type.sets.splice(idx, 1)
+        deleted = true
+        break
+      }
     }
     if (!deleted) return res.status(404).json({ error: 'Set not found' })
     await saveCatalog(catalog)
@@ -827,7 +948,10 @@ app.post('/api/products/sets/:setId/products', requireAdminAuth, async (req, res
     let targetSet = null
     for (const type of catalog.types) {
       const set = type.sets.find(s => s.id === setId)
-      if (set) { targetSet = set; break }
+      if (set) {
+        targetSet = set
+        break
+      }
     }
     if (!targetSet) return res.status(404).json({ error: 'Set not found' })
     const newProduct = {
@@ -858,13 +982,19 @@ app.put('/api/products/items/:itemId', requireAdminAuth, async (req, res) => {
     outer: for (const type of catalog.types) {
       for (const set of type.sets) {
         const prod = set.products.find(p => p.id === itemId)
-        if (prod) { found = prod; break outer }
+        if (prod) {
+          found = prod
+          break outer
+        }
       }
     }
     if (!found) return res.status(404).json({ error: 'Product not found' })
-    const price = updates.price !== undefined && updates.price !== null && updates.price !== ''
-      ? parseFloat(updates.price)
-      : (updates.price === null || updates.price === '' ? null : found.price)
+    const price =
+      updates.price !== undefined && updates.price !== null && updates.price !== ''
+        ? parseFloat(updates.price)
+        : updates.price === null || updates.price === ''
+          ? null
+          : found.price
     Object.assign(found, updates, { id: found.id, price })
     await saveCatalog(catalog)
     res.json(found)
@@ -883,7 +1013,11 @@ app.delete('/api/products/items/:itemId', requireAdminAuth, async (req, res) => 
     outer: for (const type of catalog.types) {
       for (const set of type.sets) {
         const idx = set.products.findIndex(p => p.id === itemId)
-        if (idx !== -1) { set.products.splice(idx, 1); deleted = true; break outer }
+        if (idx !== -1) {
+          set.products.splice(idx, 1)
+          deleted = true
+          break outer
+        }
       }
     }
     if (!deleted) return res.status(404).json({ error: 'Product not found' })
@@ -905,9 +1039,10 @@ app.get('/api/square/status', requireAdminAuth, async (req, res) => {
     res.json({
       ok: true,
       ...status,
-      apiBaseUrl: status.environment === 'production'
-        ? 'https://connect.squareup.com'
-        : 'https://connect.squareupsandbox.com',
+      apiBaseUrl:
+        status.environment === 'production'
+          ? 'https://connect.squareup.com'
+          : 'https://connect.squareupsandbox.com',
     })
   } catch (error) {
     console.error('❌ Error getting Square status:', error.message)
@@ -922,7 +1057,8 @@ app.post('/api/square/test', requireAdminAuth, async (req, res) => {
       return res.status(422).json({
         ok: false,
         error: 'Square credentials are incomplete',
-        message: 'The Square integration needs SQUARE_ACCESS_TOKEN, SQUARE_APPLICATION_ID, and SQUARE_LOCATION_ID.',
+        message:
+          'The Square integration needs SQUARE_ACCESS_TOKEN, SQUARE_APPLICATION_ID, and SQUARE_LOCATION_ID.',
         missingFields: status.missingFields,
       })
     }
@@ -975,7 +1111,9 @@ app.get('/api/square/categories', requireAdminAuth, async (req, res) => {
     res.json({ ok: true, categories })
   } catch (error) {
     console.error('❌ Square categories fetch failed:', error.message)
-    res.status(502).json({ ok: false, error: 'Square categories fetch failed', message: error.message })
+    res
+      .status(502)
+      .json({ ok: false, error: 'Square categories fetch failed', message: error.message })
   }
 })
 
@@ -986,11 +1124,16 @@ app.post('/api/square/categories', requireAdminAuth, async (req, res) => {
       return res.status(400).json({ error: 'Category name is required' })
     }
 
-    const category = await createSquareCategory({ name: name.trim(), parentCategoryId: parentCategoryId || null }, process.env)
+    const category = await createSquareCategory(
+      { name: name.trim(), parentCategoryId: parentCategoryId || null },
+      process.env
+    )
     res.json({ ok: true, category })
   } catch (error) {
     console.error('❌ Square category creation failed:', error.message)
-    res.status(502).json({ ok: false, error: 'Square category creation failed', message: error.message })
+    res
+      .status(502)
+      .json({ ok: false, error: 'Square category creation failed', message: error.message })
   }
 })
 
@@ -1000,17 +1143,26 @@ app.get('/api/square/products/:itemId', requireAdminAuth, async (req, res) => {
     res.json({ ok: true, item })
   } catch (error) {
     console.error('❌ Square product fetch failed:', error.message)
-    res.status(502).json({ ok: false, error: 'Square product fetch failed', message: error.message })
+    res
+      .status(502)
+      .json({ ok: false, error: 'Square product fetch failed', message: error.message })
   }
 })
 
 app.put('/api/square/products/:itemId', requireAdminAuth, async (req, res) => {
   try {
     const body = req.body || {}
-    const touchesSku = Object.prototype.hasOwnProperty.call(body, 'sku')
-      || (body.variations || []).some(variation => Object.prototype.hasOwnProperty.call(variation, 'sku'))
+    const touchesSku =
+      Object.prototype.hasOwnProperty.call(body, 'sku') ||
+      (body.variations || []).some(variation =>
+        Object.prototype.hasOwnProperty.call(variation, 'sku')
+      )
     if (touchesSku) {
-      return res.status(400).json({ error: 'SKU cannot be edited here — it is locked to protect in-store barcode scanning' })
+      return res
+        .status(400)
+        .json({
+          error: 'SKU cannot be edited here — it is locked to protect in-store barcode scanning',
+        })
     }
 
     const updated = await updateSquareCatalogItem(req.params.itemId, body, process.env)
@@ -1020,7 +1172,9 @@ app.put('/api/square/products/:itemId', requireAdminAuth, async (req, res) => {
       return res.status(409).json({ error: error.message })
     }
     console.error('❌ Square product update failed:', error.message)
-    res.status(502).json({ ok: false, error: 'Square product update failed', message: error.message })
+    res
+      .status(502)
+      .json({ ok: false, error: 'Square product update failed', message: error.message })
   }
 })
 
@@ -1030,19 +1184,31 @@ app.delete('/api/square/products/:itemId', requireAdminAuth, async (req, res) =>
     res.json({ ok: true, deletedIds: result.deleted_object_ids || [] })
   } catch (error) {
     console.error('❌ Square product delete failed:', error.message)
-    res.status(502).json({ ok: false, error: 'Square product delete failed', message: error.message })
+    res
+      .status(502)
+      .json({ ok: false, error: 'Square product delete failed', message: error.message })
   }
 })
 
-app.delete('/api/square/products/:itemId/variations/:variationId', requireAdminAuth, async (req, res) => {
-  try {
-    const result = await deleteSquareCatalogVariation(req.params.itemId, req.params.variationId, process.env)
-    res.json({ ok: true, deletedIds: result.deleted_object_ids || [] })
-  } catch (error) {
-    console.error('❌ Square variation delete failed:', error.message)
-    res.status(502).json({ ok: false, error: 'Square variation delete failed', message: error.message })
+app.delete(
+  '/api/square/products/:itemId/variations/:variationId',
+  requireAdminAuth,
+  async (req, res) => {
+    try {
+      const result = await deleteSquareCatalogVariation(
+        req.params.itemId,
+        req.params.variationId,
+        process.env
+      )
+      res.json({ ok: true, deletedIds: result.deleted_object_ids || [] })
+    } catch (error) {
+      console.error('❌ Square variation delete failed:', error.message)
+      res
+        .status(502)
+        .json({ ok: false, error: 'Square variation delete failed', message: error.message })
+    }
   }
-})
+)
 
 const imageUpload = multer({
   storage: multer.memoryStorage(),
@@ -1065,15 +1231,21 @@ app.post('/api/square/products/:itemId/image', requireAdminAuth, (req, res) => {
     }
 
     try {
-      const result = await uploadSquareCatalogImage(req.params.itemId, {
-        buffer: req.file.buffer,
-        filename: req.file.originalname,
-        mimeType: req.file.mimetype,
-      }, process.env)
+      const result = await uploadSquareCatalogImage(
+        req.params.itemId,
+        {
+          buffer: req.file.buffer,
+          filename: req.file.originalname,
+          mimeType: req.file.mimetype,
+        },
+        process.env
+      )
       res.json({ ok: true, imageUrl: result.imageUrl })
     } catch (error) {
       console.error('❌ Square image upload failed:', error.message)
-      res.status(502).json({ ok: false, error: 'Square image upload failed', message: error.message })
+      res
+        .status(502)
+        .json({ ok: false, error: 'Square image upload failed', message: error.message })
     }
   })
 })
@@ -1099,7 +1271,9 @@ app.post('/api/square/products/:itemId/inventory', requireAdminAuth, async (req,
     res.json({ ok: true, quantity })
   } catch (error) {
     console.error('❌ Square inventory correction failed:', error.message)
-    res.status(502).json({ ok: false, error: 'Square inventory correction failed', message: error.message })
+    res
+      .status(502)
+      .json({ ok: false, error: 'Square inventory correction failed', message: error.message })
   }
 })
 
@@ -1112,7 +1286,9 @@ app.post('/api/square/inventory/batch', requireAdminAuth, async (req, res) => {
     for (const change of changes) {
       const quantity = Number(change.quantity)
       if (!change.variationId || !Number.isFinite(quantity) || quantity < 0) {
-        return res.status(400).json({ error: 'Each change requires a variationId and a non-negative quantity' })
+        return res
+          .status(400)
+          .json({ error: 'Each change requires a variationId and a non-negative quantity' })
       }
     }
 
@@ -1132,7 +1308,13 @@ app.post('/api/square/inventory/batch', requireAdminAuth, async (req, res) => {
     res.json({ ok: true, updatedCount: result.updatedCount })
   } catch (error) {
     console.error('❌ Square batch inventory correction failed:', error.message)
-    res.status(502).json({ ok: false, error: 'Square batch inventory correction failed', message: error.message })
+    res
+      .status(502)
+      .json({
+        ok: false,
+        error: 'Square batch inventory correction failed',
+        message: error.message,
+      })
   }
 })
 
@@ -1211,7 +1393,9 @@ app.get('/api/squarespace/oauth/authorize', (req, res) => {
   try {
     res.redirect(getAuthorizeUrl())
   } catch (error) {
-    res.status(503).json({ error: "Squarespace OAuth isn't configured yet", message: error.message })
+    res
+      .status(503)
+      .json({ error: "Squarespace OAuth isn't configured yet", message: error.message })
   }
 })
 
@@ -1228,7 +1412,10 @@ app.get('/api/squarespace/oauth/callback', async (req, res) => {
       state: req.query.state,
       error: req.query.error,
     })
-    res.json({ success: true, message: 'Squarespace connected successfully. You can close this tab.' })
+    res.json({
+      success: true,
+      message: 'Squarespace connected successfully. You can close this tab.',
+    })
   } catch (error) {
     console.error('❌ Squarespace OAuth callback failed:', error.message)
     res.status(400).json({ success: false, error: error.message })
