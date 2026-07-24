@@ -6,7 +6,9 @@
         <div class="flex flex-wrap justify-between items-center mb-8 gap-4">
           <div>
             <h1 class="font-cinzel text-4xl font-bold text-gray-800">Manage Products</h1>
-            <p class="text-gray-600 mt-1">Toggle visibility, edit names, prices, and descriptions</p>
+            <p class="text-gray-600 mt-1">
+              Toggle visibility, edit names, prices, and descriptions
+            </p>
           </div>
           <div class="flex gap-3">
             <router-link to="/x/outpostAdmin/products/add" class="btn-primary px-4 py-2">
@@ -20,7 +22,9 @@
 
         <!-- Loading -->
         <div v-if="store.loading" class="text-center py-16">
-          <div class="inline-block animate-spin rounded-full h-10 w-10 border-b-2 border-outpost-gold"></div>
+          <div
+            class="inline-block animate-spin rounded-full h-10 w-10 border-b-2 border-outpost-gold"
+          ></div>
           <p class="mt-4 text-gray-600">Loading catalog…</p>
         </div>
 
@@ -42,13 +46,21 @@
               class="flex items-center gap-3 px-4 py-3 bg-outpost-navy text-white cursor-pointer select-none"
               @click="toggleType(type.id)"
             >
-              <span class="text-lg transition-transform duration-200" :class="expandedTypes.has(type.id) ? 'rotate-90' : ''">▶</span>
+              <span
+                class="text-lg transition-transform duration-200"
+                :class="expandedTypes.has(type.id) ? 'rotate-90' : ''"
+                >▶</span
+              >
               <span class="font-cinzel font-bold text-lg flex-1">{{ type.name }}</span>
               <span class="text-xs text-white/60">{{ type.sets.length }} sets</span>
               <!-- Visibility -->
               <button
                 class="p-1.5 rounded transition-colors"
-                :class="type.isVisible ? 'text-outpost-gold hover:text-outpost-gold-light' : 'text-white/40 hover:text-white/70'"
+                :class="
+                  type.isVisible
+                    ? 'text-outpost-gold hover:text-outpost-gold-light'
+                    : 'text-white/40 hover:text-white/70'
+                "
                 :title="type.isVisible ? 'Visible — click to hide' : 'Hidden — click to show'"
                 @click.stop="toggleTypeVisibility(type)"
               >
@@ -75,29 +87,38 @@
 
             <!-- Sets -->
             <div v-if="expandedTypes.has(type.id)" class="divide-y divide-gray-100">
-              <div
-                v-for="set in type.sets"
-                :key="set.id"
-                class="bg-gray-50"
-              >
+              <div v-for="set in type.sets" :key="set.id" class="bg-gray-50">
                 <!-- Set row -->
                 <div
                   class="flex items-center gap-3 px-6 py-2.5 cursor-pointer select-none hover:bg-gray-100 transition-colors"
                   @click="toggleSet(set.id)"
                 >
-                  <span class="text-sm text-gray-400 transition-transform duration-200" :class="expandedSets.has(set.id) ? 'rotate-90' : ''">▶</span>
+                  <span
+                    class="text-sm text-gray-400 transition-transform duration-200"
+                    :class="expandedSets.has(set.id) ? 'rotate-90' : ''"
+                    >▶</span
+                  >
                   <img
                     v-if="set.imageUrl"
                     :src="set.imageUrl"
                     :alt="set.name"
                     class="w-8 h-8 object-contain no-hover"
                   />
-                  <div v-else class="w-8 h-8 bg-gray-200 rounded flex items-center justify-center text-gray-400 text-xs">?</div>
+                  <div
+                    v-else
+                    class="w-8 h-8 bg-gray-200 rounded flex items-center justify-center text-gray-400 text-xs"
+                  >
+                    ?
+                  </div>
                   <span class="font-semibold text-gray-800 flex-1">{{ set.name }}</span>
                   <span class="text-xs text-gray-400">{{ set.products.length }} products</span>
                   <button
                     class="p-1.5 rounded transition-colors"
-                    :class="set.isVisible ? 'text-outpost-gold hover:text-outpost-gold-dark' : 'text-gray-300 hover:text-gray-500'"
+                    :class="
+                      set.isVisible
+                        ? 'text-outpost-gold hover:text-outpost-gold-dark'
+                        : 'text-gray-300 hover:text-gray-500'
+                    "
                     :title="set.isVisible ? 'Visible' : 'Hidden'"
                     @click.stop="toggleSetVisibility(set)"
                   >
@@ -122,9 +143,16 @@
 
                 <!-- Products table -->
                 <div v-if="expandedSets.has(set.id)" class="bg-white border-t border-gray-100">
-                  <div v-if="set.products.length === 0" class="px-16 py-4 text-sm text-gray-400 italic">
+                  <div
+                    v-if="set.products.length === 0"
+                    class="px-16 py-4 text-sm text-gray-400 italic"
+                  >
                     No products yet —
-                    <router-link :to="`/x/outpostAdmin/products/add?setId=${set.id}&typeId=${type.id}`" class="text-outpost-gold underline">add one</router-link>
+                    <router-link
+                      :to="`/x/outpostAdmin/products/add?setId=${set.id}&typeId=${type.id}`"
+                      class="text-outpost-gold underline"
+                      >add one</router-link
+                    >
                   </div>
                   <table v-else class="w-full text-sm">
                     <tbody>
@@ -141,24 +169,43 @@
                             :alt="product.name"
                             class="w-10 h-10 object-cover rounded no-hover"
                           />
-                          <div v-else class="w-10 h-10 bg-gray-100 rounded flex items-center justify-center text-gray-300">
+                          <div
+                            v-else
+                            class="w-10 h-10 bg-gray-100 rounded flex items-center justify-center text-gray-300"
+                          >
                             <PhotoIcon class="w-5 h-5" />
                           </div>
                         </td>
                         <td class="px-3 py-2 font-medium text-gray-800">
                           {{ product.name }}
-                          <span v-if="!product.isVisible" class="ml-2 text-xs text-gray-400 font-normal">(hidden)</span>
+                          <span
+                            v-if="!product.isVisible"
+                            class="ml-2 text-xs text-gray-400 font-normal"
+                            >(hidden)</span
+                          >
                         </td>
-                        <td class="px-3 py-2 text-gray-500 max-w-xs truncate hidden md:table-cell">{{ product.description }}</td>
+                        <td class="px-3 py-2 text-gray-500 max-w-xs truncate hidden md:table-cell">
+                          {{ product.description }}
+                        </td>
                         <td class="px-3 py-2 text-gray-700 font-semibold whitespace-nowrap">
-                          {{ product.price !== null ? `$${Number(product.price).toFixed(2)}` : '—' }}
+                          {{
+                            product.price !== null ? `$${Number(product.price).toFixed(2)}` : '—'
+                          }}
                         </td>
                         <td class="px-3 py-2 text-right">
                           <div class="flex items-center justify-end gap-1">
                             <button
                               class="p-1 rounded transition-colors"
-                              :class="product.isVisible ? 'text-outpost-gold hover:text-outpost-gold-dark' : 'text-gray-300 hover:text-gray-500'"
-                              :title="product.isVisible ? 'Visible — click to hide' : 'Hidden — click to show'"
+                              :class="
+                                product.isVisible
+                                  ? 'text-outpost-gold hover:text-outpost-gold-dark'
+                                  : 'text-gray-300 hover:text-gray-500'
+                              "
+                              :title="
+                                product.isVisible
+                                  ? 'Visible — click to hide'
+                                  : 'Hidden — click to show'
+                              "
                               @click="toggleProductVisibility(product)"
                             >
                               <EyeIcon v-if="product.isVisible" class="w-4 h-4" />
@@ -209,7 +256,9 @@
           <!-- Empty state -->
           <div v-if="store.catalog.types.length === 0" class="card-mtg text-center py-12">
             <p class="text-gray-500 mb-4">No product types yet.</p>
-            <router-link to="/x/outpostAdmin/products/add" class="btn-primary px-6 py-2">Add First Type</router-link>
+            <router-link to="/x/outpostAdmin/products/add" class="btn-primary px-6 py-2"
+              >Add First Type</router-link
+            >
           </div>
         </div>
       </div>
@@ -225,7 +274,14 @@
         >
           <div class="bg-white rounded-2xl shadow-2xl w-full max-w-lg p-6" @click.stop>
             <h2 class="font-cinzel text-xl font-bold mb-5 text-gray-800">
-              Edit {{ editModal.mode === 'type' ? 'Game Type' : editModal.mode === 'set' ? 'Set' : 'Product' }}
+              Edit
+              {{
+                editModal.mode === 'type'
+                  ? 'Game Type'
+                  : editModal.mode === 'set'
+                    ? 'Set'
+                    : 'Product'
+              }}
             </h2>
 
             <!-- Type form -->
@@ -243,9 +299,21 @@
                 <input v-model="editForm.name" type="text" class="input-field" />
               </div>
               <div>
-                <label class="block text-sm font-medium text-gray-700 mb-1">Image URL (set symbol or banner)</label>
-                <input v-model="editForm.imageUrl" type="text" class="input-field" placeholder="/wpn-assets/..." />
-                <img v-if="editForm.imageUrl" :src="editForm.imageUrl" alt="preview" class="mt-2 h-12 object-contain no-hover" />
+                <label class="block text-sm font-medium text-gray-700 mb-1"
+                  >Image URL (set symbol or banner)</label
+                >
+                <input
+                  v-model="editForm.imageUrl"
+                  type="text"
+                  class="input-field"
+                  placeholder="/wpn-assets/..."
+                />
+                <img
+                  v-if="editForm.imageUrl"
+                  :src="editForm.imageUrl"
+                  alt="preview"
+                  class="mt-2 h-12 object-contain no-hover"
+                />
               </div>
             </div>
 
@@ -257,16 +325,37 @@
               </div>
               <div>
                 <label class="block text-sm font-medium text-gray-700 mb-1">Description</label>
-                <textarea v-model="editForm.description" rows="2" class="input-field resize-none"></textarea>
+                <textarea
+                  v-model="editForm.description"
+                  rows="2"
+                  class="input-field resize-none"
+                ></textarea>
               </div>
               <div>
                 <label class="block text-sm font-medium text-gray-700 mb-1">Price ($)</label>
-                <input v-model="editForm.price" type="number" step="0.01" min="0" class="input-field" placeholder="Leave blank if no price" />
+                <input
+                  v-model="editForm.price"
+                  type="number"
+                  step="0.01"
+                  min="0"
+                  class="input-field"
+                  placeholder="Leave blank if no price"
+                />
               </div>
               <div>
                 <label class="block text-sm font-medium text-gray-700 mb-1">Image URL</label>
-                <input v-model="editForm.imageUrl" type="text" class="input-field" placeholder="https://..." />
-                <img v-if="editForm.imageUrl" :src="editForm.imageUrl" alt="preview" class="mt-2 h-20 object-contain no-hover" />
+                <input
+                  v-model="editForm.imageUrl"
+                  type="text"
+                  class="input-field"
+                  placeholder="https://..."
+                />
+                <img
+                  v-if="editForm.imageUrl"
+                  :src="editForm.imageUrl"
+                  alt="preview"
+                  class="mt-2 h-20 object-contain no-hover"
+                />
               </div>
             </div>
 
@@ -292,10 +381,14 @@
           @click.self="deleteModal.open = false"
         >
           <div class="bg-white rounded-2xl shadow-2xl w-full max-w-sm p-6 text-center" @click.stop>
-            <h2 class="font-cinzel text-lg font-bold mb-3 text-gray-800">Delete "{{ deleteModal.name }}"?</h2>
+            <h2 class="font-cinzel text-lg font-bold mb-3 text-gray-800">
+              Delete "{{ deleteModal.name }}"?
+            </h2>
             <p class="text-gray-600 text-sm mb-6">{{ deleteModal.message }}</p>
             <div class="flex gap-3 justify-center">
-              <button class="btn-secondary px-5 py-2" @click="deleteModal.open = false">Cancel</button>
+              <button class="btn-secondary px-5 py-2" @click="deleteModal.open = false">
+                Cancel
+              </button>
               <button
                 class="bg-red-500 hover:bg-red-600 text-white font-semibold px-5 py-2 rounded-lg transition-colors"
                 :disabled="saving"
@@ -314,7 +407,12 @@
 <script setup lang="ts">
 import { ref, reactive, onMounted } from 'vue'
 import { EyeIcon, EyeSlashIcon, PencilIcon, TrashIcon, PhotoIcon } from '@heroicons/vue/24/outline'
-import { useProductsStore, type ProductType, type ProductSet, type SetProduct } from '../../stores/products'
+import {
+  useProductsStore,
+  type ProductType,
+  type ProductSet,
+  type SetProduct,
+} from '../../stores/products'
 
 const store = useProductsStore()
 
@@ -343,9 +441,16 @@ const toggleProductVisibility = async (product: SetProduct) => {
 
 // Edit modal
 type EditMode = 'type' | 'set' | 'product'
-const editModal = reactive<{ open: boolean; mode: EditMode; id: string }>({ open: false, mode: 'type', id: '' })
+const editModal = reactive<{ open: boolean; mode: EditMode; id: string }>({
+  open: false,
+  mode: 'type',
+  id: '',
+})
 const editForm = reactive<{ name: string; imageUrl: string; description: string; price: string }>({
-  name: '', imageUrl: '', description: '', price: '',
+  name: '',
+  imageUrl: '',
+  description: '',
+  price: '',
 })
 const editError = ref('')
 const saving = ref(false)
@@ -375,17 +480,25 @@ const openEditProduct = (product: SetProduct) => {
   editModal.open = true
   editError.value = ''
 }
-const closeEditModal = () => { editModal.open = false }
+const closeEditModal = () => {
+  editModal.open = false
+}
 
 const saveEdit = async () => {
-  if (!editForm.name.trim()) { editError.value = 'Name is required'; return }
+  if (!editForm.name.trim()) {
+    editError.value = 'Name is required'
+    return
+  }
   saving.value = true
   editError.value = ''
   try {
     if (editModal.mode === 'type') {
       await store.updateType(editModal.id, { name: editForm.name.trim() })
     } else if (editModal.mode === 'set') {
-      await store.updateSet(editModal.id, { name: editForm.name.trim(), imageUrl: editForm.imageUrl.trim() || null })
+      await store.updateSet(editModal.id, {
+        name: editForm.name.trim(),
+        imageUrl: editForm.imageUrl.trim() || null,
+      })
     } else {
       const price = editForm.price.trim() !== '' ? parseFloat(editForm.price) : null
       await store.updateProduct(editModal.id, {
@@ -452,7 +565,9 @@ onMounted(() => store.fetchCatalog())
   border-radius: 0.5rem;
   font-size: 0.875rem;
   line-height: 1.25rem;
-  transition: box-shadow 0.15s, border-color 0.15s;
+  transition:
+    box-shadow 0.15s,
+    border-color 0.15s;
 }
 .input-field:focus {
   outline: none;

@@ -14,8 +14,21 @@ console.log('📍 Node version:', process.version)
 console.log('📂 Working directory:', process.cwd())
 console.log('🔧 Environment:', process.env.NODE_ENV || 'development')
 
+import dotenv from 'dotenv'
+import path from 'node:path'
+import { fileURLToPath } from 'node:url'
+
+// Load the repo-root .env explicitly — dotenv's default lookup is relative to
+// process.cwd(), which is api/ under the documented `cd api && npm run dev`
+// workflow, so it silently found nothing there. In production, real platform
+// env vars (Fly secrets) always win regardless, since dotenv never overrides
+// an already-set process.env value.
+dotenv.config({ path: path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '.env') })
+
 import express from 'express'
 import cors from 'cors'
+import cookieParser from 'cookie-parser'
+import rateLimit from 'express-rate-limit'
 import { createClient } from 'redis'
 import {
   initSquarespaceCache,
@@ -33,6 +46,25 @@ import {
   getOAuthStatus,
 } from './squarespaceOAuth.js'
 import { SquarespaceNotConfiguredError, SquarespaceNotAuthorizedError } from './squarespaceErrors.js'
+import {
+  getSquareConfigurationStatus,
+  testSquareConnection,
+  getSquareInventoryReport,
+  listSquareCategories,
+  getSquareCatalogItem,
+  updateSquareCatalogItem,
+  createSquareCategory,
+  deleteSquareCatalogItem,
+  deleteSquareCatalogVariation,
+  uploadSquareCatalogImage,
+  adjustSquareInventoryCount,
+  adjustSquareInventoryCountBatch,
+  resolveSquareCredentials,
+  SquareVersionMismatchError,
+} from './squarePosClient.js'
+import { getSquareSalesReport } from './squareOrdersClient.js'
+import { initAuth, verifyCredentials, createSession, destroySession, requireAdminAuth } from './auth.js'
+import multer from 'multer'
 
 console.log('✅ Modules imported successfully')
 
@@ -44,10 +76,38 @@ console.log('📡 Redis URL configured:', REDIS_URL.replace(/:[^:@]+@/, ':****@'
 console.log('🌐 Port configured:', PORT)
 
 // Middleware
-app.use(cors())
+const DEFAULT_ALLOWED_ORIGINS = [
+  'https://outpostgamesrgv.com',
+  'https://www.outpostgamesrgv.com',
+  'http://localhost:5173',
+  'http://localhost:3001',
+]
+const allowedOrigins = (process.env.CORS_ALLOWED_ORIGINS || '')
+  .split(',')
+  .map(origin => origin.trim())
+  .filter(Boolean)
+  .concat(DEFAULT_ALLOWED_ORIGINS)
+
+app.use(cors({
+  origin: (origin, callback) => {
+    // Same-origin requests (curl, server-to-server, no Origin header) have no origin at all.
+    if (!origin || allowedOrigins.includes(origin)) return callback(null, true)
+    callback(new Error('Not allowed by CORS'))
+  },
+  credentials: true,
+}))
 app.use(express.json())
+app.use(cookieParser())
 
 console.log('✅ Middleware configured')
+
+const loginRateLimiter = rateLimit({
+  windowMs: parseInt(process.env.RATE_LIMIT_WINDOW, 10) || 15 * 60 * 1000,
+  limit: parseInt(process.env.RATE_LIMIT_MAX, 10) || 100,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: 'Too many login attempts, please try again later' },
+})
 
 // Redis client setup with TLS support for Upstash
 const redisClient = createClient({
@@ -75,6 +135,7 @@ let redisConnected = false
 // the current value).
 initSquarespaceCache({ redisClient, isRedisConnected: () => redisConnected })
 initSquarespaceOAuth({ redisClient, isRedisConnected: () => redisConnected })
+initAuth({ redisClient, isRedisConnected: () => redisConnected })
 
 // Try to connect to Redis (non-blocking)
 ;(async () => {
@@ -160,6 +221,44 @@ app.get('/api/health', (req, res) => {
   })
 })
 
+// ─── Admin auth ──────────────────────────────────────────────────────────────
+// `secure` is gated on actually running on Fly.io (not NODE_ENV, which this repo's
+// .env sets to "production" even for local dev) so the session cookie still works
+// over plain http://localhost while requiring HTTPS in the real deployment.
+const SESSION_COOKIE_OPTIONS = {
+  httpOnly: true,
+  secure: Boolean(process.env.FLY_APP_NAME),
+  sameSite: 'strict',
+  maxAge: 12 * 60 * 60 * 1000, // 12 hours
+}
+
+app.post('/api/auth/login', loginRateLimiter, async (req, res) => {
+  try {
+    const { username, password } = req.body || {}
+    const valid = await verifyCredentials(username, password)
+    if (!valid) {
+      return res.status(401).json({ error: 'Invalid username or password' })
+    }
+
+    const sessionId = await createSession(username)
+    res.cookie('sid', sessionId, SESSION_COOKIE_OPTIONS)
+    res.json({ ok: true, username })
+  } catch (error) {
+    console.error('❌ Login failed:', error.message)
+    res.status(500).json({ error: 'Login failed' })
+  }
+})
+
+app.post('/api/auth/logout', async (req, res) => {
+  await destroySession(req.cookies?.sid)
+  res.clearCookie('sid', SESSION_COOKIE_OPTIONS)
+  res.json({ ok: true })
+})
+
+app.get('/api/auth/me', requireAdminAuth, (req, res) => {
+  res.json({ username: req.admin.username })
+})
+
 // Get all events
 app.get('/api/events', async (req, res) => {
   try {
@@ -178,7 +277,7 @@ app.get('/api/events', async (req, res) => {
 })
 
 // Add new event
-app.post('/api/events', async (req, res) => {
+app.post('/api/events', requireAdminAuth, async (req, res) => {
   try {
     const { title, date, time, entry, description, gameTypeId, gameTypeName } = req.body
 
@@ -216,7 +315,7 @@ app.post('/api/events', async (req, res) => {
 })
 
 // Update event
-app.put('/api/events/:id', async (req, res) => {
+app.put('/api/events/:id', requireAdminAuth, async (req, res) => {
   try {
     const { id } = req.params
     const updates = req.body
@@ -253,7 +352,7 @@ app.put('/api/events/:id', async (req, res) => {
 })
 
 // Delete event
-app.delete('/api/events/:id', async (req, res) => {
+app.delete('/api/events/:id', requireAdminAuth, async (req, res) => {
   try {
     const { id } = req.params
 
@@ -284,7 +383,7 @@ app.delete('/api/events/:id', async (req, res) => {
 })
 
 // Reset to default events
-app.post('/api/events/reset', async (req, res) => {
+app.post('/api/events/reset', requireAdminAuth, async (req, res) => {
   try {
     if (!redisConnected) {
       memoryEvents = [...DEFAULT_EVENTS]
@@ -381,7 +480,7 @@ app.get('/api/tcgplayer-listings', async (req, res) => {
 })
 
 // Add a new listing
-app.post('/api/tcgplayer-listings', async (req, res) => {
+app.post('/api/tcgplayer-listings', requireAdminAuth, async (req, res) => {
   try {
     const { name, setName, price, condition, foiling, quantityInStock, imageUrl, productUrl } =
       req.body
@@ -426,7 +525,7 @@ app.post('/api/tcgplayer-listings', async (req, res) => {
 })
 
 // Update a listing
-app.put('/api/tcgplayer-listings/:id', async (req, res) => {
+app.put('/api/tcgplayer-listings/:id', requireAdminAuth, async (req, res) => {
   try {
     const { id } = req.params
     const updates = req.body
@@ -468,7 +567,7 @@ app.put('/api/tcgplayer-listings/:id', async (req, res) => {
 })
 
 // Delete a listing
-app.delete('/api/tcgplayer-listings/:id', async (req, res) => {
+app.delete('/api/tcgplayer-listings/:id', requireAdminAuth, async (req, res) => {
   try {
     const { id } = req.params
 
@@ -503,7 +602,7 @@ app.delete('/api/tcgplayer-listings/:id', async (req, res) => {
 })
 
 // Clear all listings
-app.delete('/api/tcgplayer-listings', async (req, res) => {
+app.delete('/api/tcgplayer-listings', requireAdminAuth, async (req, res) => {
   try {
     if (redisConnected) {
       await redisClient.del(TCGPLAYER_LISTINGS_KEY)
@@ -609,7 +708,7 @@ app.get('/api/products', async (req, res) => {
 })
 
 // POST /api/products/types
-app.post('/api/products/types', async (req, res) => {
+app.post('/api/products/types', requireAdminAuth, async (req, res) => {
   try {
     const { name } = req.body
     if (!name) return res.status(400).json({ error: 'name is required' })
@@ -625,7 +724,7 @@ app.post('/api/products/types', async (req, res) => {
 })
 
 // PUT /api/products/types/:typeId
-app.put('/api/products/types/:typeId', async (req, res) => {
+app.put('/api/products/types/:typeId', requireAdminAuth, async (req, res) => {
   try {
     const { typeId } = req.params
     const updates = req.body
@@ -643,7 +742,7 @@ app.put('/api/products/types/:typeId', async (req, res) => {
 })
 
 // DELETE /api/products/types/:typeId
-app.delete('/api/products/types/:typeId', async (req, res) => {
+app.delete('/api/products/types/:typeId', requireAdminAuth, async (req, res) => {
   try {
     const { typeId } = req.params
     const catalog = await getCatalog()
@@ -659,7 +758,7 @@ app.delete('/api/products/types/:typeId', async (req, res) => {
 })
 
 // POST /api/products/types/:typeId/sets
-app.post('/api/products/types/:typeId/sets', async (req, res) => {
+app.post('/api/products/types/:typeId/sets', requireAdminAuth, async (req, res) => {
   try {
     const { typeId } = req.params
     const { name, imageUrl } = req.body
@@ -678,7 +777,7 @@ app.post('/api/products/types/:typeId/sets', async (req, res) => {
 })
 
 // PUT /api/products/sets/:setId
-app.put('/api/products/sets/:setId', async (req, res) => {
+app.put('/api/products/sets/:setId', requireAdminAuth, async (req, res) => {
   try {
     const { setId } = req.params
     const updates = req.body
@@ -700,7 +799,7 @@ app.put('/api/products/sets/:setId', async (req, res) => {
 })
 
 // DELETE /api/products/sets/:setId
-app.delete('/api/products/sets/:setId', async (req, res) => {
+app.delete('/api/products/sets/:setId', requireAdminAuth, async (req, res) => {
   try {
     const { setId } = req.params
     const catalog = await getCatalog()
@@ -719,7 +818,7 @@ app.delete('/api/products/sets/:setId', async (req, res) => {
 })
 
 // POST /api/products/sets/:setId/products
-app.post('/api/products/sets/:setId/products', async (req, res) => {
+app.post('/api/products/sets/:setId/products', requireAdminAuth, async (req, res) => {
   try {
     const { setId } = req.params
     const { name, description, price, imageUrl } = req.body
@@ -750,7 +849,7 @@ app.post('/api/products/sets/:setId/products', async (req, res) => {
 })
 
 // PUT /api/products/items/:itemId
-app.put('/api/products/items/:itemId', async (req, res) => {
+app.put('/api/products/items/:itemId', requireAdminAuth, async (req, res) => {
   try {
     const { itemId } = req.params
     const updates = req.body
@@ -776,7 +875,7 @@ app.put('/api/products/items/:itemId', async (req, res) => {
 })
 
 // DELETE /api/products/items/:itemId
-app.delete('/api/products/items/:itemId', async (req, res) => {
+app.delete('/api/products/items/:itemId', requireAdminAuth, async (req, res) => {
   try {
     const { itemId } = req.params
     const catalog = await getCatalog()
@@ -796,15 +895,265 @@ app.delete('/api/products/items/:itemId', async (req, res) => {
   }
 })
 
-// ─── Squarespace Integration (read-only) ─────────────────────────────────────
-// New, additive surface backed by the shop's real Squarespace store. Kept fully
-// separate from the manual outpost:products catalog above. Logic lives in
-// api/squarespaceClient.js (HTTP), api/squarespaceCache.js (cache + merge), and
-// api/squarespaceOAuth.js (OAuth 2.0 — only needed on plans without Developer
-// API Keys; squarespaceClient.js uses SQUARESPACE_API_KEY instead when set).
+// ─── Square POS Integration (sandbox-first) ─────────────────────────────────
+// This is an additive surface for validating Square POS credentials and catalog
+// access before any production rollout. It does not replace the manual catalog.
 
-// GET /api/squarespace/products — merged/normalized catalog, each product carrying
-// its current manual-catalog assignment.
+app.get('/api/square/status', requireAdminAuth, async (req, res) => {
+  try {
+    const status = getSquareConfigurationStatus(process.env)
+    res.json({
+      ok: true,
+      ...status,
+      apiBaseUrl: status.environment === 'production'
+        ? 'https://connect.squareup.com'
+        : 'https://connect.squareupsandbox.com',
+    })
+  } catch (error) {
+    console.error('❌ Error getting Square status:', error.message)
+    res.status(500).json({ error: 'Failed to read Square configuration' })
+  }
+})
+
+app.post('/api/square/test', requireAdminAuth, async (req, res) => {
+  try {
+    const status = getSquareConfigurationStatus(process.env)
+    if (!status.configured) {
+      return res.status(422).json({
+        ok: false,
+        error: 'Square credentials are incomplete',
+        message: 'The Square integration needs SQUARE_ACCESS_TOKEN, SQUARE_APPLICATION_ID, and SQUARE_LOCATION_ID.',
+        missingFields: status.missingFields,
+      })
+    }
+
+    const result = await testSquareConnection(process.env)
+    res.json({ ok: true, ...result })
+  } catch (error) {
+    console.error('❌ Square connection test failed:', error.message)
+    res.status(502).json({
+      ok: false,
+      error: 'Square connection test failed',
+      message: error.message,
+    })
+  }
+})
+
+app.get('/api/square/catalog', requireAdminAuth, async (req, res) => {
+  try {
+    const { createSquarePosClient, resolveSquareCredentials } = await import('./squarePosClient.js')
+    const client = createSquarePosClient(resolveSquareCredentials(process.env))
+    const payload = await client.request('/v2/catalog/list?types=ITEM')
+    res.json({ ok: true, environment: client.environment, items: payload.objects || [] })
+  } catch (error) {
+    console.error('❌ Square catalog fetch failed:', error.message)
+    res.status(502).json({
+      ok: false,
+      error: 'Square catalog fetch failed',
+      message: error.message,
+    })
+  }
+})
+
+app.get('/api/square/inventory-report', requireAdminAuth, async (req, res) => {
+  try {
+    const report = await getSquareInventoryReport(process.env)
+    res.json(report)
+  } catch (error) {
+    console.error('❌ Square inventory report failed:', error.message)
+    res.status(502).json({
+      ok: false,
+      error: 'Square inventory report failed',
+      message: error.message,
+    })
+  }
+})
+
+app.get('/api/square/categories', requireAdminAuth, async (req, res) => {
+  try {
+    const categories = await listSquareCategories(process.env)
+    res.json({ ok: true, categories })
+  } catch (error) {
+    console.error('❌ Square categories fetch failed:', error.message)
+    res.status(502).json({ ok: false, error: 'Square categories fetch failed', message: error.message })
+  }
+})
+
+app.post('/api/square/categories', requireAdminAuth, async (req, res) => {
+  try {
+    const { name, parentCategoryId } = req.body || {}
+    if (!name || !name.trim()) {
+      return res.status(400).json({ error: 'Category name is required' })
+    }
+
+    const category = await createSquareCategory({ name: name.trim(), parentCategoryId: parentCategoryId || null }, process.env)
+    res.json({ ok: true, category })
+  } catch (error) {
+    console.error('❌ Square category creation failed:', error.message)
+    res.status(502).json({ ok: false, error: 'Square category creation failed', message: error.message })
+  }
+})
+
+app.get('/api/square/products/:itemId', requireAdminAuth, async (req, res) => {
+  try {
+    const item = await getSquareCatalogItem(req.params.itemId, process.env)
+    res.json({ ok: true, item })
+  } catch (error) {
+    console.error('❌ Square product fetch failed:', error.message)
+    res.status(502).json({ ok: false, error: 'Square product fetch failed', message: error.message })
+  }
+})
+
+app.put('/api/square/products/:itemId', requireAdminAuth, async (req, res) => {
+  try {
+    const body = req.body || {}
+    const touchesSku = Object.prototype.hasOwnProperty.call(body, 'sku')
+      || (body.variations || []).some(variation => Object.prototype.hasOwnProperty.call(variation, 'sku'))
+    if (touchesSku) {
+      return res.status(400).json({ error: 'SKU cannot be edited here — it is locked to protect in-store barcode scanning' })
+    }
+
+    const updated = await updateSquareCatalogItem(req.params.itemId, body, process.env)
+    res.json({ ok: true, item: updated })
+  } catch (error) {
+    if (error instanceof SquareVersionMismatchError) {
+      return res.status(409).json({ error: error.message })
+    }
+    console.error('❌ Square product update failed:', error.message)
+    res.status(502).json({ ok: false, error: 'Square product update failed', message: error.message })
+  }
+})
+
+app.delete('/api/square/products/:itemId', requireAdminAuth, async (req, res) => {
+  try {
+    const result = await deleteSquareCatalogItem(req.params.itemId, process.env)
+    res.json({ ok: true, deletedIds: result.deleted_object_ids || [] })
+  } catch (error) {
+    console.error('❌ Square product delete failed:', error.message)
+    res.status(502).json({ ok: false, error: 'Square product delete failed', message: error.message })
+  }
+})
+
+app.delete('/api/square/products/:itemId/variations/:variationId', requireAdminAuth, async (req, res) => {
+  try {
+    const result = await deleteSquareCatalogVariation(req.params.itemId, req.params.variationId, process.env)
+    res.json({ ok: true, deletedIds: result.deleted_object_ids || [] })
+  } catch (error) {
+    console.error('❌ Square variation delete failed:', error.message)
+    res.status(502).json({ ok: false, error: 'Square variation delete failed', message: error.message })
+  }
+})
+
+const imageUpload = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 15 * 1024 * 1024 }, // Square's own max: 15MB
+  fileFilter: (req, file, cb) => {
+    if (!['image/jpeg', 'image/pjpeg', 'image/png', 'image/gif'].includes(file.mimetype)) {
+      return cb(new Error('Only JPEG, PNG, or GIF images are supported'))
+    }
+    cb(null, true)
+  },
+})
+
+app.post('/api/square/products/:itemId/image', requireAdminAuth, (req, res) => {
+  imageUpload.single('image')(req, res, async uploadError => {
+    if (uploadError) {
+      return res.status(400).json({ error: uploadError.message })
+    }
+    if (!req.file) {
+      return res.status(400).json({ error: 'An image file is required' })
+    }
+
+    try {
+      const result = await uploadSquareCatalogImage(req.params.itemId, {
+        buffer: req.file.buffer,
+        filename: req.file.originalname,
+        mimeType: req.file.mimetype,
+      }, process.env)
+      res.json({ ok: true, imageUrl: result.imageUrl })
+    } catch (error) {
+      console.error('❌ Square image upload failed:', error.message)
+      res.status(502).json({ ok: false, error: 'Square image upload failed', message: error.message })
+    }
+  })
+})
+
+app.post('/api/square/products/:itemId/inventory', requireAdminAuth, async (req, res) => {
+  try {
+    const quantity = Number(req.body?.quantity)
+    const { variationId } = req.body || {}
+    if (!Number.isFinite(quantity) || quantity < 0) {
+      return res.status(400).json({ error: 'quantity must be a non-negative number' })
+    }
+    if (!variationId) {
+      return res.status(400).json({ error: 'variationId is required' })
+    }
+
+    const item = await getSquareCatalogItem(req.params.itemId, process.env)
+    if (!item.variations.some(variation => variation.id === variationId)) {
+      return res.status(422).json({ error: 'That variation does not belong to this item' })
+    }
+
+    const { locationId } = resolveSquareCredentials(process.env)
+    await adjustSquareInventoryCount(variationId, { quantity, locationId }, process.env)
+    res.json({ ok: true, quantity })
+  } catch (error) {
+    console.error('❌ Square inventory correction failed:', error.message)
+    res.status(502).json({ ok: false, error: 'Square inventory correction failed', message: error.message })
+  }
+})
+
+app.post('/api/square/inventory/batch', requireAdminAuth, async (req, res) => {
+  try {
+    const changes = Array.isArray(req.body?.changes) ? req.body.changes : []
+    if (!changes.length) {
+      return res.status(400).json({ error: 'changes must be a non-empty array' })
+    }
+    for (const change of changes) {
+      const quantity = Number(change.quantity)
+      if (!change.variationId || !Number.isFinite(quantity) || quantity < 0) {
+        return res.status(400).json({ error: 'Each change requires a variationId and a non-negative quantity' })
+      }
+    }
+
+    // Validate every variationId against a fresh report rather than trusting
+    // client-supplied ids blindly, matching the single-item inventory route.
+    const report = await getSquareInventoryReport(process.env)
+    const knownVariationIds = new Set(report.items.map(item => item.id))
+    const unknownIds = changes.map(c => c.variationId).filter(id => !knownVariationIds.has(id))
+    if (unknownIds.length) {
+      return res.status(422).json({ error: 'Unknown variation id(s)', unknownIds })
+    }
+
+    const result = await adjustSquareInventoryCountBatch(
+      changes.map(c => ({ variationId: c.variationId, quantity: Number(c.quantity) })),
+      process.env
+    )
+    res.json({ ok: true, updatedCount: result.updatedCount })
+  } catch (error) {
+    console.error('❌ Square batch inventory correction failed:', error.message)
+    res.status(502).json({ ok: false, error: 'Square batch inventory correction failed', message: error.message })
+  }
+})
+
+app.get('/api/square/sales', requireAdminAuth, async (req, res) => {
+  try {
+    const to = req.query.to ? new Date(req.query.to).toISOString() : new Date().toISOString()
+    const from = req.query.from
+      ? new Date(req.query.from).toISOString()
+      : new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString()
+    const granularity = req.query.granularity === 'week' ? 'week' : 'day'
+
+    const report = await getSquareSalesReport({ from, to, granularity }, process.env)
+    res.json(report)
+  } catch (error) {
+    console.error('❌ Square sales report failed:', error.message)
+    res.status(502).json({ ok: false, error: 'Square sales report failed', message: error.message })
+  }
+})
+
+// Legacy Squarespace routes are left in place only as documentation and can be
+// removed later once the Square integration is fully validated.
 app.get('/api/squarespace/products', async (req, res) => {
   try {
     const [{ fetchedAt, products }, assignments] = await Promise.all([
@@ -825,7 +1174,7 @@ app.get('/api/squarespace/products', async (req, res) => {
 })
 
 // POST /api/squarespace/refresh — force a synchronous full refresh from Squarespace.
-app.post('/api/squarespace/refresh', async (req, res) => {
+app.post('/api/squarespace/refresh', requireAdminAuth, async (req, res) => {
   try {
     const cache = await refreshSquarespaceCatalog()
     res.json({ fetchedAt: cache.fetchedAt, productCount: cache.products.length })
@@ -888,7 +1237,7 @@ app.get('/api/squarespace/oauth/callback', async (req, res) => {
 
 // PUT /api/squarespace/products/:productId/assignment — tag a Squarespace product
 // with a typeId/setId pointing into the manual catalog (or null to unassign).
-app.put('/api/squarespace/products/:productId/assignment', async (req, res) => {
+app.put('/api/squarespace/products/:productId/assignment', requireAdminAuth, async (req, res) => {
   try {
     const { productId } = req.params
     const { typeId = null, setId = null } = req.body || {}

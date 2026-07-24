@@ -36,7 +36,10 @@
 
         <!-- Success banner -->
         <transition name="slide-down">
-          <div v-if="successMsg" class="mb-4 bg-green-50 border border-green-200 rounded-xl px-5 py-3 text-green-700 font-medium">
+          <div
+            v-if="successMsg"
+            class="mb-4 bg-green-50 border border-green-200 rounded-xl px-5 py-3 text-green-700 font-medium"
+          >
             ✓ {{ successMsg }}
           </div>
         </transition>
@@ -44,7 +47,9 @@
         <!-- Add Game Type form -->
         <form v-if="addMode === 'type'" class="card-mtg space-y-5" @submit.prevent="submitType">
           <h2 class="font-cinzel text-xl font-bold text-gray-800">New Game Type</h2>
-          <p class="text-sm text-gray-500">A "game type" is the top-level category (e.g., Magic: The Gathering, Pokémon).</p>
+          <p class="text-sm text-gray-500">
+            A "game type" is the top-level category (e.g., Magic: The Gathering, Pokémon).
+          </p>
           <div>
             <label class="block text-sm font-medium text-gray-700 mb-1">Name *</label>
             <input
@@ -66,13 +71,17 @@
         <!-- Add Set form -->
         <form v-else-if="addMode === 'set'" class="card-mtg space-y-5" @submit.prevent="submitSet">
           <h2 class="font-cinzel text-xl font-bold text-gray-800">New Set</h2>
-          <p class="text-sm text-gray-500">A "set" is a release or expansion (e.g., Tarkir: Dragonstorm, Scarlet &amp; Violet).</p>
+          <p class="text-sm text-gray-500">
+            A "set" is a release or expansion (e.g., Tarkir: Dragonstorm, Scarlet &amp; Violet).
+          </p>
 
           <div>
             <label class="block text-sm font-medium text-gray-700 mb-1">Game Type *</label>
             <select v-model="setForm.typeId" required class="input-field">
               <option value="" disabled>Select a game type…</option>
-              <option v-for="t in store.catalog.types" :key="t.id" :value="t.id">{{ t.name }}</option>
+              <option v-for="t in store.catalog.types" :key="t.id" :value="t.id">
+                {{ t.name }}
+              </option>
             </select>
           </div>
 
@@ -88,52 +97,83 @@
           </div>
 
           <div>
-            <label class="block text-sm font-medium text-gray-700 mb-1">Image URL <span class="text-gray-400">(set symbol or banner)</span></label>
+            <label class="block text-sm font-medium text-gray-700 mb-1"
+              >Image URL <span class="text-gray-400">(set symbol or banner)</span></label
+            >
             <input
               v-model="setForm.imageUrl"
               type="text"
               class="input-field"
               placeholder="/wpn-assets/... or https://..."
             />
-            <img v-if="setForm.imageUrl" :src="setForm.imageUrl" alt="preview" class="mt-2 h-14 object-contain no-hover" />
+            <img
+              v-if="setForm.imageUrl"
+              :src="setForm.imageUrl"
+              alt="preview"
+              class="mt-2 h-14 object-contain no-hover"
+            />
           </div>
 
           <div v-if="formError" class="text-red-600 text-sm">{{ formError }}</div>
           <div class="flex justify-end">
-            <button type="submit" class="btn-primary px-6 py-2" :disabled="saving || !setForm.typeId">
+            <button
+              type="submit"
+              class="btn-primary px-6 py-2"
+              :disabled="saving || !setForm.typeId"
+            >
               {{ saving ? 'Adding…' : 'Add Set' }}
             </button>
           </div>
         </form>
 
         <!-- Add Product form -->
-        <form v-else-if="addMode === 'product'" class="card-mtg space-y-5" @submit.prevent="submitProduct">
+        <form
+          v-else-if="addMode === 'product'"
+          class="card-mtg space-y-5"
+          @submit.prevent="submitProduct"
+        >
           <h2 class="font-cinzel text-xl font-bold text-gray-800">New Product</h2>
-          <p class="text-sm text-gray-500">A "product" is a specific item within a set (e.g., Booster Box, Elite Trainer Box, Commander Deck).</p>
+          <p class="text-sm text-gray-500">
+            A "product" is a specific item within a set (e.g., Booster Box, Elite Trainer Box,
+            Commander Deck).
+          </p>
 
           <div>
             <label class="block text-sm font-medium text-gray-700 mb-1">Game Type *</label>
-            <select v-model="productForm.typeId" required class="input-field" @change="productForm.setId = ''">
+            <select
+              v-model="productForm.typeId"
+              required
+              class="input-field"
+              @change="productForm.setId = ''"
+            >
               <option value="" disabled>Select a game type…</option>
-              <option v-for="t in store.catalog.types" :key="t.id" :value="t.id">{{ t.name }}</option>
+              <option v-for="t in store.catalog.types" :key="t.id" :value="t.id">
+                {{ t.name }}
+              </option>
             </select>
           </div>
 
           <div>
             <label class="block text-sm font-medium text-gray-700 mb-1">Set *</label>
-            <select v-model="productForm.setId" required class="input-field" :disabled="!productForm.typeId">
+            <select
+              v-model="productForm.setId"
+              required
+              class="input-field"
+              :disabled="!productForm.typeId"
+            >
               <option value="" disabled>Select a set…</option>
-              <option
-                v-for="s in setsForSelectedType"
-                :key="s.id"
-                :value="s.id"
-              >
+              <option v-for="s in setsForSelectedType" :key="s.id" :value="s.id">
                 {{ s.name }}
               </option>
             </select>
-            <p v-if="productForm.typeId && setsForSelectedType.length === 0" class="text-sm text-amber-600 mt-1">
+            <p
+              v-if="productForm.typeId && setsForSelectedType.length === 0"
+              class="text-sm text-amber-600 mt-1"
+            >
               No sets under this type yet —
-              <button type="button" class="underline" @click="setMode('set')">add a set first</button>.
+              <button type="button" class="underline" @click="setMode('set')">
+                add a set first</button
+              >.
             </p>
           </div>
 
@@ -178,7 +218,12 @@
               class="input-field"
               placeholder="https://..."
             />
-            <img v-if="productForm.imageUrl" :src="productForm.imageUrl" alt="preview" class="mt-2 h-24 object-contain no-hover" />
+            <img
+              v-if="productForm.imageUrl"
+              :src="productForm.imageUrl"
+              alt="preview"
+              class="mt-2 h-24 object-contain no-hover"
+            />
           </div>
 
           <div v-if="formError" class="text-red-600 text-sm">{{ formError }}</div>
@@ -222,7 +267,9 @@ let successTimer: ReturnType<typeof setTimeout> | null = null
 const showSuccess = (msg: string) => {
   successMsg.value = msg
   if (successTimer) clearTimeout(successTimer)
-  successTimer = setTimeout(() => { successMsg.value = '' }, 4000)
+  successTimer = setTimeout(() => {
+    successMsg.value = ''
+  }, 4000)
 }
 
 const setMode = (mode: AddMode) => {
@@ -270,7 +317,14 @@ const submitSet = async () => {
 }
 
 // Product form
-const productForm = reactive({ typeId: '', setId: '', name: '', description: '', price: '', imageUrl: '' })
+const productForm = reactive({
+  typeId: '',
+  setId: '',
+  name: '',
+  description: '',
+  price: '',
+  imageUrl: '',
+})
 
 const setsForSelectedType = computed(() => {
   if (!productForm.typeId) return []
@@ -324,7 +378,9 @@ onMounted(async () => {
   border-radius: 0.5rem;
   font-size: 0.875rem;
   line-height: 1.25rem;
-  transition: box-shadow 0.15s, border-color 0.15s;
+  transition:
+    box-shadow 0.15s,
+    border-color 0.15s;
 }
 .input-field:focus {
   outline: none;

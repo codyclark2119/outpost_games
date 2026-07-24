@@ -2,7 +2,6 @@
   <div class="min-h-screen bg-gray-50 py-12">
     <div class="container mx-auto px-4">
       <div class="max-w-2xl mx-auto">
-
         <!-- Header -->
         <div class="flex justify-between items-center mb-8">
           <div>
@@ -16,14 +15,16 @@
 
         <!-- Success banner -->
         <transition name="slide-down">
-          <div v-if="successMsg" class="mb-5 bg-green-50 border border-green-200 rounded-xl px-5 py-3 text-green-700 font-medium">
+          <div
+            v-if="successMsg"
+            class="mb-5 bg-green-50 border border-green-200 rounded-xl px-5 py-3 text-green-700 font-medium"
+          >
             ✓ {{ successMsg }}
           </div>
         </transition>
 
         <!-- Form -->
         <form class="card-mtg space-y-5" @submit.prevent="handleSubmit">
-
           <div>
             <label class="block text-sm font-medium text-gray-700 mb-1">Event Title *</label>
             <input
@@ -53,7 +54,9 @@
             <label class="block text-sm font-medium text-gray-700 mb-1">Entry Fee *</label>
             <select v-model="form.entry" required class="input-field">
               <option value="" disabled>Select entry fee</option>
-              <option v-for="fee in entryFeeOptions" :key="fee.value" :value="fee.value">{{ fee.label }}</option>
+              <option v-for="fee in entryFeeOptions" :key="fee.value" :value="fee.value">
+                {{ fee.label }}
+              </option>
             </select>
           </div>
 
@@ -70,13 +73,17 @@
 
           <!-- Game type association -->
           <div>
-            <label class="block text-sm font-medium text-gray-700 mb-1">Game Type <span class="text-gray-400">(Optional)</span></label>
+            <label class="block text-sm font-medium text-gray-700 mb-1"
+              >Game Type <span class="text-gray-400">(Optional)</span></label
+            >
             <select v-model="form.gameTypeId" class="input-field">
               <option value="">No specific game type</option>
               <option v-for="t in catalogTypes" :key="t.id" :value="t.id">{{ t.name }}</option>
               <option value="custom">Custom…</option>
             </select>
-            <p class="text-xs text-gray-500 mt-1">Associates this event with a game type for display on the Events page</p>
+            <p class="text-xs text-gray-500 mt-1">
+              Associates this event with a game type for display on the Events page
+            </p>
           </div>
 
           <!-- Custom game type input -->
@@ -99,7 +106,6 @@
             </button>
           </div>
         </form>
-
       </div>
     </div>
   </div>
@@ -129,7 +135,7 @@ const form = reactive({
 })
 
 const catalogTypes = computed(() =>
-  productsStore.catalog.types.filter(t => t.isVisible).sort((a, b) => a.sortOrder - b.sortOrder),
+  productsStore.catalog.types.filter(t => t.isVisible).sort((a, b) => a.sortOrder - b.sortOrder)
 )
 
 const resetForm = () => {
@@ -195,7 +201,9 @@ const handleSubmit = async () => {
     resetForm()
     successMsg.value = `"${title}" added successfully.`
     if (successTimer) clearTimeout(successTimer)
-    successTimer = setTimeout(() => { successMsg.value = '' }, 4000)
+    successTimer = setTimeout(() => {
+      successMsg.value = ''
+    }, 4000)
   } catch (e) {
     formError.value = e instanceof Error ? e.message : 'Failed to add event'
   } finally {
@@ -216,7 +224,9 @@ onMounted(async () => {
   border-radius: 0.5rem;
   font-size: 0.875rem;
   line-height: 1.25rem;
-  transition: box-shadow 0.15s, border-color 0.15s;
+  transition:
+    box-shadow 0.15s,
+    border-color 0.15s;
 }
 .input-field:focus {
   outline: none;

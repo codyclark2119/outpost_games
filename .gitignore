@@ -36,3 +36,7 @@ lerna-debug.log*
 
 # AI assistant local memory/config (project-level)
 .claude/
+
+# Local data / import staging (not committed)
+api/data/wotc-imports/*
+!api/data/wotc-imports/.gitkeep

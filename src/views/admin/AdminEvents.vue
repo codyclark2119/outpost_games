@@ -2,7 +2,6 @@
   <div class="min-h-screen bg-gray-50 py-12">
     <div class="container mx-auto px-4">
       <div class="max-w-4xl mx-auto">
-
         <!-- Header -->
         <div class="flex flex-wrap justify-between items-center mb-8 gap-4">
           <div>
@@ -20,8 +19,13 @@
         </div>
 
         <!-- Loading -->
-        <div v-if="eventsStore.loading && eventsStore.upcomingEvents.length === 0" class="text-center py-16">
-          <div class="inline-block animate-spin rounded-full h-10 w-10 border-b-2 border-outpost-gold"></div>
+        <div
+          v-if="eventsStore.loading && eventsStore.upcomingEvents.length === 0"
+          class="text-center py-16"
+        >
+          <div
+            class="inline-block animate-spin rounded-full h-10 w-10 border-b-2 border-outpost-gold"
+          ></div>
           <p class="mt-4 text-gray-600">Loading events…</p>
         </div>
 
@@ -35,7 +39,9 @@
           <!-- Event count + reset -->
           <div class="flex justify-between items-center mb-4">
             <p class="text-gray-600 text-sm">
-              {{ upcomingEventsFiltered.length }} upcoming event{{ upcomingEventsFiltered.length !== 1 ? 's' : '' }}
+              {{ upcomingEventsFiltered.length }} upcoming event{{
+                upcomingEventsFiltered.length !== 1 ? 's' : ''
+              }}
             </p>
             <button
               class="text-sm text-red-500 hover:text-red-700 font-medium transition-colors"
@@ -61,16 +67,24 @@
               class="bg-white rounded-xl shadow border border-gray-200 p-5 flex flex-col sm:flex-row sm:items-start gap-4 hover:border-outpost-gold transition-colors"
             >
               <!-- Date badge -->
-              <div class="flex-shrink-0 bg-outpost-navy text-white rounded-lg px-4 py-3 text-center min-w-[80px]">
-                <div class="text-xs uppercase tracking-wide opacity-70">{{ monthOf(event.date) }}</div>
-                <div class="font-cinzel font-bold text-2xl leading-none">{{ dayOf(event.date) }}</div>
+              <div
+                class="flex-shrink-0 bg-outpost-navy text-white rounded-lg px-4 py-3 text-center min-w-[80px]"
+              >
+                <div class="text-xs uppercase tracking-wide opacity-70">
+                  {{ monthOf(event.date) }}
+                </div>
+                <div class="font-cinzel font-bold text-2xl leading-none">
+                  {{ dayOf(event.date) }}
+                </div>
                 <div class="text-xs opacity-70">{{ yearOf(event.date) }}</div>
               </div>
 
               <!-- Details -->
               <div class="flex-grow min-w-0">
                 <h3 class="font-cinzel font-bold text-lg text-gray-800">{{ event.title }}</h3>
-                <p class="text-gray-600 text-sm mt-0.5">{{ event.time }} · Entry: ${{ event.entry }}</p>
+                <p class="text-gray-600 text-sm mt-0.5">
+                  {{ event.time }} · Entry: ${{ event.entry }}
+                </p>
                 <p class="text-gray-500 text-sm mt-1 line-clamp-2">{{ event.description }}</p>
               </div>
 
@@ -92,7 +106,6 @@
             </div>
           </div>
         </template>
-
       </div>
     </div>
 
@@ -104,7 +117,10 @@
           class="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4"
           @click.self="closeEdit"
         >
-          <div class="bg-white rounded-2xl shadow-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto" @click.stop>
+          <div
+            class="bg-white rounded-2xl shadow-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto"
+            @click.stop
+          >
             <div class="p-6">
               <h2 class="font-cinzel text-xl font-bold mb-5 text-gray-800">Edit Event</h2>
 
@@ -130,32 +146,52 @@
                 <div>
                   <label class="block text-sm font-medium text-gray-700 mb-1">Entry Fee</label>
                   <select v-model="editForm.entry" required class="input-field">
-                    <option v-for="fee in entryFeeOptions" :key="fee.value" :value="fee.value">{{ fee.label }}</option>
+                    <option v-for="fee in entryFeeOptions" :key="fee.value" :value="fee.value">
+                      {{ fee.label }}
+                    </option>
                   </select>
                 </div>
 
                 <div>
                   <label class="block text-sm font-medium text-gray-700 mb-1">Description</label>
-                  <textarea v-model="editForm.description" required rows="3" class="input-field resize-none"></textarea>
+                  <textarea
+                    v-model="editForm.description"
+                    required
+                    rows="3"
+                    class="input-field resize-none"
+                  ></textarea>
                 </div>
 
                 <div>
-                  <label class="block text-sm font-medium text-gray-700 mb-1">Game Type (Optional)</label>
+                  <label class="block text-sm font-medium text-gray-700 mb-1"
+                    >Game Type (Optional)</label
+                  >
                   <select v-model="editForm.gameTypeId" class="input-field">
                     <option value="">No specific game type</option>
-                    <option v-for="t in catalogTypes" :key="t.id" :value="t.id">{{ t.name }}</option>
+                    <option v-for="t in catalogTypes" :key="t.id" :value="t.id">
+                      {{ t.name }}
+                    </option>
                     <option value="custom">Custom…</option>
                   </select>
                 </div>
                 <div v-if="editForm.gameTypeId === 'custom'">
-                  <label class="block text-sm font-medium text-gray-700 mb-1">Custom Game Type *</label>
-                  <input v-model="editForm.customGameType" type="text" class="input-field" placeholder="e.g., Flesh and Blood" />
+                  <label class="block text-sm font-medium text-gray-700 mb-1"
+                    >Custom Game Type *</label
+                  >
+                  <input
+                    v-model="editForm.customGameType"
+                    type="text"
+                    class="input-field"
+                    placeholder="e.g., Flesh and Blood"
+                  />
                 </div>
 
                 <div v-if="editError" class="text-red-600 text-sm">{{ editError }}</div>
 
                 <div class="flex gap-3 justify-end pt-2">
-                  <button type="button" class="btn-secondary px-5 py-2" @click="closeEdit">Cancel</button>
+                  <button type="button" class="btn-secondary px-5 py-2" @click="closeEdit">
+                    Cancel
+                  </button>
                   <button type="submit" class="btn-primary px-5 py-2" :disabled="saving">
                     {{ saving ? 'Saving…' : 'Save Changes' }}
                   </button>
@@ -177,9 +213,13 @@
         >
           <div class="bg-white rounded-2xl shadow-2xl w-full max-w-sm p-6 text-center" @click.stop>
             <h2 class="font-cinzel text-lg font-bold mb-2 text-gray-800">Delete Event?</h2>
-            <p class="text-gray-600 text-sm mb-6">"{{ deleteModal.title }}" will be permanently removed.</p>
+            <p class="text-gray-600 text-sm mb-6">
+              "{{ deleteModal.title }}" will be permanently removed.
+            </p>
             <div class="flex gap-3 justify-center">
-              <button class="btn-secondary px-5 py-2" @click="deleteModal.open = false">Cancel</button>
+              <button class="btn-secondary px-5 py-2" @click="deleteModal.open = false">
+                Cancel
+              </button>
               <button
                 class="bg-red-500 hover:bg-red-600 text-white font-semibold px-5 py-2 rounded-lg transition-colors"
                 :disabled="saving"
@@ -204,7 +244,7 @@ const eventsStore = useEventsStore()
 const productsStore = useProductsStore()
 
 const catalogTypes = computed(() =>
-  productsStore.catalog.types.filter(t => t.isVisible).sort((a, b) => a.sortOrder - b.sortOrder),
+  productsStore.catalog.types.filter(t => t.isVisible).sort((a, b) => a.sortOrder - b.sortOrder)
 )
 
 // ── Date helpers ──────────────────────────────────────────────────────────────
@@ -216,8 +256,7 @@ const parseEventDate = (dateString: string): Date => {
 
 const monthOf = (date: string) =>
   parseEventDate(date).toLocaleDateString('en-US', { month: 'short' })
-const dayOf = (date: string) =>
-  parseEventDate(date).toLocaleDateString('en-US', { day: 'numeric' })
+const dayOf = (date: string) => parseEventDate(date).toLocaleDateString('en-US', { day: 'numeric' })
 const yearOf = (date: string) =>
   parseEventDate(date).toLocaleDateString('en-US', { year: 'numeric' })
 
@@ -226,7 +265,7 @@ const formatDateToReadable = (isoDate: string): string =>
 
 const parseReadableDateToISO = (readableDate: string): string => {
   const d = new Date(readableDate)
-  return isNaN(d.getTime()) ? '' : d.toISOString().split('T')[0] ?? ''
+  return isNaN(d.getTime()) ? '' : (d.toISOString().split('T')[0] ?? '')
 }
 
 // ── Filtered list ─────────────────────────────────────────────────────────────
@@ -276,7 +315,15 @@ const entryFeeOptions = computed(() => {
 
 // ── Edit modal ────────────────────────────────────────────────────────────────
 const editModal = reactive({ open: false, id: '' })
-const editForm = reactive({ title: '', dateISO: '', time: '', entry: '', description: '', gameTypeId: '', customGameType: '' })
+const editForm = reactive({
+  title: '',
+  dateISO: '',
+  time: '',
+  entry: '',
+  description: '',
+  gameTypeId: '',
+  customGameType: '',
+})
 const editError = ref('')
 const saving = ref(false)
 
@@ -302,7 +349,9 @@ const openEdit = (event: SpecialEvent) => {
   editModal.open = true
 }
 
-const closeEdit = () => { editModal.open = false }
+const closeEdit = () => {
+  editModal.open = false
+}
 
 const saveEdit = async () => {
   if (editForm.gameTypeId === 'custom' && !editForm.customGameType.trim()) {
@@ -378,7 +427,9 @@ onMounted(async () => {
   border-radius: 0.5rem;
   font-size: 0.875rem;
   line-height: 1.25rem;
-  transition: box-shadow 0.15s, border-color 0.15s;
+  transition:
+    box-shadow 0.15s,
+    border-color 0.15s;
 }
 .input-field:focus {
   outline: none;

@@ -18,6 +18,9 @@ export default defineConfig({
             if (id.includes('@headlessui') || id.includes('@heroicons')) {
               return 'vendor-ui'
             }
+            if (id.includes('chart.js') || id.includes('vue-chartjs')) {
+              return 'vendor-charts'
+            }
             // Other node_modules go into vendor-libs
             return 'vendor-libs'
           }

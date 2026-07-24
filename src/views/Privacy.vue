@@ -2,7 +2,9 @@
   <div class="min-h-screen bg-gray-50 py-12">
     <div class="container mx-auto px-4">
       <div class="max-w-4xl mx-auto">
-        <h1 class="font-cinzel text-4xl font-bold text-center mb-4 text-gray-800">Privacy Policy</h1>
+        <h1 class="font-cinzel text-4xl font-bold text-center mb-4 text-gray-800">
+          Privacy Policy
+        </h1>
         <p class="text-center text-sm text-gray-500 mb-12">Last updated July 11, 2026</p>
 
         <div class="card-mtg space-y-8">

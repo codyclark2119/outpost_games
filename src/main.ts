@@ -3,6 +3,7 @@ import { createPinia } from 'pinia'
 import { createRouter, createWebHistory } from 'vue-router'
 import './style.css'
 import App from './App.vue'
+import { useAuthStore } from './stores/auth'
 
 // Lazy load views for better performance and code splitting
 // Only Home is eagerly loaded since it's the landing page
@@ -61,6 +62,11 @@ const routes = [
   //   component: () => import('./views/Cart.vue'),
   // },
   {
+    path: '/x/outpostAdmin/login',
+    name: 'AdminLogin',
+    component: () => import('./views/admin/AdminLogin.vue'),
+  },
+  {
     path: '/x/outpostAdmin',
     name: 'AdminDashboard',
     component: () => import('./views/admin/AdminDashboard.vue'),
@@ -95,6 +101,26 @@ const routes = [
     name: 'AdminTCGPlayerAdd',
     component: () => import('./views/admin/AdminTCGPlayerAdd.vue'),
   },
+  {
+    path: '/x/outpostAdmin/square-stock',
+    name: 'AdminSquareStock',
+    component: () => import('./views/admin/AdminSquareStock.vue'),
+  },
+  {
+    path: '/x/outpostAdmin/square-catalog',
+    name: 'AdminSquareCatalog',
+    component: () => import('./views/admin/AdminSquareCatalog.vue'),
+  },
+  {
+    path: '/x/outpostAdmin/square-sales',
+    name: 'AdminSquareSales',
+    component: () => import('./views/admin/AdminSquareSales.vue'),
+  },
+  {
+    path: '/x/outpostAdmin/square-mass-inventory',
+    name: 'AdminSquareMassInventory',
+    component: () => import('./views/admin/AdminSquareMassInventory.vue'),
+  },
 ]
 
 // Create router instance
@@ -109,6 +135,16 @@ const router = createRouter({
 
 // Create Pinia instance
 const pinia = createPinia()
+
+// Gate every admin route behind a login check (except the login page itself)
+router.beforeEach(async to => {
+  if (!to.path.startsWith('/x/outpostAdmin') || to.name === 'AdminLogin') return true
+
+  const auth = useAuthStore(pinia)
+  if (!auth.checked) await auth.initAuth()
+  if (!auth.username) return { name: 'AdminLogin', query: { redirect: to.fullPath } }
+  return true
+})
 
 // Create and mount the Vue app
 const app = createApp(App)

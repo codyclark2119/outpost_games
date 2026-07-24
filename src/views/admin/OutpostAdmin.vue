@@ -16,7 +16,7 @@
                   activeTab === 'events'
                     ? 'border-outpost-navy text-outpost-navy'
                     : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300',
-                  'whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm transition-colors'
+                  'whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm transition-colors',
                 ]"
                 @click="activeTab = 'events'"
               >
@@ -27,7 +27,7 @@
                   activeTab === 'tcgplayer'
                     ? 'border-outpost-navy text-outpost-navy'
                     : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300',
-                  'whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm transition-colors'
+                  'whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm transition-colors',
                 ]"
                 @click="activeTab = 'tcgplayer'"
               >
@@ -39,188 +39,190 @@
 
         <!-- Events Tab -->
         <div v-if="activeTab === 'events'">
-        <!-- Add/Edit Event Form -->
-        <div class="card-mtg mb-8">
-          <h2 class="font-cinzel text-2xl font-bold mb-6 text-gray-800">
-            {{ editingEvent ? 'Edit Event' : 'Add New Event' }}
-          </h2>
-          <form class="space-y-4" @submit.prevent="handleSubmit">
-            <div>
-              <label class="block text-sm font-medium text-gray-700 mb-1">Event Title</label>
-              <input
-                v-model="formData.title"
-                type="text"
-                required
-                class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-outpost-navy focus:border-transparent"
-                placeholder="e.g., Prerelease Tournament"
-              />
-            </div>
-
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <!-- Add/Edit Event Form -->
+          <div class="card-mtg mb-8">
+            <h2 class="font-cinzel text-2xl font-bold mb-6 text-gray-800">
+              {{ editingEvent ? 'Edit Event' : 'Add New Event' }}
+            </h2>
+            <form class="space-y-4" @submit.prevent="handleSubmit">
               <div>
-                <label class="block text-sm font-medium text-gray-700 mb-1">Date</label>
+                <label class="block text-sm font-medium text-gray-700 mb-1">Event Title</label>
                 <input
-                  v-model="formData.dateISO"
-                  type="date"
+                  v-model="formData.title"
+                  type="text"
                   required
                   class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-outpost-navy focus:border-transparent"
+                  placeholder="e.g., Prerelease Tournament"
                 />
               </div>
+
+              <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label class="block text-sm font-medium text-gray-700 mb-1">Date</label>
+                  <input
+                    v-model="formData.dateISO"
+                    type="date"
+                    required
+                    class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-outpost-navy focus:border-transparent"
+                  />
+                </div>
+                <div>
+                  <label class="block text-sm font-medium text-gray-700 mb-1">Time</label>
+                  <select
+                    v-model="formData.time"
+                    required
+                    class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-outpost-navy focus:border-transparent"
+                  >
+                    <option value="" disabled>Select a time</option>
+                    <option v-for="time in timeOptions" :key="time" :value="time">
+                      {{ time }}
+                    </option>
+                  </select>
+                </div>
+              </div>
+
               <div>
-                <label class="block text-sm font-medium text-gray-700 mb-1">Time</label>
+                <label class="block text-sm font-medium text-gray-700 mb-1">Entry Fee</label>
                 <select
-                  v-model="formData.time"
+                  v-model="formData.entry"
                   required
                   class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-outpost-navy focus:border-transparent"
                 >
-                  <option value="" disabled>Select a time</option>
-                  <option v-for="time in timeOptions" :key="time" :value="time">{{ time }}</option>
+                  <option value="" disabled>Select entry fee</option>
+                  <option v-for="fee in entryFeeOptions" :key="fee.value" :value="fee.value">
+                    {{ fee.label }}
+                  </option>
                 </select>
               </div>
-            </div>
 
-            <div>
-              <label class="block text-sm font-medium text-gray-700 mb-1">Entry Fee</label>
-              <select
-                v-model="formData.entry"
-                required
-                class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-outpost-navy focus:border-transparent"
-              >
-                <option value="" disabled>Select entry fee</option>
-                <option v-for="fee in entryFeeOptions" :key="fee.value" :value="fee.value">
-                  {{ fee.label }}
-                </option>
-              </select>
-            </div>
+              <div>
+                <label class="block text-sm font-medium text-gray-700 mb-1">Description</label>
+                <textarea
+                  v-model="formData.description"
+                  required
+                  rows="3"
+                  class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-outpost-navy focus:border-transparent"
+                  placeholder="Event description..."
+                ></textarea>
+              </div>
 
-            <div>
-              <label class="block text-sm font-medium text-gray-700 mb-1">Description</label>
-              <textarea
-                v-model="formData.description"
-                required
-                rows="3"
-                class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-outpost-navy focus:border-transparent"
-                placeholder="Event description..."
-              ></textarea>
-            </div>
+              <div>
+                <label class="block text-sm font-medium text-gray-700 mb-1"
+                  >Associated Set (Optional)</label
+                >
+                <select
+                  v-model="formData.setId"
+                  class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-outpost-navy focus:border-transparent"
+                >
+                  <option v-for="set in setOptions" :key="set.id" :value="set.id">
+                    {{ set.label }}
+                  </option>
+                </select>
+                <p class="text-xs text-gray-500 mt-1">
+                  Select a Magic set to display related images on the Events page
+                </p>
+              </div>
 
-            <div>
-              <label class="block text-sm font-medium text-gray-700 mb-1"
-                >Associated Set (Optional)</label
-              >
-              <select
-                v-model="formData.setId"
-                class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-outpost-navy focus:border-transparent"
-              >
-                <option v-for="set in setOptions" :key="set.id" :value="set.id">
-                  {{ set.label }}
-                </option>
-              </select>
-              <p class="text-xs text-gray-500 mt-1">
-                Select a Magic set to display related images on the Events page
-              </p>
-            </div>
-
-            <div class="flex gap-3">
-              <button
-                type="submit"
-                :disabled="submitting || eventsStore.loading"
-                class="btn-primary disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                {{ submitting ? 'Saving...' : editingEvent ? 'Update Event' : 'Add Event' }}
-              </button>
-              <button
-                v-if="editingEvent"
-                type="button"
-                :disabled="submitting"
-                class="btn-secondary disabled:opacity-50"
-                @click="cancelEdit"
-              >
-                Cancel
-              </button>
-            </div>
-          </form>
-        </div>
-
-        <!-- Events List -->
-        <div class="card-mtg">
-          <div class="flex justify-between items-center mb-6">
-            <h2 class="font-cinzel text-2xl font-bold text-gray-800">
-              Current Events ({{ upcomingEventsFiltered.length }})
-            </h2>
-            <button
-              :disabled="eventsStore.loading"
-              class="text-sm text-red-600 hover:text-red-700 font-medium disabled:opacity-50"
-              aria-label="Reset all events to default values"
-              @click="resetEvents"
-            >
-              Reset to Defaults
-            </button>
-          </div>
-
-          <!-- Loading State -->
-          <div
-            v-if="eventsStore.loading && eventsStore.upcomingEvents.length === 0"
-            class="text-center py-8"
-          >
-            <div
-              class="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-outpost-navy"
-            ></div>
-            <p class="text-gray-500 mt-2">Loading events...</p>
-          </div>
-
-          <!-- Error State -->
-          <div v-else-if="eventsStore.error" class="text-center py-8">
-            <p class="text-red-600 mb-4">{{ eventsStore.error }}</p>
-            <button
-              class="btn-primary"
-              aria-label="Retry loading events"
-              @click="eventsStore.fetchEvents()"
-            >
-              Retry
-            </button>
-          </div>
-
-          <!-- Empty State -->
-          <div
-            v-else-if="upcomingEventsFiltered.length === 0"
-            class="text-center py-8 text-gray-500"
-          >
-            No upcoming events. Add your first event above!
+              <div class="flex gap-3">
+                <button
+                  type="submit"
+                  :disabled="submitting || eventsStore.loading"
+                  class="btn-primary disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {{ submitting ? 'Saving...' : editingEvent ? 'Update Event' : 'Add Event' }}
+                </button>
+                <button
+                  v-if="editingEvent"
+                  type="button"
+                  :disabled="submitting"
+                  class="btn-secondary disabled:opacity-50"
+                  @click="cancelEdit"
+                >
+                  Cancel
+                </button>
+              </div>
+            </form>
           </div>
 
           <!-- Events List -->
-          <div v-else class="space-y-4">
+          <div class="card-mtg">
+            <div class="flex justify-between items-center mb-6">
+              <h2 class="font-cinzel text-2xl font-bold text-gray-800">
+                Current Events ({{ upcomingEventsFiltered.length }})
+              </h2>
+              <button
+                :disabled="eventsStore.loading"
+                class="text-sm text-red-600 hover:text-red-700 font-medium disabled:opacity-50"
+                aria-label="Reset all events to default values"
+                @click="resetEvents"
+              >
+                Reset to Defaults
+              </button>
+            </div>
+
+            <!-- Loading State -->
             <div
-              v-for="event in upcomingEventsFiltered"
-              :key="event.id"
-              class="flex items-start gap-4 p-4 bg-gray-100 rounded-lg"
+              v-if="eventsStore.loading && eventsStore.upcomingEvents.length === 0"
+              class="text-center py-8"
             >
-              <div class="flex-grow">
-                <h3 class="font-semibold text-lg text-gray-800">{{ event.title }}</h3>
-                <p class="text-gray-600 mb-1">{{ event.date }} at {{ event.time }}</p>
-                <p class="text-gray-600 text-sm">{{ event.description }}</p>
-                <p class="text-sm text-gray-500 mt-2">Entry: ${{ event.entry }}</p>
-              </div>
-              <div class="flex flex-col gap-2">
-                <button
-                  class="px-3 py-1 bg-outpost-navy text-white rounded hover:bg-opacity-90 text-sm"
-                  :aria-label="`Edit ${event.title}`"
-                  @click="startEdit(event)"
-                >
-                  Edit
-                </button>
-                <button
-                  class="px-3 py-1 bg-red-600 text-white rounded hover:bg-red-700 text-sm"
-                  :aria-label="`Delete ${event.title}`"
-                  @click="deleteEvent(event.id)"
-                >
-                  Delete
-                </button>
+              <div
+                class="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-outpost-navy"
+              ></div>
+              <p class="text-gray-500 mt-2">Loading events...</p>
+            </div>
+
+            <!-- Error State -->
+            <div v-else-if="eventsStore.error" class="text-center py-8">
+              <p class="text-red-600 mb-4">{{ eventsStore.error }}</p>
+              <button
+                class="btn-primary"
+                aria-label="Retry loading events"
+                @click="eventsStore.fetchEvents()"
+              >
+                Retry
+              </button>
+            </div>
+
+            <!-- Empty State -->
+            <div
+              v-else-if="upcomingEventsFiltered.length === 0"
+              class="text-center py-8 text-gray-500"
+            >
+              No upcoming events. Add your first event above!
+            </div>
+
+            <!-- Events List -->
+            <div v-else class="space-y-4">
+              <div
+                v-for="event in upcomingEventsFiltered"
+                :key="event.id"
+                class="flex items-start gap-4 p-4 bg-gray-100 rounded-lg"
+              >
+                <div class="flex-grow">
+                  <h3 class="font-semibold text-lg text-gray-800">{{ event.title }}</h3>
+                  <p class="text-gray-600 mb-1">{{ event.date }} at {{ event.time }}</p>
+                  <p class="text-gray-600 text-sm">{{ event.description }}</p>
+                  <p class="text-sm text-gray-500 mt-2">Entry: ${{ event.entry }}</p>
+                </div>
+                <div class="flex flex-col gap-2">
+                  <button
+                    class="px-3 py-1 bg-outpost-navy text-white rounded hover:bg-opacity-90 text-sm"
+                    :aria-label="`Edit ${event.title}`"
+                    @click="startEdit(event)"
+                  >
+                    Edit
+                  </button>
+                  <button
+                    class="px-3 py-1 bg-red-600 text-white rounded hover:bg-red-700 text-sm"
+                    :aria-label="`Delete ${event.title}`"
+                    @click="deleteEvent(event.id)"
+                  >
+                    Delete
+                  </button>
+                </div>
               </div>
             </div>
           </div>
-        </div>
         </div>
 
         <!-- TCGPlayer Listings Tab -->

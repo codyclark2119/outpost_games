@@ -94,7 +94,11 @@ See `local-dev/README.md` for details.
 │   │       ├── AdminProducts.vue       # Manage product catalog (tree view)
 │   │       ├── AdminProductsAdd.vue    # Add game types / sets / products
 │   │       ├── AdminTCGPlayerPage.vue  # Manage single card listings
-│   │       └── AdminTCGPlayerAdd.vue   # Add card listing
+│   │       ├── AdminTCGPlayerAdd.vue   # Add card listing
+│   │       ├── AdminSquareCatalog.vue      # Square catalog editor (items/variations/categories/images)
+│   │       ├── AdminSquareStock.vue        # Square stock report (CSV export)
+│   │       ├── AdminSquareSales.vue        # Square sales-over-time charts
+│   │       └── AdminSquareMassInventory.vue # Bulk inventory count corrections
 │   ├── stores/
 │   │   ├── events.ts      # Special events CRUD (Pinia)
 │   │   ├── products.ts    # Product catalog CRUD (Pinia)
@@ -106,7 +110,11 @@ See `local-dev/README.md` for details.
 │   ├── App.vue
 │   └── style.css          # Tailwind + brand theme variables
 ├── api/
-│   └── server.js          # Express API (events, products, TCGPlayer listings)
+│   ├── server.js             # Express API (events, products, TCGPlayer listings, Square routes)
+│   ├── auth.js                # Redis-backed admin session auth
+│   ├── squarePosClient.js     # Square Catalog/Inventory API client
+│   ├── squareOrdersClient.js  # Square Orders API client (sales reporting)
+│   └── scripts/               # Maintenance CLI tools — see "Square POS Catalog Admin" below
 ├── local-dev/             # Docker dev environment
 ├── scripts/               # Deployment utilities
 ├── docs/                  # Deployment documentation
@@ -139,6 +147,10 @@ The admin is intentionally not linked from the public navigation. Access it at:
 | Add Products | `/x/outpostAdmin/products/add` | Add game types, sets, or individual products |
 | Manage Listings | `/x/outpostAdmin/tcgplayer` | Edit/delete featured single card listings |
 | Add Listing | `/x/outpostAdmin/tcgplayer/add` | Add a TCGPlayer card listing |
+| Square Catalog | `/x/outpostAdmin/square-catalog` | Edit Square items/variations, categories, images, deletion |
+| Square Stock Report | `/x/outpostAdmin/square-stock` | Read-only inventory report, CSV export |
+| Square Sales | `/x/outpostAdmin/square-sales` | Sales-over-time chart + top products |
+| Square Mass Inventory | `/x/outpostAdmin/square-mass-inventory` | Bulk on-hand count corrections in one save |
 
 ---
 
@@ -159,6 +171,31 @@ Seeded on first run with all current Magic sets (see `api/server.js` `DEFAULT_CA
 
 ---
 
+## Square POS Catalog Admin
+
+A separate system from the manual product catalog above — this talks directly to the shop's real Square point-of-sale account (catalog + inventory + sales), not the site's own Redis-backed `outpost:products` tree. It's admin-only today (see the four `/x/outpostAdmin/square-*` routes in the table above) and isn't wired into any public page.
+
+**Sandbox vs. production**: every Square call is routed by `SQUARE_ENV` (`sandbox` or `production`) through `api/squarePosClient.js`'s `resolveSquareCredentials()`, which picks the matching pair of access token / application ID / location ID env vars below. Always test destructive changes against `SQUARE_ENV=sandbox` first.
+
+**What the item-level fields actually do** (confirmed against a live Square account, not just docs):
+- `track_inventory` — whether Square keeps an on-hand count for a variation at all. Off means "always in stock, no count."
+- `sellable` — whether the variation can be rung up at the register. Used to mark draft/not-yet-released items (see WotC import script below) as visible-but-unpurchasable.
+- `ecom_visibility` — **has no effect on this website or the physical POS.** It only controls visibility on Square's own optional online store, which this shop doesn't use. Safe to leave alone.
+
+### Maintenance scripts (`api/scripts/`)
+
+All follow the same convention: **preview by default, `--apply` to actually write.** Run from `api/`.
+
+| Script | Command | Purpose |
+|---|---|---|
+| Sandbox sync | `npm run sync:sandbox -- --apply [--with-inventory]` | Wipes and recreates the sandbox catalog from a snapshot of production, for safe testing. `--with-inventory` also copies production on-hand counts into sandbox (otherwise every synced item starts at 0) — use it to validate inventory-display changes against realistic numbers before running scripts/routes against production |
+| WotC SKU cross-reference | `npm run wotc:cross-reference -- <file.xlsx> [--create-drafts [--sellable]] [--update-existing] [--category "<Name>"]` | Cross-references a WPN/WotC set SKU sheet against the Square catalog: reports exact/possible matches and anything new; `--create-drafts` creates missing items as hidden, non-sellable drafts (add `--sellable` for a set that's already available to sell in-store, so new items go live instead); `--update-existing` corrects matched items' title/description/category to the sheet's official values |
+| Reset negative inventory | `npm run inventory:reset-negative [-- --apply]` | Finds every variation with a negative on-hand count and sets it to 0 |
+
+Drop downloaded WotC set xlsx files into `api/data/wotc-imports/` (gitignored) before running the cross-reference script — that folder exists specifically so these working files don't get committed.
+
+---
+
 ## Environment Variables
 
 Copy `.env.example` to `.env` and fill in values:
@@ -169,6 +206,14 @@ Copy `.env.example` to `.env` and fill in values:
 | `REDIS_URL` | Redis connection string | `redis://redis:6379` |
 | `PORT` | API server port | `3001` |
 | `NODE_ENV` | Environment | `production` |
+| `SQUARE_ENV` | Which Square credential pair to use: `sandbox` or `production` | `sandbox` |
+| `SQUARE_ACCESS_TOKEN` | Production Square access token | — |
+| `SQUARE_APPLICATION_ID` | Production Square application ID | — |
+| `SQUARE_LOCATION_ID` | Production Square location ID | — |
+| `SQUARE_SANDBOX_ACCESS_TOKEN` | Sandbox Square access token | — |
+| `SQUARE_SANDBOX_APPLICATION_ID` | Sandbox Square application ID | — |
+| `SQUARE_SANDBOX_LOCATION_ID` | Sandbox Square location ID (falls back to `SQUARE_LOCATION_ID` if unset) | — |
+| `ADMIN_USERS` | JSON array of `{ username, passwordHash }` for admin login (bcrypt hashes) | — |
 
 For production on Upstash, use a `rediss://` URL (TLS is auto-detected from `upstash.io` in the hostname).
 

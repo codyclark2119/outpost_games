@@ -2,7 +2,6 @@
   <div class="min-h-screen bg-gray-50 py-12">
     <div class="container mx-auto px-4">
       <div class="max-w-2xl mx-auto">
-
         <!-- Header -->
         <div class="flex justify-between items-center mb-8">
           <div>
@@ -16,29 +15,51 @@
 
         <!-- Success banner -->
         <transition name="slide-down">
-          <div v-if="successMsg" class="mb-5 bg-green-50 border border-green-200 rounded-xl px-5 py-3 text-green-700 font-medium">
+          <div
+            v-if="successMsg"
+            class="mb-5 bg-green-50 border border-green-200 rounded-xl px-5 py-3 text-green-700 font-medium"
+          >
             ✓ {{ successMsg }}
           </div>
         </transition>
 
         <!-- Form -->
         <form class="card-mtg space-y-5" @submit.prevent="handleSubmit">
-
           <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
               <label class="block text-sm font-medium text-gray-700 mb-1">Card Name *</label>
-              <input v-model="form.name" type="text" required class="input-field" placeholder="e.g., Lightning Bolt" />
+              <input
+                v-model="form.name"
+                type="text"
+                required
+                class="input-field"
+                placeholder="e.g., Lightning Bolt"
+              />
             </div>
             <div>
               <label class="block text-sm font-medium text-gray-700 mb-1">Set Name *</label>
-              <input v-model="form.setName" type="text" required class="input-field" placeholder="e.g., Modern Masters 2015" />
+              <input
+                v-model="form.setName"
+                type="text"
+                required
+                class="input-field"
+                placeholder="e.g., Modern Masters 2015"
+              />
             </div>
           </div>
 
           <div class="grid grid-cols-3 gap-3">
             <div>
               <label class="block text-sm font-medium text-gray-700 mb-1">Price ($) *</label>
-              <input v-model.number="form.price" type="number" step="0.01" min="0" required class="input-field" placeholder="0.00" />
+              <input
+                v-model.number="form.price"
+                type="number"
+                step="0.01"
+                min="0"
+                required
+                class="input-field"
+                placeholder="0.00"
+              />
             </div>
             <div>
               <label class="block text-sm font-medium text-gray-700 mb-1">Condition *</label>
@@ -62,26 +83,68 @@
 
           <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
-              <label class="block text-sm font-medium text-gray-700 mb-1">Quantity in Stock *</label>
-              <input v-model.number="form.quantityInStock" type="number" min="0" required class="input-field" placeholder="1" />
+              <label class="block text-sm font-medium text-gray-700 mb-1"
+                >Quantity in Stock *</label
+              >
+              <input
+                v-model.number="form.quantityInStock"
+                type="number"
+                min="0"
+                required
+                class="input-field"
+                placeholder="1"
+              />
             </div>
             <div>
-              <label class="block text-sm font-medium text-gray-700 mb-1">Price Display <span class="text-gray-400">(Optional)</span></label>
-              <input v-model="form.priceDisplay" type="text" class="input-field" placeholder='Leave blank to show actual price' />
+              <label class="block text-sm font-medium text-gray-700 mb-1"
+                >Price Display <span class="text-gray-400">(Optional)</span></label
+              >
+              <input
+                v-model="form.priceDisplay"
+                type="text"
+                class="input-field"
+                placeholder="Leave blank to show actual price"
+              />
               <p class="text-xs text-gray-400 mt-1">Override e.g. "See TCGPlayer"</p>
             </div>
           </div>
 
           <div>
-            <label class="block text-sm font-medium text-gray-700 mb-1">Card Image URL <span class="text-gray-400">(Scryfall)</span></label>
-            <input v-model="form.imageUrl" type="url" class="input-field" placeholder="https://cards.scryfall.io/normal/front/..." />
-            <p class="text-xs text-gray-400 mt-1">Find the card on <a href="https://scryfall.com" target="_blank" class="text-outpost-navy underline">scryfall.com</a> and copy the image URL</p>
-            <img v-if="form.imageUrl" :src="form.imageUrl" alt="preview" class="mt-2 h-24 object-contain no-hover" />
+            <label class="block text-sm font-medium text-gray-700 mb-1"
+              >Card Image URL <span class="text-gray-400">(Scryfall)</span></label
+            >
+            <input
+              v-model="form.imageUrl"
+              type="url"
+              class="input-field"
+              placeholder="https://cards.scryfall.io/normal/front/..."
+            />
+            <p class="text-xs text-gray-400 mt-1">
+              Find the card on
+              <a href="https://scryfall.com" target="_blank" class="text-outpost-navy underline"
+                >scryfall.com</a
+              >
+              and copy the image URL
+            </p>
+            <img
+              v-if="form.imageUrl"
+              :src="form.imageUrl"
+              alt="preview"
+              class="mt-2 h-24 object-contain no-hover"
+            />
           </div>
 
           <div>
-            <label class="block text-sm font-medium text-gray-700 mb-1">TCGPlayer Product URL *</label>
-            <input v-model="form.productUrl" type="url" required class="input-field" placeholder="https://www.tcgplayer.com/product/..." />
+            <label class="block text-sm font-medium text-gray-700 mb-1"
+              >TCGPlayer Product URL *</label
+            >
+            <input
+              v-model="form.productUrl"
+              type="url"
+              required
+              class="input-field"
+              placeholder="https://www.tcgplayer.com/product/..."
+            />
           </div>
 
           <div v-if="formError" class="text-red-600 text-sm">{{ formError }}</div>
@@ -92,7 +155,6 @@
             </button>
           </div>
         </form>
-
       </div>
     </div>
   </div>
@@ -156,7 +218,9 @@ const handleSubmit = async () => {
     resetForm()
     successMsg.value = `"${name}" added successfully.`
     if (successTimer) clearTimeout(successTimer)
-    successTimer = setTimeout(() => { successMsg.value = '' }, 4000)
+    successTimer = setTimeout(() => {
+      successMsg.value = ''
+    }, 4000)
   } catch (e) {
     formError.value = e instanceof Error ? e.message : 'Failed to add listing'
   } finally {
@@ -173,7 +237,9 @@ const handleSubmit = async () => {
   border-radius: 0.5rem;
   font-size: 0.875rem;
   line-height: 1.25rem;
-  transition: box-shadow 0.15s, border-color 0.15s;
+  transition:
+    box-shadow 0.15s,
+    border-color 0.15s;
 }
 .input-field:focus {
   outline: none;

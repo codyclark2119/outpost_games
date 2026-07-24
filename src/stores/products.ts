@@ -109,7 +109,10 @@ export const useProductsStore = defineStore('products', () => {
     const updated: ProductSet = await response.json()
     for (const type of catalog.value.types) {
       const target = type.sets.find(s => s.id === setId)
-      if (target) { Object.assign(target, updated); break }
+      if (target) {
+        Object.assign(target, updated)
+        break
+      }
     }
     return updated
   }
@@ -125,7 +128,7 @@ export const useProductsStore = defineStore('products', () => {
   // Products
   const addProduct = async (
     setId: string,
-    data: { name: string; description?: string; price?: number | null; imageUrl?: string },
+    data: { name: string; description?: string; price?: number | null; imageUrl?: string }
   ) => {
     const response = await fetch(`${API_BASE_URL}/products/sets/${setId}/products`, {
       method: 'POST',
@@ -136,7 +139,10 @@ export const useProductsStore = defineStore('products', () => {
     const newProduct: SetProduct = await response.json()
     for (const type of catalog.value.types) {
       const set = type.sets.find(s => s.id === setId)
-      if (set) { set.products.push(newProduct); break }
+      if (set) {
+        set.products.push(newProduct)
+        break
+      }
     }
     return newProduct
   }
@@ -152,7 +158,10 @@ export const useProductsStore = defineStore('products', () => {
     for (const type of catalog.value.types) {
       for (const set of type.sets) {
         const target = set.products.find(p => p.id === itemId)
-        if (target) { Object.assign(target, updated); return updated }
+        if (target) {
+          Object.assign(target, updated)
+          return updated
+        }
       }
     }
     return updated

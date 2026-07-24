@@ -111,7 +111,11 @@
             placeholder="https://cards.scryfall.io/normal/front/..."
           />
           <p class="text-xs text-gray-500 mt-1">
-            Find card on <a href="https://scryfall.com" target="_blank" class="text-outpost-navy hover:underline">Scryfall.com</a> and copy the image URL
+            Find card on
+            <a href="https://scryfall.com" target="_blank" class="text-outpost-navy hover:underline"
+              >Scryfall.com</a
+            >
+            and copy the image URL
           </p>
         </div>
 
@@ -206,7 +210,7 @@
               <p class="text-sm text-gray-600 truncate" :title="card.setName">{{ card.setName }}</p>
               <div class="mt-2 space-y-1">
                 <p class="text-xs text-gray-500">
-                  <span class="font-medium">{{ card.foiling }}</span> / 
+                  <span class="font-medium">{{ card.foiling }}</span> /
                   <span class="font-medium">{{ card.condition }}</span>
                 </p>
                 <p class="text-lg font-bold text-gray-900">

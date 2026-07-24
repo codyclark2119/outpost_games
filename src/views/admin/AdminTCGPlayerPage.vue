@@ -2,7 +2,6 @@
   <div class="min-h-screen bg-gray-50 py-12">
     <div class="container mx-auto px-4">
       <div class="max-w-6xl mx-auto">
-
         <!-- Header -->
         <div class="flex flex-wrap justify-between items-center mb-8 gap-4">
           <div>
@@ -21,7 +20,9 @@
 
         <!-- Loading -->
         <div v-if="loading && listings.length === 0" class="text-center py-16">
-          <div class="inline-block animate-spin rounded-full h-10 w-10 border-b-2 border-outpost-gold"></div>
+          <div
+            class="inline-block animate-spin rounded-full h-10 w-10 border-b-2 border-outpost-gold"
+          ></div>
           <p class="mt-4 text-gray-600">Loading listings…</p>
         </div>
 
@@ -34,7 +35,9 @@
         <template v-else>
           <!-- Count + clear all -->
           <div class="flex justify-between items-center mb-4">
-            <p class="text-gray-600 text-sm">{{ listings.length }} listing{{ listings.length !== 1 ? 's' : '' }}</p>
+            <p class="text-gray-600 text-sm">
+              {{ listings.length }} listing{{ listings.length !== 1 ? 's' : '' }}
+            </p>
             <button
               v-if="listings.length > 0"
               class="text-sm text-red-500 hover:text-red-700 font-medium transition-colors"
@@ -65,16 +68,21 @@
                   :src="card.imageUrl"
                   :alt="card.name"
                   class="h-32 object-contain no-hover"
-                  @error="(e) => ((e.target as HTMLImageElement).style.display = 'none')"
+                  @error="e => ((e.target as HTMLImageElement).style.display = 'none')"
                 />
               </div>
-              <div v-else class="h-20 bg-gray-100 flex items-center justify-center text-gray-300 text-sm">
+              <div
+                v-else
+                class="h-20 bg-gray-100 flex items-center justify-center text-gray-300 text-sm"
+              >
                 No image
               </div>
 
               <!-- Info -->
               <div class="p-3 flex flex-col flex-grow">
-                <h3 class="font-bold text-gray-900 text-sm leading-tight mb-0.5 line-clamp-2">{{ card.name }}</h3>
+                <h3 class="font-bold text-gray-900 text-sm leading-tight mb-0.5 line-clamp-2">
+                  {{ card.name }}
+                </h3>
                 <p class="text-xs text-gray-500 mb-2 line-clamp-1">{{ card.setName }}</p>
                 <div class="flex items-center gap-2 mb-3">
                   <span
@@ -92,7 +100,9 @@
                 </div>
                 <p class="font-bold text-gray-900 mt-auto mb-3">
                   {{ card.priceDisplay || `$${card.price.toFixed(2)}` }}
-                  <span class="text-xs font-normal text-gray-400 ml-1">· {{ card.quantityInStock }} in stock</span>
+                  <span class="text-xs font-normal text-gray-400 ml-1"
+                    >· {{ card.quantityInStock }} in stock</span
+                  >
                 </p>
                 <div class="flex gap-2">
                   <button
@@ -112,7 +122,6 @@
             </div>
           </div>
         </template>
-
       </div>
     </div>
 
@@ -124,7 +133,10 @@
           class="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4"
           @click.self="closeEdit"
         >
-          <div class="bg-white rounded-2xl shadow-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto" @click.stop>
+          <div
+            class="bg-white rounded-2xl shadow-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto"
+            @click.stop
+          >
             <div class="p-6">
               <h2 class="font-cinzel text-xl font-bold mb-5 text-gray-800">Edit Listing</h2>
 
@@ -143,7 +155,14 @@
                 <div class="grid grid-cols-3 gap-3">
                   <div>
                     <label class="block text-sm font-medium text-gray-700 mb-1">Price ($) *</label>
-                    <input v-model.number="editForm.price" type="number" step="0.01" min="0" required class="input-field" />
+                    <input
+                      v-model.number="editForm.price"
+                      type="number"
+                      step="0.01"
+                      min="0"
+                      required
+                      class="input-field"
+                    />
                   </div>
                   <div>
                     <label class="block text-sm font-medium text-gray-700 mb-1">Condition *</label>
@@ -168,29 +187,58 @@
                 <div class="grid grid-cols-2 gap-4">
                   <div>
                     <label class="block text-sm font-medium text-gray-700 mb-1">Quantity *</label>
-                    <input v-model.number="editForm.quantityInStock" type="number" min="0" required class="input-field" />
+                    <input
+                      v-model.number="editForm.quantityInStock"
+                      type="number"
+                      min="0"
+                      required
+                      class="input-field"
+                    />
                   </div>
                   <div>
-                    <label class="block text-sm font-medium text-gray-700 mb-1">Price Display</label>
-                    <input v-model="editForm.priceDisplay" type="text" class="input-field" placeholder="e.g., See TCGPlayer" />
+                    <label class="block text-sm font-medium text-gray-700 mb-1"
+                      >Price Display</label
+                    >
+                    <input
+                      v-model="editForm.priceDisplay"
+                      type="text"
+                      class="input-field"
+                      placeholder="e.g., See TCGPlayer"
+                    />
                   </div>
                 </div>
 
                 <div>
-                  <label class="block text-sm font-medium text-gray-700 mb-1">Image URL (Scryfall)</label>
-                  <input v-model="editForm.imageUrl" type="url" class="input-field" placeholder="https://cards.scryfall.io/..." />
-                  <img v-if="editForm.imageUrl" :src="editForm.imageUrl" alt="preview" class="mt-2 h-20 object-contain no-hover" />
+                  <label class="block text-sm font-medium text-gray-700 mb-1"
+                    >Image URL (Scryfall)</label
+                  >
+                  <input
+                    v-model="editForm.imageUrl"
+                    type="url"
+                    class="input-field"
+                    placeholder="https://cards.scryfall.io/..."
+                  />
+                  <img
+                    v-if="editForm.imageUrl"
+                    :src="editForm.imageUrl"
+                    alt="preview"
+                    class="mt-2 h-20 object-contain no-hover"
+                  />
                 </div>
 
                 <div>
-                  <label class="block text-sm font-medium text-gray-700 mb-1">TCGPlayer Product URL *</label>
+                  <label class="block text-sm font-medium text-gray-700 mb-1"
+                    >TCGPlayer Product URL *</label
+                  >
                   <input v-model="editForm.productUrl" type="url" required class="input-field" />
                 </div>
 
                 <div v-if="editError" class="text-red-600 text-sm">{{ editError }}</div>
 
                 <div class="flex gap-3 justify-end pt-2">
-                  <button type="button" class="btn-secondary px-5 py-2" @click="closeEdit">Cancel</button>
+                  <button type="button" class="btn-secondary px-5 py-2" @click="closeEdit">
+                    Cancel
+                  </button>
                   <button type="submit" class="btn-primary px-5 py-2" :disabled="saving">
                     {{ saving ? 'Saving…' : 'Save Changes' }}
                   </button>
@@ -212,9 +260,13 @@
         >
           <div class="bg-white rounded-2xl shadow-2xl w-full max-w-sm p-6 text-center" @click.stop>
             <h2 class="font-cinzel text-lg font-bold mb-2 text-gray-800">Delete Listing?</h2>
-            <p class="text-gray-600 text-sm mb-6">"{{ deleteModal.name }}" will be permanently removed.</p>
+            <p class="text-gray-600 text-sm mb-6">
+              "{{ deleteModal.name }}" will be permanently removed.
+            </p>
             <div class="flex gap-3 justify-center">
-              <button class="btn-secondary px-5 py-2" @click="deleteModal.open = false">Cancel</button>
+              <button class="btn-secondary px-5 py-2" @click="deleteModal.open = false">
+                Cancel
+              </button>
               <button
                 class="bg-red-500 hover:bg-red-600 text-white font-semibold px-5 py-2 rounded-lg transition-colors"
                 :disabled="saving"
@@ -271,8 +323,15 @@ const fetchListings = async () => {
 // ── Edit modal ────────────────────────────────────────────────────────────────
 const editModal = reactive({ open: false, id: '' })
 const editForm = reactive({
-  name: '', setName: '', price: 0, condition: 'NM', foiling: 'Normal',
-  quantityInStock: 1, priceDisplay: '', imageUrl: '', productUrl: '',
+  name: '',
+  setName: '',
+  price: 0,
+  condition: 'NM',
+  foiling: 'Normal',
+  quantityInStock: 1,
+  priceDisplay: '',
+  imageUrl: '',
+  productUrl: '',
 })
 const editError = ref('')
 
@@ -291,7 +350,9 @@ const openEdit = (card: CardListing) => {
   editModal.open = true
 }
 
-const closeEdit = () => { editModal.open = false }
+const closeEdit = () => {
+  editModal.open = false
+}
 
 const saveEdit = async () => {
   saving.value = true
@@ -360,7 +421,9 @@ onMounted(fetchListings)
   border-radius: 0.5rem;
   font-size: 0.875rem;
   line-height: 1.25rem;
-  transition: box-shadow 0.15s, border-color 0.15s;
+  transition:
+    box-shadow 0.15s,
+    border-color 0.15s;
 }
 .input-field:focus {
   outline: none;

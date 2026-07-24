@@ -3,15 +3,21 @@
     <div class="container mx-auto px-4">
       <div class="max-w-6xl mx-auto">
         <div class="text-center mb-12 hero-content">
-          <h1 class="font-cinzel text-4xl md:text-5xl font-bold mb-4 text-gray-800 section-heading inline-block">
+          <h1
+            class="font-cinzel text-4xl md:text-5xl font-bold mb-4 text-gray-800 section-heading inline-block"
+          >
             Events & Tournaments
           </h1>
           <p class="text-gray-600 text-lg">Join us for weekly battles and special tournaments</p>
         </div>
 
         <!-- Weekly Schedule -->
-        <h2 class="font-cinzel text-2xl font-bold text-center mb-2 text-gray-800">Weekly Schedule</h2>
-        <p class="text-center text-gray-500 text-sm mb-8">These events run every week. No signup required.</p>
+        <h2 class="font-cinzel text-2xl font-bold text-center mb-2 text-gray-800">
+          Weekly Schedule
+        </h2>
+        <p class="text-center text-gray-500 text-sm mb-8">
+          These events run every week. No signup required.
+        </p>
 
         <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-16">
           <div
@@ -22,46 +28,71 @@
           >
             <!-- Recurring badge -->
             <div class="flex justify-center mb-3">
-              <span class="inline-flex items-center gap-1 text-xs font-semibold px-2.5 py-1 rounded-full bg-outpost-gold/15 text-outpost-gold-dark border border-outpost-gold/30">
+              <span
+                class="inline-flex items-center gap-1 text-xs font-semibold px-2.5 py-1 rounded-full bg-outpost-gold/15 text-outpost-gold-dark border border-outpost-gold/30"
+              >
                 <svg class="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
-                  <path fill-rule="evenodd" d="M4 2a1 1 0 011 1v2.101a7.002 7.002 0 0111.601 2.566 1 1 0 11-1.885.666A5.002 5.002 0 005.999 7H9a1 1 0 010 2H4a1 1 0 01-1-1V3a1 1 0 011-1zm.008 9.057a1 1 0 011.276.61A5.002 5.002 0 0014.001 13H11a1 1 0 110-2h5a1 1 0 011 1v5a1 1 0 11-2 0v-2.101a7.002 7.002 0 01-11.601-2.566 1 1 0 01.61-1.276z" clip-rule="evenodd" />
+                  <path
+                    fill-rule="evenodd"
+                    d="M4 2a1 1 0 011 1v2.101a7.002 7.002 0 0111.601 2.566 1 1 0 11-1.885.666A5.002 5.002 0 005.999 7H9a1 1 0 010 2H4a1 1 0 01-1-1V3a1 1 0 011-1zm.008 9.057a1 1 0 011.276.61A5.002 5.002 0 0014.001 13H11a1 1 0 110-2h5a1 1 0 011 1v5a1 1 0 11-2 0v-2.101a7.002 7.002 0 01-11.601-2.566 1 1 0 01.61-1.276z"
+                    clip-rule="evenodd"
+                  />
                 </svg>
                 Recurring Weekly
               </span>
             </div>
 
-            <div class="w-16 h-16 bg-gradient-to-br from-outpost-navy to-outpost-navy-light rounded-full flex items-center justify-center mx-auto mb-4 shadow-lg group-hover:shadow-outpost-gold/50 transition-all duration-300 group-hover:scale-110">
+            <div
+              class="w-16 h-16 bg-gradient-to-br from-outpost-navy to-outpost-navy-light rounded-full flex items-center justify-center mx-auto mb-4 shadow-lg group-hover:shadow-outpost-gold/50 transition-all duration-300 group-hover:scale-110"
+            >
               <CalendarDaysIcon class="w-8 h-8 text-outpost-gold" />
             </div>
-            <h3 class="font-cinzel font-semibold text-xl mb-2 text-outpost-navy">{{ event.day }}</h3>
+            <h3 class="font-cinzel font-semibold text-xl mb-2 text-outpost-navy">
+              {{ event.day }}
+            </h3>
             <p class="text-gray-800 font-medium text-lg mb-2">{{ event.event }}</p>
             <p class="text-outpost-gold font-semibold mb-2">{{ event.time }}</p>
             <p class="text-gray-600 text-sm mt-2">{{ event.description }}</p>
 
             <!-- Game type badge -->
             <div class="mt-3 flex justify-center">
-              <span class="inline-block text-xs px-2.5 py-1 rounded-full bg-outpost-navy/10 text-outpost-navy font-medium">
+              <span
+                class="inline-block text-xs px-2.5 py-1 rounded-full bg-outpost-navy/10 text-outpost-navy font-medium"
+              >
                 {{ event.gameType }}
               </span>
             </div>
 
-            <div class="absolute inset-0 bg-gradient-to-br from-outpost-gold/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300 rounded-xl pointer-events-none"></div>
+            <div
+              class="absolute inset-0 bg-gradient-to-br from-outpost-gold/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300 rounded-xl pointer-events-none"
+            ></div>
           </div>
         </div>
 
         <!-- Upcoming Special Events -->
         <div class="card-mtg relative overflow-hidden special-events-card">
-          <div class="absolute top-0 left-0 w-20 h-20 bg-gradient-to-br from-outpost-gold/20 to-transparent rounded-br-full"></div>
-          <div class="absolute bottom-0 right-0 w-20 h-20 bg-gradient-to-tl from-outpost-gold/20 to-transparent rounded-tl-full"></div>
+          <div
+            class="absolute top-0 left-0 w-20 h-20 bg-gradient-to-br from-outpost-gold/20 to-transparent rounded-br-full"
+          ></div>
+          <div
+            class="absolute bottom-0 right-0 w-20 h-20 bg-gradient-to-tl from-outpost-gold/20 to-transparent rounded-tl-full"
+          ></div>
 
           <div class="relative z-10">
-            <h2 class="font-cinzel text-2xl font-bold mb-6 text-gray-800">Upcoming Special Events</h2>
+            <h2 class="font-cinzel text-2xl font-bold mb-6 text-gray-800">
+              Upcoming Special Events
+            </h2>
 
             <div v-if="eventsStore.loading" class="text-center py-8">
-              <div class="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-outpost-navy"></div>
+              <div
+                class="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-outpost-navy"
+              ></div>
             </div>
 
-            <div v-else-if="eventsStore.upcomingEvents.length === 0" class="text-center py-8 text-gray-500">
+            <div
+              v-else-if="eventsStore.upcomingEvents.length === 0"
+              class="text-center py-8 text-gray-500"
+            >
               No upcoming special events right now. Check back soon!
             </div>
 
@@ -73,7 +104,9 @@
                 :style="{ animationDelay: `${index * 0.1}s` }"
               >
                 <!-- Icon / game type indicator -->
-                <div class="flex-shrink-0 w-12 h-12 rounded-lg bg-gradient-to-br from-outpost-gold to-outpost-gold-dark flex items-center justify-center shadow-md">
+                <div
+                  class="flex-shrink-0 w-12 h-12 rounded-lg bg-gradient-to-br from-outpost-gold to-outpost-gold-dark flex items-center justify-center shadow-md"
+                >
                   <CalendarDaysIcon class="w-6 h-6 text-white" />
                 </div>
 
@@ -89,7 +122,9 @@
                       {{ event.gameTypeName }}
                     </span>
                   </div>
-                  <p class="text-outpost-gold font-medium mb-1">{{ event.date }} at {{ event.time }}</p>
+                  <p class="text-outpost-gold font-medium mb-1">
+                    {{ event.date }} at {{ event.time }}
+                  </p>
                   <p class="text-gray-600 text-sm">{{ event.description }}</p>
                 </div>
 
@@ -101,7 +136,6 @@
             </div>
           </div>
         </div>
-
       </div>
     </div>
   </div>
@@ -152,10 +186,14 @@ const weeklyEvents = [
 // Color map for known game type IDs
 const gameTypeBadgeClass = (gameTypeId?: string): string => {
   switch (gameTypeId) {
-    case 'magic':      return 'bg-outpost-navy/10 text-outpost-navy'
-    case 'pokemon':    return 'bg-yellow-100 text-yellow-800'
-    case 'one-piece':  return 'bg-red-100 text-red-700'
-    default:           return 'bg-gray-100 text-gray-700'
+    case 'magic':
+      return 'bg-outpost-navy/10 text-outpost-navy'
+    case 'pokemon':
+      return 'bg-yellow-100 text-yellow-800'
+    case 'one-piece':
+      return 'bg-red-100 text-red-700'
+    default:
+      return 'bg-gray-100 text-gray-700'
   }
 }
 </script>
@@ -183,13 +221,23 @@ const gameTypeBadgeClass = (gameTypeId?: string): string => {
 }
 
 @keyframes expandWidth {
-  from { width: 0% }
-  to { width: 60% }
+  from {
+    width: 0%;
+  }
+  to {
+    width: 60%;
+  }
 }
 
 @keyframes fadeInUp {
-  from { opacity: 0; transform: translate3d(0, 30px, 0) }
-  to { opacity: 1; transform: translate3d(0, 0, 0) }
+  from {
+    opacity: 0;
+    transform: translate3d(0, 30px, 0);
+  }
+  to {
+    opacity: 1;
+    transform: translate3d(0, 0, 0);
+  }
 }
 
 .event-card {
@@ -202,7 +250,9 @@ const gameTypeBadgeClass = (gameTypeId?: string): string => {
 }
 
 @media (prefers-reduced-motion: reduce) {
-  *, *::before, *::after {
+  *,
+  *::before,
+  *::after {
     animation-duration: 0.01ms !important;
     transition-duration: 0.01ms !important;
   }

@@ -52,7 +52,9 @@
           </section>
 
           <section>
-            <h2 class="font-cinzel text-xl font-bold mb-2 text-gray-800">5. Intellectual Property</h2>
+            <h2 class="font-cinzel text-xl font-bold mb-2 text-gray-800">
+              5. Intellectual Property
+            </h2>
             <p class="text-gray-600 mb-3">
               Site content, branding, and design belong to The Outpost Games unless otherwise noted.
             </p>
@@ -75,7 +77,9 @@
           </section>
 
           <section>
-            <h2 class="font-cinzel text-xl font-bold mb-2 text-gray-800">7. Changes to These Terms</h2>
+            <h2 class="font-cinzel text-xl font-bold mb-2 text-gray-800">
+              7. Changes to These Terms
+            </h2>
             <p class="text-gray-600">
               We may update these Terms from time to time. Continued use of the site after changes
               are posted means you accept the updated Terms.
