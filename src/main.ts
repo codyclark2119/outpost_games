@@ -1,6 +1,7 @@
 import { createApp } from 'vue'
 import { createPinia } from 'pinia'
 import { createRouter, createWebHistory } from 'vue-router'
+import { createHead } from '@unhead/vue/client'
 import './style.css'
 import App from './App.vue'
 import { useAuthStore } from './stores/auth'
@@ -31,16 +32,10 @@ const routes = [
     name: 'Events',
     component: () => import('./views/Events.vue'),
   },
-  {
-    path: '/about',
-    name: 'About',
-    component: () => import('./views/About.vue'),
-  },
-  {
-    path: '/contact',
-    name: 'Contact',
-    component: () => import('./views/Contact.vue'),
-  },
+  // About/Contact folded into the single-page Home as anchor sections —
+  // redirect old bookmarks/inbound links rather than 404 them.
+  { path: '/about', redirect: () => ({ path: '/', hash: '#about' }) },
+  { path: '/contact', redirect: () => ({ path: '/', hash: '#contact' }) },
   {
     path: '/terms',
     name: 'Terms',
@@ -80,6 +75,16 @@ const routes = [
     path: '/x/outpostAdmin/events/add',
     name: 'AdminEventsAdd',
     component: () => import('./views/admin/AdminEventsAdd.vue'),
+  },
+  {
+    path: '/x/outpostAdmin/featured-items',
+    name: 'AdminFeaturedItems',
+    component: () => import('./views/admin/AdminFeaturedItems.vue'),
+  },
+  {
+    path: '/x/outpostAdmin/featured-items/add',
+    name: 'AdminFeaturedItemsAdd',
+    component: () => import('./views/admin/AdminFeaturedItemsAdd.vue'),
   },
   {
     path: '/x/outpostAdmin/products',
@@ -127,8 +132,11 @@ const routes = [
 const router = createRouter({
   history: createWebHistory(),
   routes,
-  scrollBehavior() {
-    // Always scroll to top on navigation
+  scrollBehavior(to, _from, savedPosition) {
+    // A hash target means in-page section navigation — let useSectionNav's
+    // manual scrollIntoView own it instead of racing against this.
+    if (to.hash) return false
+    if (savedPosition) return savedPosition
     return { top: 0, behavior: 'smooth' }
   },
 })
@@ -147,7 +155,9 @@ router.beforeEach(async to => {
 })
 
 // Create and mount the Vue app
+const head = createHead()
 const app = createApp(App)
 app.use(pinia)
 app.use(router)
+app.use(head)
 app.mount('#app')

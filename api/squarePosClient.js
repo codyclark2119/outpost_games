@@ -9,6 +9,44 @@ const PLACEHOLDER_VALUES = new Set(['YOUR_LOCATION_ID', 'YOUR_ACCESS_TOKEN', 'YO
 const CATALOG_PAGE_SAFETY_CAP = 200
 const INVENTORY_BATCH_SIZE = 100
 
+// Square's Catalog API has no built-in "cost of goods" field on a variation —
+// confirmed against a live account, not just docs (no such field appears on
+// item_variation_data). A CatalogCustomAttributeDefinition (type NUMBER,
+// scoped to ITEM_VARIATION, name "Unit Cost") was created once for this via
+// a direct API call — see README's "Square POS Catalog Admin" section — and
+// is referenced here purely by its `key`, which Square resolves to the
+// definition automatically on writes (no definition id needed, confirmed
+// live: a write with only `key`+`type`+`number_value` round-trips fine).
+const COST_ATTRIBUTE_KEY = 'outpost_unit_cost'
+
+// Reads the unit cost off a raw ITEM_VARIATION catalog object (present at the
+// object's top level, both from bulk /v2/catalog/list and single-object
+// retrieve — confirmed live on this account). Square stores NUMBER custom
+// attributes as a string; returns cents (integer) or null if never set.
+const readCostCents = rawVariationObject => {
+  const raw = rawVariationObject.custom_attribute_values?.[COST_ATTRIBUTE_KEY]?.number_value
+  if (raw == null) return null
+  const dollars = Number(raw)
+  return Number.isFinite(dollars) ? Math.round(dollars * 100) : null
+}
+
+// Builds the custom_attribute_values map to upsert for a given cost — pass
+// costCents: null to clear it (an empty map entirely omits the key, which
+// Square treats as "not set" the same as it never having been written).
+const buildCostAttributeValues = (existing, costCents) => {
+  const next = { ...(existing || {}) }
+  if (costCents === null) {
+    delete next[COST_ATTRIBUTE_KEY]
+  } else {
+    next[COST_ATTRIBUTE_KEY] = {
+      key: COST_ATTRIBUTE_KEY,
+      type: 'NUMBER',
+      number_value: (costCents / 100).toFixed(2),
+    }
+  }
+  return next
+}
+
 const normalizeEnvValue = value => {
   if (typeof value !== 'string') return ''
   const trimmed = value.trim()
@@ -202,6 +240,8 @@ export const listSquareCatalogItems = async (env = process.env) => {
       const itemData = object.item_data
       if (!itemData) continue
 
+      const categoryIds = (itemData.categories || []).map(category => category.id)
+
       for (const variation of itemData.variations || []) {
         const variationData = variation.item_variation_data || {}
         variations.push({
@@ -214,6 +254,8 @@ export const listSquareCatalogItems = async (env = process.env) => {
           currency: variationData.price_money?.currency ?? null,
           trackInventory: Boolean(variationData.track_inventory),
           presentAtAllLocations: object.present_at_all_locations || false,
+          categoryIds,
+          costCents: readCostCents(variation),
         })
       }
     }
@@ -253,17 +295,21 @@ export const getSquareInventoryReport = async (env = process.env) => {
   const locationId = resolveSquareCredentials(env).locationId
   const trackedVariations = variations.filter(variation => variation.trackInventory)
 
-  const counts = locationId
-    ? await listSquareInventory(env, {
-        catalogObjectIds: trackedVariations.map(variation => variation.id),
-        locationIds: [locationId],
-      })
-    : []
+  const [counts, { topOf }] = await Promise.all([
+    locationId
+      ? listSquareInventory(env, {
+          catalogObjectIds: trackedVariations.map(variation => variation.id),
+          locationIds: [locationId],
+        })
+      : Promise.resolve([]),
+    resolveTopLevelCategoryMap(env),
+  ])
   const countByVariationId = new Map(counts.map(count => [count.catalog_object_id, count]))
 
   const items = variations.map(variation => {
     const count = countByVariationId.get(variation.id)
     const quantity = count ? Number(count.quantity) : null
+    const topCategory = variation.categoryIds?.[0] ? topOf(variation.categoryIds[0]) : null
 
     return {
       id: variation.id,
@@ -279,6 +325,8 @@ export const getSquareInventoryReport = async (env = process.env) => {
       state: count?.state || (variation.trackInventory ? 'UNKNOWN' : 'NOT_TRACKED'),
       inStock: variation.trackInventory ? Boolean(quantity > 0) : true,
       source: 'square',
+      categoryId: topCategory?.id || null,
+      categoryName: topCategory?.name || 'Uncategorized',
     }
   })
 
@@ -291,9 +339,7 @@ export const getSquareInventoryReport = async (env = process.env) => {
   }
 }
 
-export const listSquareCategories = async (env = process.env) => {
-  const client = clientFromEnv(env)
-
+const fetchAllCategoryObjects = async client => {
   const categories = []
   let cursor
   let page = 0
@@ -306,6 +352,13 @@ export const listSquareCategories = async (env = process.env) => {
     cursor = payload.cursor
     page += 1
   } while (cursor && page < CATALOG_PAGE_SAFETY_CAP)
+
+  return categories
+}
+
+export const listSquareCategories = async (env = process.env) => {
+  const client = clientFromEnv(env)
+  const categories = await fetchAllCategoryObjects(client)
 
   const byId = new Map(categories.map(category => [category.id, category]))
   const pathOf = id => {
@@ -326,6 +379,31 @@ export const listSquareCategories = async (env = process.env) => {
     name: category.category_data?.name || null,
     path: pathOf(category.id),
   }))
+}
+
+// Resolves any category id to its top-level (root) ancestor — used to group
+// items into broad sections (game type on the public catalog; category
+// groups on the admin stock/mass-inventory/catalog-editor pages) regardless
+// of how deep the item's own assigned category sits in a sub-category chain.
+export const resolveTopLevelCategoryMap = async (env = process.env) => {
+  const client = clientFromEnv(env)
+  const categories = await fetchAllCategoryObjects(client)
+  const byId = new Map(categories.map(category => [category.id, category]))
+
+  const topOf = id => {
+    let current = id
+    let top = null
+    let guard = 0
+    while (current && guard++ < 10) {
+      const category = byId.get(current)
+      if (!category) break
+      top = category
+      current = category.category_data?.parent_category?.id
+    }
+    return top ? { id: top.id, name: top.category_data?.name || null } : null
+  }
+
+  return { topOf }
 }
 
 const fetchRawCatalogObject = (client, itemId) =>
@@ -384,6 +462,7 @@ export const getSquareCatalogItem = async (itemId, env = process.env) => {
       sellable: variationData.sellable !== false,
       stockable: variationData.stockable !== false,
       quantity: variationData.track_inventory ? (quantityById.get(variation.id) ?? 0) : null,
+      costCents: readCostCents(variation),
     }
   })
 
@@ -406,9 +485,11 @@ export const getSquareCatalogItem = async (itemId, env = process.env) => {
 // untouched field (sku, tax_ids, image_ids, reporting_category, ...) must be
 // echoed back exactly as fetched — only the allow-listed fields below are changed.
 // `changes.variations` is an array of { id, name?, priceCents?, trackInventory?,
-// sellable?, stockable? } — one entry per variation being edited. Variations
-// not referenced in that array (or not present in `changes` at all) pass
-// through untouched, same as every other field on this object.
+// sellable?, stockable?, costCents? } — one entry per variation being edited.
+// costCents: null clears the stored unit cost; omitting the field entirely
+// leaves it untouched. Variations not referenced in that array (or not
+// present in `changes` at all) pass through untouched, same as every other
+// field on this object.
 export const updateSquareCatalogItem = async (itemId, changes, env = process.env) => {
   const client = clientFromEnv(env)
 
@@ -448,6 +529,12 @@ export const updateSquareCatalogItem = async (itemId, changes, env = process.env
       if (variationChanges.trackInventory !== undefined) variationData.track_inventory = variationChanges.trackInventory
       if (variationChanges.sellable !== undefined) variationData.sellable = variationChanges.sellable
       if (variationChanges.stockable !== undefined) variationData.stockable = variationChanges.stockable
+      if (variationChanges.costCents !== undefined) {
+        variation.custom_attribute_values = buildCostAttributeValues(
+          variation.custom_attribute_values,
+          variationChanges.costCents
+        )
+      }
       variation.item_variation_data = variationData
     }
   }

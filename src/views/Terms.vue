@@ -7,7 +7,7 @@
         </h1>
         <p class="text-center text-sm text-gray-500 mb-12">Last updated July 11, 2026</p>
 
-        <div class="card-mtg space-y-8">
+        <div class="card space-y-8">
           <section>
             <h2 class="font-cinzel text-xl font-bold mb-2 text-gray-800">1. Acceptance of Terms</h2>
             <p class="text-gray-600">
@@ -113,5 +113,11 @@
 </template>
 
 <script setup lang="ts">
-// Terms & Conditions page
+import { usePageMeta } from '../composables/usePageMeta'
+
+usePageMeta({
+  title: 'Terms of Service — The Outpost Games',
+  description: 'Terms of service for The Outpost Games website and in-store purchases.',
+  path: '/terms',
+})
 </script>

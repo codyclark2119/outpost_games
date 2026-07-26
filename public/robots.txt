@@ -10,4 +10,4 @@ Disallow: /admin
 Disallow: /x/outpostAdmin
 
 # XML Sitemap location - helps search engines discover all pages
-Sitemap: https://outpost-games-rgv.fly.dev/sitemap.xml
+Sitemap: https://outpostgamesrgv.com/sitemap.xml

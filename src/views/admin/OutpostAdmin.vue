@@ -40,7 +40,7 @@
         <!-- Events Tab -->
         <div v-if="activeTab === 'events'">
           <!-- Add/Edit Event Form -->
-          <div class="card-mtg mb-8">
+          <div class="card mb-8">
             <h2 class="font-cinzel text-2xl font-bold mb-6 text-gray-800">
               {{ editingEvent ? 'Edit Event' : 'Add New Event' }}
             </h2>
@@ -145,7 +145,7 @@
           </div>
 
           <!-- Events List -->
-          <div class="card-mtg">
+          <div class="card">
             <div class="flex justify-between items-center mb-6">
               <h2 class="font-cinzel text-2xl font-bold text-gray-800">
                 Current Events ({{ upcomingEventsFiltered.length }})

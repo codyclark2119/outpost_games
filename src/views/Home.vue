@@ -26,8 +26,8 @@
             <span class="text-gradient block mt-2">The Outpost Games</span>
           </h1>
           <p class="text-xl text-gray-300 mb-8 max-w-2xl mx-auto hero-subtitle">
-            Your premier destination for Magic: The Gathering in Rio Grande City, Texas. Join our
-            community of passionate planeswalkers!
+            Rio Grande City's premier TCG shop — Magic: The Gathering, Pokémon, One Piece, Gundam,
+            and Riftbound. Join our community of players.
           </p>
           <div class="flex flex-col sm:flex-row gap-4 justify-center hero-buttons">
             <router-link to="/products" class="btn-primary px-8 py-4 text-lg">
@@ -119,7 +119,10 @@
     <div class="section-divider container mx-auto"></div>
 
     <!-- Featured Products Carousel -->
-    <section class="py-20 bg-outpost-navy relative overflow-hidden">
+    <section
+      v-if="featuredItemsStore.visibleSorted.length > 0 && currentSlide"
+      class="py-20 bg-outpost-navy relative overflow-hidden"
+    >
       <div
         class="absolute inset-0 bg-gradient-radial from-outpost-gold/10 via-transparent to-transparent opacity-30"
       ></div>
@@ -162,9 +165,12 @@
         </transition>
 
         <!-- Dot indicators — only shown when there are multiple slides -->
-        <div v-if="featuredSlides.length > 1" class="flex justify-center gap-3 mt-10">
+        <div
+          v-if="featuredItemsStore.visibleSorted.length > 1"
+          class="flex justify-center gap-3 mt-10"
+        >
           <button
-            v-for="(slide, i) in featuredSlides"
+            v-for="(slide, i) in featuredItemsStore.visibleSorted"
             :key="slide.id"
             class="transition-all duration-300 rounded-full"
             :class="
@@ -182,55 +188,42 @@
     <!-- Section Divider -->
     <div class="section-divider container mx-auto"></div>
 
-    <!-- Weekly Events Section -->
-    <section class="py-20 bg-gradient-to-br from-gray-50 to-gray-100 relative">
-      <div class="container mx-auto px-4">
-        <h2 class="font-cinzel text-4xl font-bold text-center mb-4 text-gray-800 section-heading">
-          Weekly Events
-        </h2>
-        <p class="text-center text-gray-600 mb-12 text-lg">
-          Join us for epic battles and unforgettable moments
-        </p>
-        <div class="grid grid-cols-2 md:grid-cols-2 lg:grid-cols-4 gap-6">
-          <div
-            v-for="(event, index) in weeklyEvents"
-            :key="event.day"
-            class="card-mtg text-center event-card group"
-            :style="{ animationDelay: `${index * 0.1}s` }"
-          >
-            <div
-              class="w-16 h-16 bg-gradient-to-br from-outpost-navy to-outpost-navy-light rounded-full flex items-center justify-center mx-auto mb-4 shadow-lg group-hover:shadow-outpost-gold/50 transition-all duration-300 group-hover:scale-110"
-            >
-              <CalendarDaysIcon class="w-8 h-8 text-outpost-gold" />
-            </div>
-            <h3 class="font-cinzel font-semibold text-xl mb-2 text-outpost-navy">
-              {{ event.day }}
-            </h3>
-            <p class="text-gray-800 font-medium text-lg mb-2">{{ event.event }}</p>
-            <p class="text-gray-600">{{ event.time }}</p>
-            <div
-              class="absolute inset-0 bg-gradient-to-br from-outpost-gold/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300 rounded-xl pointer-events-none"
-            ></div>
-          </div>
-        </div>
+    <!-- Multi-TCG Showcase -->
+    <Suspense>
+      <MultiTcgShowcase />
+    </Suspense>
 
-        <div class="text-center mt-12">
-          <router-link to="/events" class="btn-secondary px-8 py-4 inline-flex items-center gap-2">
-            View Full Calendar
-            <svg
-              class="w-5 h-5 transform group-hover:translate-x-1 transition-transform"
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
-            >
-              <path
-                stroke-linecap="round"
-                stroke-linejoin="round"
-                stroke-width="2"
-                d="M13 7l5 5m0 0l-5 5m5-5H6"
-              ></path>
-            </svg>
-          </router-link>
+    <!-- Section Divider -->
+    <div class="section-divider container mx-auto"></div>
+
+    <!-- About / Story Section -->
+    <section id="about" class="py-20 bg-white relative overflow-hidden scroll-mt-24">
+      <div class="container mx-auto px-4">
+        <h2 class="font-cinzel text-4xl font-bold text-center mb-12 text-gray-800 section-heading">
+          About The Outpost Games
+        </h2>
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-8 max-w-4xl mx-auto">
+          <div class="card">
+            <h3 class="font-cinzel text-xl font-bold mb-4 text-gray-800">Our Mission</h3>
+            <p class="text-gray-600">
+              To foster a welcoming and inclusive community where players of every game we carry can
+              connect, compete, and grow together. We strive to provide excellent customer service,
+              fair prices, and a clean, comfortable environment for all our customers.
+            </p>
+          </div>
+          <div class="card">
+            <h3 class="font-cinzel text-xl font-bold mb-4 text-gray-800">What We Offer</h3>
+            <ul class="text-gray-600 space-y-2">
+              <li>
+                • Singles and sealed product across Magic, Pokémon, One Piece, Gundam, and Riftbound
+              </li>
+              <li>• Weekly tournaments and special events</li>
+              <li>• Friendly and knowledgeable staff</li>
+              <li>• Clean and spacious gaming area</li>
+              <li>• Competitive pricing on all products</li>
+              <li>• Special orders and card searches</li>
+            </ul>
+          </div>
         </div>
       </div>
     </section>
@@ -238,66 +231,70 @@
     <!-- Section Divider -->
     <div class="section-divider container mx-auto"></div>
 
-    <!-- Community Section -->
-    <section class="py-20 bg-white relative overflow-hidden">
-      <!-- Decorative background -->
-      <div
-        class="absolute top-0 right-0 w-1/2 h-full bg-gradient-to-l from-outpost-gold/5 to-transparent"
-      ></div>
+    <!-- Discord + Instagram CTA -->
+    <Suspense>
+      <SocialCtaSection />
+    </Suspense>
 
-      <div class="container mx-auto px-4 relative z-10">
-        <div class="grid grid-cols-1 lg:grid-cols-2 gap-12 items-center">
-          <div class="community-content">
-            <h2 class="font-cinzel text-4xl font-bold mb-6 text-gray-800 section-heading">
-              Join Our Community
-            </h2>
-            <p class="text-lg text-gray-600 mb-6 leading-relaxed">
-              Connect with fellow planeswalkers, stay updated on the latest events, and be part of
-              Rio Grande City's premier MTG community.
-            </p>
-            <div class="flex flex-col sm:flex-row gap-4">
+    <!-- Section Divider -->
+    <div class="section-divider container mx-auto"></div>
+
+    <!-- Visit Us / Contact Section -->
+    <section
+      id="contact"
+      class="py-20 bg-gradient-to-br from-gray-50 to-gray-100 relative scroll-mt-24"
+    >
+      <div class="container mx-auto px-4">
+        <h2 class="font-cinzel text-4xl font-bold text-center mb-12 text-gray-800 section-heading">
+          Visit Us
+        </h2>
+        <div class="card max-w-3xl mx-auto">
+          <div class="grid grid-cols-1 md:grid-cols-3 gap-8 text-center">
+            <div>
+              <div
+                class="w-14 h-14 bg-outpost-navy rounded-full flex items-center justify-center mx-auto mb-3"
+              >
+                <MapPinIcon class="w-7 h-7 text-white" />
+              </div>
+              <h4 class="font-semibold text-gray-800 mb-2">Location</h4>
               <a
-                href="https://www.facebook.com/Theoutpostgames/"
+                :href="STORE_INFO.mapsUrl"
                 target="_blank"
                 rel="noopener noreferrer"
-                class="btn-primary inline-flex items-center justify-center gap-2 group"
+                class="text-gray-600 text-sm hover:text-outpost-gold transition-colors block"
               >
-                <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
-                  <path
-                    d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"
-                  />
-                </svg>
-                Join our Facebook
-              </a>
-              <a
-                href="https://discord.gg/PW3YkMtFmz"
-                target="_blank"
-                rel="noopener noreferrer"
-                class="btn-secondary inline-flex items-center justify-center gap-2 group"
-              >
-                <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
-                  <path
-                    d="M20.317 4.37a19.791 19.791 0 0 0-4.885-1.515a.074.074 0 0 0-.079.037c-.21.375-.444.864-.608 1.25a18.27 18.27 0 0 0-5.487 0a12.64 12.64 0 0 0-.617-1.25a.077.077 0 0 0-.079-.037A19.736 19.736 0 0 0 3.677 4.37a.07.07 0 0 0-.032.027C.533 9.046-.32 13.58.099 18.057a.082.082 0 0 0 .031.057a19.9 19.9 0 0 0 5.993 3.03a.078.078 0 0 0 .084-.028a14.09 14.09 0 0 0 1.226-1.994a.076.076 0 0 0-.041-.106a13.107 13.107 0 0 1-1.872-.892a.077.077 0 0 1-.008-.128a10.2 10.2 0 0 0 .372-.292a.074.074 0 0 1 .077-.01c3.928 1.793 8.18 1.793 12.062 0a.074.074 0 0 1 .078.01c.12.098.246.198.373.292a.077.077 0 0 1-.006.127a12.299 12.299 0 0 1-1.873.892a.077.077 0 0 0-.041.107c.36.698.772 1.362 1.225 1.993a.076.076 0 0 0 .084.028a19.839 19.839 0 0 0 6.002-3.03a.077.077 0 0 0 .032-.054c.5-5.177-.838-9.674-3.549-13.66a.061.061 0 0 0-.031-.03zM8.02 15.33c-1.183 0-2.157-1.085-2.157-2.419c0-1.333.956-2.419 2.157-2.419c1.21 0 2.176 1.096 2.157 2.42c0 1.333-.956 2.418-2.157 2.418zm7.975 0c-1.183 0-2.157-1.085-2.157-2.419c0-1.333.955-2.419 2.157-2.419c1.21 0 2.176 1.096 2.157 2.42c0 1.333-.946 2.418-2.157 2.418z"
-                  />
-                </svg>
-                Join our Discord
+                {{ STORE_INFO.address.line1 }}<br />
+                {{ STORE_INFO.address.city }}, {{ STORE_INFO.address.state }}
+                {{ STORE_INFO.address.zip }}
               </a>
             </div>
-          </div>
-          <div
-            class="relative h-96 rounded-xl overflow-hidden shadow-2xl bg-gradient-to-br from-gray-100 to-gray-200 group"
-          >
-            <div
-              class="absolute inset-0 bg-gradient-to-t from-outpost-navy/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500"
-            ></div>
-            <img
-              src="/src/assets/outpost_logo_transparent.png"
-              alt="The Outpost Games"
-              class="w-full h-full object-contain"
-              loading="lazy"
-              width="600"
-              height="600"
-            />
+            <div>
+              <div
+                class="w-14 h-14 bg-outpost-gold rounded-full flex items-center justify-center mx-auto mb-3"
+              >
+                <ClockIcon class="w-7 h-7 text-outpost-black" />
+              </div>
+              <h4 class="font-semibold text-gray-800 mb-2">Hours</h4>
+              <p class="text-gray-600 text-sm">
+                <span v-for="(hours, day) in STORE_INFO.hours" :key="day" class="block">
+                  {{ day }}: {{ hours }}
+                </span>
+              </p>
+            </div>
+            <div>
+              <div
+                class="w-14 h-14 bg-outpost-stone rounded-full flex items-center justify-center mx-auto mb-3"
+              >
+                <EnvelopeIcon class="w-7 h-7 text-white" />
+              </div>
+              <h4 class="font-semibold text-gray-800 mb-2">Contact</h4>
+              <a
+                :href="`mailto:${STORE_INFO.email}`"
+                class="text-gray-600 text-sm hover:text-outpost-gold transition-colors"
+              >
+                {{ STORE_INFO.email }}
+              </a>
+            </div>
           </div>
         </div>
       </div>
@@ -306,11 +303,28 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted, onUnmounted } from 'vue'
-import { CalendarDaysIcon } from '@heroicons/vue/24/outline'
+import { ref, computed, onMounted, onUnmounted, nextTick, defineAsyncComponent } from 'vue'
+import { useRoute } from 'vue-router'
+import { MapPinIcon, ClockIcon, EnvelopeIcon } from '@heroicons/vue/24/outline'
 import { useEventsStore } from '../stores/events'
+import { useFeaturedItemsStore } from '../stores/featuredItems'
+import { STORE_INFO } from '../config/storeInfo'
+import { WEEKLY_SCHEDULE } from '../config/weeklySchedule'
+import { usePageMeta } from '../composables/usePageMeta'
 
+const MultiTcgShowcase = defineAsyncComponent(() => import('./home-sections/MultiTcgShowcase.vue'))
+const SocialCtaSection = defineAsyncComponent(() => import('./home-sections/SocialCtaSection.vue'))
+
+usePageMeta({
+  title: 'The Outpost Games — TCG Shop in Rio Grande City, TX',
+  description:
+    'Your premier destination for Magic: The Gathering, Pokémon, One Piece, Gundam, and Riftbound in Rio Grande City, Texas. Weekly tournaments, singles, sealed product, and a community that plays together.',
+  path: '/',
+})
+
+const route = useRoute()
 const eventsStore = useEventsStore()
+const featuredItemsStore = useFeaturedItemsStore()
 
 // ── Date helper ───────────────────────────────────────────────────────────────
 const parseEventDate = (dateString: string): Date => {
@@ -344,33 +358,6 @@ interface DisplayEvent {
   isWeekly: boolean
 }
 
-const weeklyDefs = [
-  {
-    jsDay: 4,
-    dayName: 'Thursday',
-    eventName: 'Standard',
-    description: 'Standard format tournament with prizes for top finishers',
-  },
-  {
-    jsDay: 5,
-    dayName: 'Friday',
-    eventName: 'cEDH',
-    description: 'Competitive Commander tournament for experienced players',
-  },
-  {
-    jsDay: 6,
-    dayName: 'Saturday',
-    eventName: 'Bracket 3',
-    description: 'Swiss tournament format with elimination rounds',
-  },
-  {
-    jsDay: 0,
-    dayName: 'Sunday',
-    eventName: 'League Event',
-    description: 'Ongoing league play with seasonal prizes',
-  },
-]
-
 const nextWeeklyEvent = computed((): DisplayEvent | null => {
   const now = new Date()
   const todayDay = now.getDay()
@@ -378,7 +365,7 @@ const nextWeeklyEvent = computed((): DisplayEvent | null => {
 
   for (let daysAhead = 0; daysAhead <= 7; daysAhead++) {
     const targetDay = (todayDay + daysAhead) % 7
-    const def = weeklyDefs.find(e => e.jsDay === targetDay)
+    const def = WEEKLY_SCHEDULE.find(e => e.jsDay === targetDay)
     if (!def) continue
     if (daysAhead === 0 && eventStartedToday) continue
 
@@ -387,11 +374,11 @@ const nextWeeklyEvent = computed((): DisplayEvent | null => {
     return {
       title: def.eventName,
       date: date.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' }),
-      time: '6:00 PM',
+      time: def.time,
       entry: '0.00',
       description: def.description,
       gameTypeId: 'magic',
-      gameTypeName: 'Magic: The Gathering',
+      gameTypeName: def.gameType,
       isWeekly: true,
     }
   }
@@ -404,38 +391,22 @@ const displayEvent = computed((): DisplayEvent | null => {
   return nextWeeklyEvent.value
 })
 
-// ── Featured products carousel ────────────────────────────────────────────────
-interface FeaturedSlide {
-  id: string
-  title: string
-  subtitle: string
-  imageUrl: string
-  linkTo: string
-  linkText: string
-}
-
-const featuredSlides: FeaturedSlide[] = [
-  {
-    id: 'tmnt',
-    title: 'Featured: Teenage Mutant Ninja Turtles',
-    subtitle: 'Discover the latest collection from the sewers to your tabletop',
-    imageUrl: '/wpn-assets/tmnt/posters/TMT_oversized_art_72x48_en.jpg',
-    linkTo: '/products/magic?set=tmnt',
-    linkText: 'Shop TMNT Products',
-  },
-]
-
+// ── Featured products carousel — admin-managed via /x/outpostAdmin/featured-items ──
 const currentFeaturedIndex = ref(0)
 const currentSlide = computed(
-  () => featuredSlides[currentFeaturedIndex.value] ?? featuredSlides[0]!
+  () =>
+    featuredItemsStore.visibleSorted[currentFeaturedIndex.value] ??
+    featuredItemsStore.visibleSorted[0] ??
+    null
 )
 let featuredInterval: number | null = null
 
 const startFeaturedInterval = () => {
   if (featuredInterval) clearInterval(featuredInterval)
-  if (featuredSlides.length > 1) {
+  if (featuredItemsStore.visibleSorted.length > 1) {
     featuredInterval = window.setInterval(() => {
-      currentFeaturedIndex.value = (currentFeaturedIndex.value + 1) % featuredSlides.length
+      currentFeaturedIndex.value =
+        (currentFeaturedIndex.value + 1) % featuredItemsStore.visibleSorted.length
     }, 6000)
   }
 }
@@ -445,9 +416,10 @@ const goToSlide = (index: number) => {
   startFeaturedInterval()
 }
 
-onMounted(() => {
+onMounted(async () => {
   eventsStore.fetchEvents()
 
+  await featuredItemsStore.fetchFeaturedItems()
   startFeaturedInterval()
 })
 
@@ -455,12 +427,22 @@ onUnmounted(() => {
   if (featuredInterval) clearInterval(featuredInterval)
 })
 
-const weeklyEvents = [
-  { day: 'Thursday', event: 'Standard', time: '6:00 PM' },
-  { day: 'Friday', event: 'cEDH', time: '6:00 PM' },
-  { day: 'Saturday', event: 'Bracket 3', time: '6:00 PM' },
-  { day: 'Sunday', event: 'League Event', time: '6:00 PM' },
-]
+// Arriving at '/' with a hash already set (cross-route section nav via
+// useSectionNav, or a direct link like /#community) — scroll to it once mounted.
+// Sections below the fold are async-loaded (defineAsyncComponent), so the page
+// is still growing for a moment after mount — a single scrollIntoView call can
+// target a not-yet-final layout. Re-issue it a few times over ~1.5s so it
+// self-corrects once the async chunks resolve and layout settles.
+if (route.hash) {
+  const targetId = route.hash.slice(1)
+  let attemptsLeft = 10
+  const tryScroll = () => {
+    document.getElementById(targetId)?.scrollIntoView({ behavior: 'smooth' })
+    attemptsLeft -= 1
+    if (attemptsLeft > 0) setTimeout(tryScroll, 150)
+  }
+  nextTick(tryScroll)
+}
 </script>
 
 <style scoped>
@@ -485,34 +467,6 @@ const weeklyEvents = [
 
 .hero-buttons {
   animation: fadeInUp 1s ease-out 0.6s both;
-}
-
-/* Section heading animation */
-.section-heading {
-  position: relative;
-  display: inline-block;
-  animation: fadeInUp 0.8s ease-out;
-}
-
-.section-heading::after {
-  content: '';
-  position: absolute;
-  bottom: -8px;
-  left: 50%;
-  transform: translateX(-50%);
-  width: 60%;
-  height: 3px;
-  background: linear-gradient(to right, transparent, #d4af37, transparent);
-  animation: expandWidth 0.8s ease-out 0.3s both;
-}
-
-@keyframes expandWidth {
-  from {
-    width: 0%;
-  }
-  to {
-    width: 60%;
-  }
 }
 
 /* Event cards staggered animation */

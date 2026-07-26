@@ -5,7 +5,7 @@
         <h1 class="font-cinzel text-4xl font-bold text-center mb-12 text-gray-800">
           Shopping Cart
         </h1>
-        <div v-if="cartStore.itemCount === 0" class="card-mtg">
+        <div v-if="cartStore.itemCount === 0" class="card">
           <div class="text-center py-12">
             <h2 class="font-cinzel text-2xl font-bold mb-4 text-gray-800">Your cart is empty</h2>
             <p class="text-gray-600 mb-6">Add some cards to your cart to get started!</p>
@@ -17,7 +17,7 @@
             <div
               v-for="item in cartStore.items"
               :key="item.id"
-              class="card-mtg flex items-center justify-between"
+              class="card flex items-center justify-between"
             >
               <div>
                 <h3 class="font-semibold">{{ item.name }}</h3>
@@ -36,7 +36,7 @@
               </div>
             </div>
           </div>
-          <div class="card-mtg">
+          <div class="card">
             <div class="flex justify-between items-center mb-4">
               <span class="font-cinzel text-xl font-bold">Total:</span>
               <span class="font-cinzel text-xl font-bold text-teal-600"

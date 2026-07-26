@@ -30,7 +30,7 @@
         </div>
 
         <!-- Error -->
-        <div v-else-if="eventsStore.error" class="card-mtg text-center py-10">
+        <div v-else-if="eventsStore.error" class="card text-center py-10">
           <p class="text-red-600 mb-4">{{ eventsStore.error }}</p>
           <button class="btn-primary px-6 py-2" @click="eventsStore.fetchEvents()">Retry</button>
         </div>
@@ -52,7 +52,7 @@
           </div>
 
           <!-- Empty state -->
-          <div v-if="upcomingEventsFiltered.length === 0" class="card-mtg text-center py-12">
+          <div v-if="upcomingEventsFiltered.length === 0" class="card text-center py-12">
             <p class="text-gray-500 mb-4">No upcoming events.</p>
             <router-link to="/x/outpostAdmin/events/add" class="btn-primary px-6 py-2">
               Add First Event

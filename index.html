@@ -5,6 +5,8 @@
 
     <!-- Critical: Favicon -->
     <link rel="icon" type="image/png" href="/squarespace-app-icon.png" />
+    <link rel="icon" type="image/png" sizes="192x192" href="/icon-192.png" />
+    <link rel="apple-touch-icon" href="/icon-192.png" />
 
     <!-- Viewport for responsive design -->
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
@@ -12,11 +14,11 @@
     <!-- SEO Meta Tags -->
     <meta
       name="description"
-      content="The Outpost Games - Your premier destination for Magic: The Gathering in Rio Grande City, Texas. Weekly tournaments, events, and a welcoming community."
+      content="The Outpost Games - Your premier TCG shop in Rio Grande City, Texas, carrying Magic: The Gathering, Pokémon, One Piece, Gundam, and Riftbound. Weekly tournaments, events, and a welcoming community."
     />
     <meta
       name="keywords"
-      content="Magic the Gathering, MTG, Rio Grande City, card games, tournaments, TCG"
+      content="Magic the Gathering, MTG, Pokemon, One Piece, Gundam Card Game, Riftbound, Rio Grande City, card games, tournaments, TCG"
     />
     <meta name="author" content="The Outpost Games" />
     <meta
@@ -51,23 +53,59 @@
     <!-- Open Graph / Facebook -->
     <meta property="og:type" content="website" />
     <meta property="og:url" content="https://outpostgamesrgv.com/" />
-    <meta property="og:title" content="The Outpost Games - MTG Hub" />
+    <meta property="og:title" content="The Outpost Games — TCG Shop in Rio Grande City, TX" />
     <meta
       property="og:description"
-      content="Your premier destination for Magic: The Gathering in Rio Grande City, Texas."
+      content="Magic: The Gathering, Pokémon, One Piece, Gundam, and Riftbound in Rio Grande City, Texas."
     />
+    <meta property="og:image" content="https://outpostgamesrgv.com/og-image.png" />
     <meta property="og:site_name" content="The Outpost Games" />
     <meta property="og:locale" content="en_US" />
 
     <!-- Twitter -->
     <meta name="twitter:card" content="summary_large_image" />
-    <meta name="twitter:title" content="The Outpost Games - MTG Hub" />
+    <meta name="twitter:title" content="The Outpost Games — TCG Shop in Rio Grande City, TX" />
     <meta
       name="twitter:description"
-      content="Your premier destination for Magic: The Gathering in Rio Grande City, Texas."
+      content="Magic: The Gathering, Pokémon, One Piece, Gundam, and Riftbound in Rio Grande City, Texas."
     />
+    <meta name="twitter:image" content="https://outpostgamesrgv.com/og-image.png" />
 
-    <title>The Outpost Games - Magic: The Gathering Hub</title>
+    <title>The Outpost Games — TCG Shop in Rio Grande City, TX</title>
+
+    <!-- Structured data: site-wide LocalBusiness facts. Static (not per-route
+         reactive like the Event JSON-LD on /events) since it never changes and
+         benefits from being crawl-visible without any JS execution at all. -->
+    <script type="application/ld+json">
+      {
+        "@context": "https://schema.org",
+        "@type": "LocalBusiness",
+        "name": "The Outpost Games",
+        "url": "https://outpostgamesrgv.com/",
+        "image": "https://outpostgamesrgv.com/og-image.png",
+        "email": "theoutpostgamingrgv@gmail.com",
+        "address": {
+          "@type": "PostalAddress",
+          "streetAddress": "605 W. Main Street, Suite 4",
+          "addressLocality": "Rio Grande City",
+          "addressRegion": "TX",
+          "postalCode": "78582",
+          "addressCountry": "US"
+        },
+        "openingHoursSpecification": [
+          {
+            "@type": "OpeningHoursSpecification",
+            "dayOfWeek": ["Thursday", "Friday", "Saturday", "Sunday"],
+            "opens": "17:00",
+            "closes": "22:00"
+          }
+        ],
+        "sameAs": [
+          "https://www.facebook.com/Theoutpostgames/",
+          "https://discord.gg/PW3YkMtFmz"
+        ]
+      }
+    </script>
 
     <!-- Inline critical CSS for instant render -->
     <style>

@@ -24,14 +24,14 @@
         </div>
 
         <!-- Error -->
-        <div v-else-if="fetchError" class="card-mtg text-center py-10">
+        <div v-else-if="fetchError" class="card text-center py-10">
           <p class="text-red-600 mb-4">{{ fetchError }}</p>
           <button class="btn-primary px-6 py-2" @click="fetchReport">Retry</button>
         </div>
 
         <template v-else>
           <!-- Search -->
-          <div class="card-mtg p-4 mb-6">
+          <div class="card p-4 mb-6">
             <input
               v-model="search"
               type="text"
@@ -40,57 +40,79 @@
             />
           </div>
 
-          <div v-if="saveError" class="card-mtg py-4 px-4 mb-6 border border-red-200 bg-red-50">
+          <div v-if="saveError" class="card py-4 px-4 mb-6 border border-red-200 bg-red-50">
             <p class="text-red-600 text-sm">{{ saveError }}</p>
           </div>
-          <div
-            v-if="saveSuccess"
-            class="card-mtg py-4 px-4 mb-6 border border-green-200 bg-green-50"
-          >
+          <div v-if="saveSuccess" class="card py-4 px-4 mb-6 border border-green-200 bg-green-50">
             <p class="text-green-700 text-sm">Saved {{ lastSavedCount }} corrected count(s).</p>
           </div>
 
           <!-- Empty state -->
-          <div v-if="trackableItems.length === 0" class="card-mtg text-center py-12">
+          <div v-if="trackableItems.length === 0" class="card text-center py-12">
             <p class="text-gray-500">No trackable items match your search.</p>
           </div>
 
-          <!-- Table -->
-          <div v-else class="card-mtg overflow-x-auto p-0">
-            <table class="w-full text-sm">
-              <thead>
-                <tr
-                  class="border-b border-gray-200 text-left text-xs uppercase tracking-wide text-gray-500"
+          <!-- Category groups -->
+          <div v-else class="space-y-3">
+            <div
+              v-for="group in groupedTrackableItems"
+              :key="group.name"
+              class="bg-white rounded-xl shadow border border-gray-200 overflow-hidden"
+            >
+              <div
+                class="flex items-center gap-3 px-4 py-3 bg-outpost-navy text-white cursor-pointer select-none"
+                @click="toggleCategory(group.name)"
+              >
+                <span
+                  class="text-lg transition-transform duration-200"
+                  :class="expandedCategories.has(group.name) ? 'rotate-90' : ''"
+                  >▶</span
                 >
-                  <th class="px-4 py-3">Item</th>
-                  <th class="px-4 py-3">SKU</th>
-                  <th class="px-4 py-3 text-right">Current Qty</th>
-                  <th class="px-4 py-3 text-right">New Qty</th>
-                </tr>
-              </thead>
-              <tbody>
-                <tr
-                  v-for="item in trackableItems"
-                  :key="item.id"
-                  class="border-b border-gray-100 last:border-0 hover:bg-gray-50"
-                  :class="{ 'bg-amber-50': isEdited(item.id) }"
+                <span class="font-cinzel font-bold text-lg flex-1">{{ group.name }}</span>
+                <span class="text-xs text-white/60"
+                  >{{ group.items.length }} item{{ group.items.length !== 1 ? 's' : '' }}</span
                 >
-                  <td class="px-4 py-2.5 font-medium text-gray-800">{{ item.displayName }}</td>
-                  <td class="px-4 py-2.5 text-gray-500">{{ item.sku || '—' }}</td>
-                  <td class="px-4 py-2.5 text-right text-gray-700">{{ item.quantity ?? '—' }}</td>
-                  <td class="px-4 py-2.5 text-right">
-                    <input
-                      v-model="edits[item.id]"
-                      type="number"
-                      min="0"
-                      step="1"
-                      :placeholder="String(item.quantity ?? 0)"
-                      class="input-field !w-28 text-right py-1"
-                    />
-                  </td>
-                </tr>
-              </tbody>
-            </table>
+              </div>
+
+              <div v-if="expandedCategories.has(group.name)" class="overflow-x-auto">
+                <table class="w-full text-sm">
+                  <thead>
+                    <tr
+                      class="border-b border-gray-200 text-left text-xs uppercase tracking-wide text-gray-500"
+                    >
+                      <th class="px-4 py-3">Item</th>
+                      <th class="px-4 py-3">SKU</th>
+                      <th class="px-4 py-3 text-right">Current Qty</th>
+                      <th class="px-4 py-3 text-right">New Qty</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr
+                      v-for="item in group.items"
+                      :key="item.id"
+                      class="border-b border-gray-100 last:border-0 hover:bg-gray-50"
+                      :class="{ 'bg-amber-50': isEdited(item.id) }"
+                    >
+                      <td class="px-4 py-2.5 font-medium text-gray-800">{{ item.displayName }}</td>
+                      <td class="px-4 py-2.5 text-gray-500">{{ item.sku || '—' }}</td>
+                      <td class="px-4 py-2.5 text-right text-gray-700">
+                        {{ item.quantity ?? '—' }}
+                      </td>
+                      <td class="px-4 py-2.5 text-right">
+                        <input
+                          v-model="edits[item.id]"
+                          type="number"
+                          min="0"
+                          step="1"
+                          :placeholder="String(item.quantity ?? 0)"
+                          class="input-field !w-28 text-right py-1"
+                        />
+                      </td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
           </div>
         </template>
       </div>
@@ -135,6 +157,13 @@ interface SquareStockItem {
   state: string
   inStock: boolean
   source: string
+  categoryId: string | null
+  categoryName: string
+}
+
+interface CategoryGroup {
+  name: string
+  items: SquareStockItem[]
 }
 
 interface SquareInventoryReport {
@@ -173,6 +202,32 @@ const trackableItems = computed(() => {
     )
   })
 })
+
+// Grouped by top-level Square category so a large catalog can be scanned and
+// corrected section-by-section instead of one long flat table.
+const groupedTrackableItems = computed((): CategoryGroup[] => {
+  const byName = new Map<string, CategoryGroup>()
+  for (const item of trackableItems.value) {
+    const name = item.categoryName || 'Uncategorized'
+    let group = byName.get(name)
+    if (!group) {
+      group = { name, items: [] }
+      byName.set(name, group)
+    }
+    group.items.push(item)
+  }
+  return [...byName.values()].sort((a, b) => {
+    if (a.name === 'Uncategorized') return 1
+    if (b.name === 'Uncategorized') return -1
+    return a.name.localeCompare(b.name)
+  })
+})
+
+const expandedCategories = ref(new Set<string>())
+const toggleCategory = (name: string) => {
+  if (expandedCategories.value.has(name)) expandedCategories.value.delete(name)
+  else expandedCategories.value.add(name)
+}
 
 const isEdited = (id: string) => {
   const value = edits[id]

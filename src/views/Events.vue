@@ -21,9 +21,9 @@
 
         <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-16">
           <div
-            v-for="(event, index) in weeklyEvents"
-            :key="event.day"
-            class="card-mtg text-center event-card group relative"
+            v-for="(event, index) in WEEKLY_SCHEDULE"
+            :key="event.dayName"
+            class="card text-center event-card group relative"
             :style="{ animationDelay: `${index * 0.1}s` }"
           >
             <!-- Recurring badge -->
@@ -48,9 +48,9 @@
               <CalendarDaysIcon class="w-8 h-8 text-outpost-gold" />
             </div>
             <h3 class="font-cinzel font-semibold text-xl mb-2 text-outpost-navy">
-              {{ event.day }}
+              {{ event.dayName }}
             </h3>
-            <p class="text-gray-800 font-medium text-lg mb-2">{{ event.event }}</p>
+            <p class="text-gray-800 font-medium text-lg mb-2">{{ event.eventName }}</p>
             <p class="text-outpost-gold font-semibold mb-2">{{ event.time }}</p>
             <p class="text-gray-600 text-sm mt-2">{{ event.description }}</p>
 
@@ -70,7 +70,7 @@
         </div>
 
         <!-- Upcoming Special Events -->
-        <div class="card-mtg relative overflow-hidden special-events-card">
+        <div class="card relative overflow-hidden special-events-card">
           <div
             class="absolute top-0 left-0 w-20 h-20 bg-gradient-to-br from-outpost-gold/20 to-transparent rounded-br-full"
           ></div>
@@ -142,9 +142,20 @@
 </template>
 
 <script setup lang="ts">
-import { onMounted } from 'vue'
+import { computed, onMounted } from 'vue'
+import { useHead } from '@unhead/vue'
 import { CalendarDaysIcon } from '@heroicons/vue/24/outline'
 import { useEventsStore } from '../stores/events'
+import { WEEKLY_SCHEDULE } from '../config/weeklySchedule'
+import { usePageMeta, SITE_URL } from '../composables/usePageMeta'
+import { STORE_INFO } from '../config/storeInfo'
+
+usePageMeta({
+  title: 'Events & Tournaments — The Outpost Games',
+  description:
+    'Weekly tournaments and special events at The Outpost Games in Rio Grande City, TX — Magic: The Gathering, Pokémon, One Piece, Gundam, and Riftbound.',
+  path: '/events',
+})
 
 const eventsStore = useEventsStore()
 
@@ -152,36 +163,48 @@ onMounted(() => {
   eventsStore.fetchEvents()
 })
 
-const weeklyEvents = [
-  {
-    day: 'Thursday',
-    event: 'Standard',
-    time: '6:00 PM',
-    description: 'Standard format tournament with prizes for top finishers',
-    gameType: 'Magic: The Gathering',
-  },
-  {
-    day: 'Friday',
-    event: 'cEDH',
-    time: '6:00 PM',
-    description: 'Competitive Commander tournament for experienced players',
-    gameType: 'Magic: The Gathering',
-  },
-  {
-    day: 'Saturday',
-    event: 'Bracket 3',
-    time: '6:00 PM',
-    description: 'Swiss tournament format with elimination rounds',
-    gameType: 'Magic: The Gathering',
-  },
-  {
-    day: 'Sunday',
-    event: 'League Event',
-    time: '6:00 PM',
-    description: 'Ongoing league play with seasonal prizes',
-    gameType: 'Magic: The Gathering',
-  },
-]
+// Dynamic Event structured data — unlike the site-wide static LocalBusiness
+// JSON-LD in index.html, this genuinely needs to reflect live store data.
+const parseEventDateTime = (dateStr: string, timeStr: string): string | null => {
+  const parsed = new Date(`${dateStr} ${timeStr}`)
+  return isNaN(parsed.getTime()) ? null : parsed.toISOString()
+}
+
+const eventsJsonLd = computed(() =>
+  eventsStore.upcomingEvents.map(event => ({
+    '@context': 'https://schema.org',
+    '@type': 'Event',
+    name: event.title,
+    startDate: parseEventDateTime(event.date, event.time) ?? undefined,
+    eventAttendanceMode: 'https://schema.org/OfflineEventAttendanceMode',
+    eventStatus: 'https://schema.org/EventScheduled',
+    location: {
+      '@type': 'Place',
+      name: STORE_INFO.name,
+      address: {
+        '@type': 'PostalAddress',
+        streetAddress: STORE_INFO.address.line1,
+        addressLocality: STORE_INFO.address.city,
+        addressRegion: STORE_INFO.address.state,
+        postalCode: STORE_INFO.address.zip,
+      },
+    },
+    offers: {
+      '@type': 'Offer',
+      price: event.entry,
+      priceCurrency: 'USD',
+      url: `${SITE_URL}/events`,
+    },
+    description: event.description,
+  }))
+)
+
+useHead(() => ({
+  script:
+    eventsJsonLd.value.length > 0
+      ? [{ type: 'application/ld+json', innerHTML: JSON.stringify(eventsJsonLd.value) }]
+      : [],
+}))
 
 // Color map for known game type IDs
 const gameTypeBadgeClass = (gameTypeId?: string): string => {
@@ -201,32 +224,6 @@ const gameTypeBadgeClass = (gameTypeId?: string): string => {
 <style scoped>
 .hero-content {
   animation: fadeInUp 0.8s ease-out;
-}
-
-.section-heading {
-  position: relative;
-  animation: fadeInUp 0.8s ease-out;
-}
-
-.section-heading::after {
-  content: '';
-  position: absolute;
-  bottom: -8px;
-  left: 50%;
-  transform: translateX(-50%);
-  width: 60%;
-  height: 3px;
-  background: linear-gradient(to right, transparent, #d4af37, transparent);
-  animation: expandWidth 0.8s ease-out 0.3s both;
-}
-
-@keyframes expandWidth {
-  from {
-    width: 0%;
-  }
-  to {
-    width: 60%;
-  }
 }
 
 @keyframes fadeInUp {

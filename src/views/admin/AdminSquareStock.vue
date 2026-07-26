@@ -33,7 +33,7 @@
         </div>
 
         <!-- Error -->
-        <div v-else-if="fetchError" class="card-mtg text-center py-10">
+        <div v-else-if="fetchError" class="card text-center py-10">
           <p class="text-red-600 mb-4">{{ fetchError }}</p>
           <button class="btn-primary px-6 py-2" @click="fetchReport">Retry</button>
         </div>
@@ -41,64 +41,89 @@
         <template v-else>
           <!-- Summary -->
           <div class="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-6">
-            <div class="card-mtg text-center py-4">
+            <div class="card text-center py-4">
               <p class="text-2xl font-bold text-gray-800">{{ items.length }}</p>
               <p class="text-xs text-gray-500 uppercase tracking-wide">Total Items</p>
             </div>
-            <div class="card-mtg text-center py-4">
+            <div class="card text-center py-4">
               <p class="text-2xl font-bold text-green-600">{{ inStockCount }}</p>
               <p class="text-xs text-gray-500 uppercase tracking-wide">In Stock</p>
             </div>
-            <div class="card-mtg text-center py-4">
+            <div class="card text-center py-4">
               <p class="text-2xl font-bold text-red-600">{{ outOfStockCount }}</p>
               <p class="text-xs text-gray-500 uppercase tracking-wide">Out of Stock</p>
             </div>
-            <div class="card-mtg text-center py-4">
+            <div class="card text-center py-4">
               <p class="text-2xl font-bold text-gray-400">{{ notTrackedCount }}</p>
               <p class="text-xs text-gray-500 uppercase tracking-wide">Not Tracked</p>
             </div>
           </div>
 
           <!-- Empty state -->
-          <div v-if="items.length === 0" class="card-mtg text-center py-12">
+          <div v-if="items.length === 0" class="card text-center py-12">
             <p class="text-gray-500">No items returned from Square.</p>
           </div>
 
-          <!-- Table -->
-          <div v-else class="card-mtg overflow-x-auto p-0">
-            <table class="w-full text-sm">
-              <thead>
-                <tr
-                  class="border-b border-gray-200 text-left text-xs uppercase tracking-wide text-gray-500"
+          <!-- Category groups -->
+          <div v-else class="space-y-3">
+            <div
+              v-for="group in groupedItems"
+              :key="group.name"
+              class="bg-white rounded-xl shadow border border-gray-200 overflow-hidden"
+            >
+              <div
+                class="flex items-center gap-3 px-4 py-3 bg-outpost-navy text-white cursor-pointer select-none"
+                @click="toggleCategory(group.name)"
+              >
+                <span
+                  class="text-lg transition-transform duration-200"
+                  :class="expandedCategories.has(group.name) ? 'rotate-90' : ''"
+                  >▶</span
                 >
-                  <th class="px-4 py-3">Item</th>
-                  <th class="px-4 py-3">SKU</th>
-                  <th class="px-4 py-3 text-right">Price</th>
-                  <th class="px-4 py-3 text-right">Quantity</th>
-                  <th class="px-4 py-3">Status</th>
-                </tr>
-              </thead>
-              <tbody>
-                <tr
-                  v-for="item in items"
-                  :key="item.id"
-                  class="border-b border-gray-100 last:border-0 hover:bg-gray-50"
+                <span class="font-cinzel font-bold text-lg flex-1">{{ group.name }}</span>
+                <span class="text-xs text-white/60"
+                  >{{ group.items.length }} item{{ group.items.length !== 1 ? 's' : '' }}</span
                 >
-                  <td class="px-4 py-2.5 font-medium text-gray-800">{{ item.displayName }}</td>
-                  <td class="px-4 py-2.5 text-gray-500">{{ item.sku || '—' }}</td>
-                  <td class="px-4 py-2.5 text-right text-gray-700">{{ formatPrice(item) }}</td>
-                  <td class="px-4 py-2.5 text-right text-gray-700">{{ item.quantity ?? '—' }}</td>
-                  <td class="px-4 py-2.5">
-                    <span
-                      class="text-xs px-2 py-0.5 rounded-full font-semibold"
-                      :class="statusClass(item)"
+              </div>
+
+              <div v-if="expandedCategories.has(group.name)" class="overflow-x-auto">
+                <table class="w-full text-sm">
+                  <thead>
+                    <tr
+                      class="border-b border-gray-200 text-left text-xs uppercase tracking-wide text-gray-500"
                     >
-                      {{ statusLabel(item) }}
-                    </span>
-                  </td>
-                </tr>
-              </tbody>
-            </table>
+                      <th class="px-4 py-3">Item</th>
+                      <th class="px-4 py-3">SKU</th>
+                      <th class="px-4 py-3 text-right">Price</th>
+                      <th class="px-4 py-3 text-right">Quantity</th>
+                      <th class="px-4 py-3">Status</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr
+                      v-for="item in group.items"
+                      :key="item.id"
+                      class="border-b border-gray-100 last:border-0 hover:bg-gray-50"
+                    >
+                      <td class="px-4 py-2.5 font-medium text-gray-800">{{ item.displayName }}</td>
+                      <td class="px-4 py-2.5 text-gray-500">{{ item.sku || '—' }}</td>
+                      <td class="px-4 py-2.5 text-right text-gray-700">{{ formatPrice(item) }}</td>
+                      <td class="px-4 py-2.5 text-right text-gray-700">
+                        {{ item.quantity ?? '—' }}
+                      </td>
+                      <td class="px-4 py-2.5">
+                        <span
+                          class="text-xs px-2 py-0.5 rounded-full font-semibold"
+                          :class="statusClass(item)"
+                        >
+                          {{ statusLabel(item) }}
+                        </span>
+                      </td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
           </div>
         </template>
       </div>
@@ -121,6 +146,13 @@ interface SquareStockItem {
   state: string
   inStock: boolean
   source: string
+  categoryId: string | null
+  categoryName: string
+}
+
+interface CategoryGroup {
+  name: string
+  items: SquareStockItem[]
 }
 
 interface SquareInventoryReport {
@@ -145,6 +177,32 @@ const outOfStockCount = computed(
   () => items.value.filter(item => item.trackInventory && !item.inStock).length
 )
 const notTrackedCount = computed(() => items.value.filter(item => !item.trackInventory).length)
+
+// Grouped by top-level Square category so a large catalog can be scanned and
+// edited section-by-section instead of one long flat table.
+const groupedItems = computed((): CategoryGroup[] => {
+  const byName = new Map<string, CategoryGroup>()
+  for (const item of items.value) {
+    const name = item.categoryName || 'Uncategorized'
+    let group = byName.get(name)
+    if (!group) {
+      group = { name, items: [] }
+      byName.set(name, group)
+    }
+    group.items.push(item)
+  }
+  return [...byName.values()].sort((a, b) => {
+    if (a.name === 'Uncategorized') return 1
+    if (b.name === 'Uncategorized') return -1
+    return a.name.localeCompare(b.name)
+  })
+})
+
+const expandedCategories = ref(new Set<string>())
+const toggleCategory = (name: string) => {
+  if (expandedCategories.value.has(name)) expandedCategories.value.delete(name)
+  else expandedCategories.value.add(name)
+}
 
 const statusLabel = (item: SquareStockItem) => {
   if (!item.trackInventory) return 'Not Tracked'

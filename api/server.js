@@ -162,6 +162,7 @@ initAuth({ redisClient, isRedisConnected: () => redisConnected })
     await redisClient.connect()
     redisConnected = true
     await initializeEvents()
+    await initializeFeaturedItems()
     await initializeListings()
     await initializeCatalog()
   } catch (err) {
@@ -413,6 +414,164 @@ app.post('/api/events/reset', requireAdminAuth, async (req, res) => {
   } catch (error) {
     console.error('Error resetting events:', error)
     res.status(500).json({ error: 'Failed to reset events' })
+  }
+})
+
+// Featured/Promoted Items — admin-managed homepage carousel content, replacing
+// what used to be a hardcoded array in Home.vue's script.
+let memoryFeaturedItems = []
+
+const DEFAULT_FEATURED_ITEMS = [
+  {
+    id: 'tmnt',
+    title: 'Featured: Teenage Mutant Ninja Turtles',
+    subtitle: 'Discover the latest collection from the sewers to your tabletop',
+    imageUrl: '/wpn-assets/tmnt/posters/TMT_oversized_art_72x48_en.jpg',
+    linkTo: '/products/magic?set=tmnt',
+    linkText: 'Shop TMNT Products',
+    gameTag: 'magic',
+    isVisible: true,
+    sortOrder: 0,
+  },
+]
+
+const FEATURED_ITEMS_KEY = 'outpost:featured-items'
+
+const initializeFeaturedItems = async () => {
+  try {
+    if (!redisConnected) {
+      memoryFeaturedItems = [...DEFAULT_FEATURED_ITEMS]
+      console.log('Initialized in-memory storage with default featured items')
+      return
+    }
+
+    const exists = await redisClient.exists(FEATURED_ITEMS_KEY)
+    if (!exists) {
+      await redisClient.set(FEATURED_ITEMS_KEY, JSON.stringify(DEFAULT_FEATURED_ITEMS))
+      console.log('Initialized Redis with default featured items')
+    }
+  } catch (error) {
+    console.warn('Redis initialization failed, using memory:', error.message)
+    memoryFeaturedItems = [...DEFAULT_FEATURED_ITEMS]
+  }
+}
+
+app.get('/api/featured-items', async (req, res) => {
+  try {
+    if (!redisConnected) {
+      return res.json(memoryFeaturedItems)
+    }
+
+    const data = await redisClient.get(FEATURED_ITEMS_KEY)
+    const items = data ? JSON.parse(data) : []
+    res.json(items)
+  } catch (error) {
+    console.error('Error fetching featured items:', error)
+    res.json(memoryFeaturedItems)
+  }
+})
+
+app.post('/api/featured-items', requireAdminAuth, async (req, res) => {
+  try {
+    const { title, subtitle, imageUrl, linkTo, linkText, gameTag, isVisible, sortOrder } = req.body
+
+    if (!title || !imageUrl || !linkTo) {
+      return res.status(400).json({ error: 'title, imageUrl, and linkTo are required' })
+    }
+
+    const newItem = {
+      id: Date.now().toString(),
+      title,
+      subtitle: subtitle || '',
+      imageUrl,
+      linkTo,
+      linkText: linkText || 'Learn More',
+      ...(gameTag && { gameTag }),
+      isVisible: isVisible ?? true,
+      sortOrder: sortOrder ?? 0,
+    }
+
+    if (!redisConnected) {
+      memoryFeaturedItems.push(newItem)
+      return res.status(201).json(newItem)
+    }
+
+    const data = await redisClient.get(FEATURED_ITEMS_KEY)
+    const items = data ? JSON.parse(data) : []
+
+    items.push(newItem)
+    await redisClient.set(FEATURED_ITEMS_KEY, JSON.stringify(items))
+
+    res.status(201).json(newItem)
+  } catch (error) {
+    console.error('Error adding featured item:', error)
+    res.status(500).json({ error: 'Failed to add featured item' })
+  }
+})
+
+app.put('/api/featured-items/:id', requireAdminAuth, async (req, res) => {
+  try {
+    const { id } = req.params
+    const updates = req.body
+
+    if (!redisConnected) {
+      const index = memoryFeaturedItems.findIndex(i => i.id === id)
+      if (index === -1) {
+        return res.status(404).json({ error: 'Featured item not found' })
+      }
+      memoryFeaturedItems[index] = { ...memoryFeaturedItems[index], ...updates, id: memoryFeaturedItems[index].id }
+      return res.json(memoryFeaturedItems[index])
+    }
+
+    const data = await redisClient.get(FEATURED_ITEMS_KEY)
+    const items = data ? JSON.parse(data) : []
+
+    const index = items.findIndex(i => i.id === id)
+    if (index === -1) {
+      return res.status(404).json({ error: 'Featured item not found' })
+    }
+
+    items[index] = {
+      ...items[index],
+      ...updates,
+      id: items[index].id, // Preserve the original id
+    }
+
+    await redisClient.set(FEATURED_ITEMS_KEY, JSON.stringify(items))
+    res.json(items[index])
+  } catch (error) {
+    console.error('Error updating featured item:', error)
+    res.status(500).json({ error: 'Failed to update featured item' })
+  }
+})
+
+app.delete('/api/featured-items/:id', requireAdminAuth, async (req, res) => {
+  try {
+    const { id } = req.params
+
+    if (!redisConnected) {
+      const originalLength = memoryFeaturedItems.length
+      memoryFeaturedItems = memoryFeaturedItems.filter(i => i.id !== id)
+      if (memoryFeaturedItems.length === originalLength) {
+        return res.status(404).json({ error: 'Featured item not found' })
+      }
+      return res.json({ message: 'Featured item deleted successfully' })
+    }
+
+    const data = await redisClient.get(FEATURED_ITEMS_KEY)
+    const items = data ? JSON.parse(data) : []
+
+    const filteredItems = items.filter(i => i.id !== id)
+
+    if (filteredItems.length === items.length) {
+      return res.status(404).json({ error: 'Featured item not found' })
+    }
+
+    await redisClient.set(FEATURED_ITEMS_KEY, JSON.stringify(filteredItems))
+    res.json({ message: 'Featured item deleted successfully' })
+  } catch (error) {
+    console.error('Error deleting featured item:', error)
+    res.status(500).json({ error: 'Failed to delete featured item' })
   }
 })
 
@@ -1324,7 +1483,7 @@ app.get('/api/square/sales', requireAdminAuth, async (req, res) => {
     const from = req.query.from
       ? new Date(req.query.from).toISOString()
       : new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString()
-    const granularity = req.query.granularity === 'week' ? 'week' : 'day'
+    const granularity = ['week', 'month'].includes(req.query.granularity) ? req.query.granularity : 'day'
 
     const report = await getSquareSalesReport({ from, to, granularity }, process.env)
     res.json(report)

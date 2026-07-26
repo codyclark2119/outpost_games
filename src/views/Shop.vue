@@ -7,7 +7,7 @@
         </h1>
 
         <!-- Coming Soon Message -->
-        <div class="card-mtg text-center py-12">
+        <div class="card text-center py-12">
           <div
             class="w-20 h-20 bg-teal-500 rounded-full flex items-center justify-center mx-auto mb-6"
           >

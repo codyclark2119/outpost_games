@@ -13,15 +13,25 @@
 
         <!-- Desktop Navigation - Right aligned -->
         <div class="flex space-x-10">
-          <router-link
-            v-for="link in navLinks"
-            :key="link.name"
-            :to="link.path"
-            class="hover:text-outpost-gold transition-colors duration-200 font-semibold text-lg"
-            :class="{ 'text-outpost-gold': route.path === link.path }"
-          >
-            {{ link.name }}
-          </router-link>
+          <template v-for="link in navLinks" :key="link.name">
+            <router-link
+              v-if="link.path"
+              :to="link.path"
+              class="hover:text-outpost-gold transition-colors duration-200 font-semibold text-lg"
+              :class="{ 'text-outpost-gold': route.path === link.path }"
+            >
+              {{ link.name }}
+            </router-link>
+            <a
+              v-else
+              :href="`/#${link.sectionId}`"
+              class="hover:text-outpost-gold transition-colors duration-200 font-semibold text-lg"
+              :class="{ 'text-outpost-gold': isActiveSection(link.sectionId) }"
+              @click.prevent="goToSection(link.sectionId)"
+            >
+              {{ link.name }}
+            </a>
+          </template>
         </div>
       </div>
 
@@ -55,16 +65,26 @@
         class="md:hidden absolute left-0 right-0 top-full bg-gray-800 border-t border-gray-600 shadow-xl z-40"
       >
         <div class="flex flex-col space-y-3 px-4 py-4">
-          <router-link
-            v-for="link in navLinks"
-            :key="link.name"
-            :to="link.path"
-            class="hover:text-outpost-gold transition-colors duration-200 font-medium py-2"
-            :class="{ 'text-outpost-gold': route.path === link.path }"
-            @click="showMobileMenu = false"
-          >
-            {{ link.name }}
-          </router-link>
+          <template v-for="link in navLinks" :key="link.name">
+            <router-link
+              v-if="link.path"
+              :to="link.path"
+              class="hover:text-outpost-gold transition-colors duration-200 font-medium py-2"
+              :class="{ 'text-outpost-gold': route.path === link.path }"
+              @click="showMobileMenu = false"
+            >
+              {{ link.name }}
+            </router-link>
+            <a
+              v-else
+              :href="`/#${link.sectionId}`"
+              class="hover:text-outpost-gold transition-colors duration-200 font-medium py-2"
+              :class="{ 'text-outpost-gold': isActiveSection(link.sectionId) }"
+              @click.prevent="goToMobileSection(link.sectionId)"
+            >
+              {{ link.name }}
+            </a>
+          </template>
         </div>
       </div>
     </nav>
@@ -72,33 +92,110 @@
 </template>
 
 <script setup lang="ts">
-import { ref } from 'vue'
+import { ref, watch, onMounted, onBeforeUnmount, nextTick } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { Bars3Icon, XMarkIcon } from '@heroicons/vue/24/outline'
-// Removed cart store - informational site only
+import { useSectionNav } from '../composables/useSectionNav'
 
 const router = useRouter()
 const route = useRoute()
-// const cartStore = useCartStore() // Removed - informational site only
+const { goToSection } = useSectionNav()
 
 const showMobileMenu = ref(false)
 
-const navLinks = [
+interface NavLink {
+  name: string
+  path?: string
+  sectionId?: string
+}
+
+const navLinks: NavLink[] = [
   { name: 'Home', path: '/' },
   { name: 'Products', path: '/products' },
   { name: 'Events', path: '/events' },
-  { name: 'About', path: '/about' },
-  { name: 'Contact', path: '/contact' },
+  { name: 'About', sectionId: 'about' },
+  { name: 'Contact', sectionId: 'contact' },
 ]
-
-// const cartItemCount = computed(() => cartStore.itemCount) // Removed - informational site only
 
 const toggleMobileMenu = () => {
   showMobileMenu.value = !showMobileMenu.value
+}
+
+const goToMobileSection = (sectionId: string | undefined) => {
+  goToSection(sectionId)
+  showMobileMenu.value = false
 }
 
 // Close mobile menu when route changes
 router.beforeEach(() => {
   showMobileMenu.value = false
 })
+
+// ── Scroll-spy: highlights the in-page section nav link matching whatever
+// section is currently in view on the one-page Home. Only meaningful on '/' —
+// other routes have none of these section ids in the DOM at all.
+const activeSection = ref<string | null>(null)
+const isActiveSection = (sectionId?: string) =>
+  route.path === '/' && sectionId !== undefined && activeSection.value === sectionId
+
+const sectionIds = ['about', 'community', 'contact']
+let observer: IntersectionObserver | null = null
+
+const teardownScrollSpy = () => {
+  observer?.disconnect()
+  observer = null
+  activeSection.value = null
+}
+
+// AppHeader's onMounted fires as soon as App.vue mounts, which is BEFORE
+// <router-view> renders its initial matched component — the router's global
+// beforeEach guard is declared `async`, so even a same-tick `return true`
+// makes navigation resolution (and therefore Home's mount) land a tick later.
+// Retry until the section elements actually exist rather than assuming one
+// nextTick is enough — covers both that gap and the async home-sections
+// (defineAsyncComponent/Suspense) still resolving.
+let scrollSpySetupAttempts = 0
+
+const setupScrollSpy = () => {
+  teardownScrollSpy()
+  if (route.path !== '/') return
+
+  const foundEls = sectionIds
+    .map(id => document.getElementById(id))
+    .filter((el): el is HTMLElement => el !== null)
+
+  if (foundEls.length === 0 && scrollSpySetupAttempts < 10) {
+    scrollSpySetupAttempts += 1
+    setTimeout(setupScrollSpy, 150)
+    return
+  }
+  scrollSpySetupAttempts = 0
+
+  // Top inset clears the sticky header; a large negative bottom inset shrinks
+  // the observed band down to just the top ~30% of the viewport, so a section
+  // is "active" as soon as it reaches that band and stays active — rather
+  // than flipping back to nothing — until the next section reaches it too.
+  observer = new IntersectionObserver(
+    entries => {
+      for (const entry of entries) {
+        if (entry.isIntersecting) activeSection.value = entry.target.id
+      }
+    },
+    { rootMargin: '-96px 0px -70% 0px' }
+  )
+  for (const el of foundEls) observer.observe(el)
+}
+
+onMounted(() => {
+  setupScrollSpy()
+})
+
+watch(
+  () => route.path,
+  () => {
+    nextTick(setupScrollSpy)
+  }
+)
+
+onBeforeUnmount(teardownScrollSpy)
 </script>

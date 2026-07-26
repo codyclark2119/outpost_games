@@ -22,7 +22,7 @@
         </div>
 
         <!-- Error -->
-        <div v-else-if="fetchError" class="card-mtg text-center py-10">
+        <div v-else-if="fetchError" class="card text-center py-10">
           <p class="text-red-600 mb-4">{{ fetchError }}</p>
           <button class="btn-primary px-6 py-2" @click="fetchRows">Retry</button>
         </div>
@@ -40,40 +40,63 @@
             </p>
           </div>
 
-          <div class="card-mtg overflow-x-auto p-0">
-            <table class="w-full text-sm">
-              <thead>
-                <tr
-                  class="border-b border-gray-200 text-left text-xs uppercase tracking-wide text-gray-500"
+          <div class="space-y-3">
+            <div
+              v-for="group in groupedFilteredRows"
+              :key="group.name"
+              class="bg-white rounded-xl shadow border border-gray-200 overflow-hidden"
+            >
+              <div
+                class="flex items-center gap-3 px-4 py-3 bg-outpost-navy text-white cursor-pointer select-none"
+                @click="toggleCategory(group.name)"
+              >
+                <span
+                  class="text-lg transition-transform duration-200"
+                  :class="expandedCategories.has(group.name) ? 'rotate-90' : ''"
+                  >▶</span
                 >
-                  <th class="px-4 py-3">Item</th>
-                  <th class="px-4 py-3">SKU</th>
-                  <th class="px-4 py-3 text-right">Price</th>
-                  <th class="px-4 py-3"></th>
-                </tr>
-              </thead>
-              <tbody>
-                <tr
-                  v-for="row in filteredRows"
-                  :key="row.id"
-                  class="border-b border-gray-100 last:border-0 hover:bg-gray-50"
+                <span class="font-cinzel font-bold text-lg flex-1">{{ group.name }}</span>
+                <span class="text-xs text-white/60"
+                  >{{ group.rows.length }} item{{ group.rows.length !== 1 ? 's' : '' }}</span
                 >
-                  <td class="px-4 py-2.5 font-medium text-gray-800">{{ row.displayName }}</td>
-                  <td class="px-4 py-2.5 text-gray-500">{{ row.sku || '—' }}</td>
-                  <td class="px-4 py-2.5 text-right text-gray-700">
-                    {{ formatPrice(row.priceCents) }}
-                  </td>
-                  <td class="px-4 py-2.5 text-right">
-                    <button
-                      class="text-outpost-navy font-semibold hover:underline"
-                      @click="openEdit(row)"
+              </div>
+
+              <div v-if="expandedCategories.has(group.name)" class="overflow-x-auto">
+                <table class="w-full text-sm">
+                  <thead>
+                    <tr
+                      class="border-b border-gray-200 text-left text-xs uppercase tracking-wide text-gray-500"
                     >
-                      Edit
-                    </button>
-                  </td>
-                </tr>
-              </tbody>
-            </table>
+                      <th class="px-4 py-3">Item</th>
+                      <th class="px-4 py-3">SKU</th>
+                      <th class="px-4 py-3 text-right">Price</th>
+                      <th class="px-4 py-3"></th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr
+                      v-for="row in group.rows"
+                      :key="row.id"
+                      class="border-b border-gray-100 last:border-0 hover:bg-gray-50"
+                    >
+                      <td class="px-4 py-2.5 font-medium text-gray-800">{{ row.displayName }}</td>
+                      <td class="px-4 py-2.5 text-gray-500">{{ row.sku || '—' }}</td>
+                      <td class="px-4 py-2.5 text-right text-gray-700">
+                        {{ formatPrice(row.priceCents) }}
+                      </td>
+                      <td class="px-4 py-2.5 text-right">
+                        <button
+                          class="text-outpost-navy font-semibold hover:underline"
+                          @click="openEdit(row)"
+                        >
+                          Edit
+                        </button>
+                      </td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
           </div>
         </template>
       </div>
@@ -251,7 +274,7 @@
                           </div>
                         </div>
 
-                        <div class="grid grid-cols-3 gap-3 items-end">
+                        <div class="grid grid-cols-2 gap-3">
                           <div>
                             <label class="block text-xs font-medium text-gray-500 mb-1"
                               >Price ($)</label
@@ -264,11 +287,32 @@
                               class="input-field"
                             />
                           </div>
-                          <label class="flex items-center gap-2 text-sm text-gray-700 pb-2">
+                          <div>
+                            <label class="block text-xs font-medium text-gray-500 mb-1"
+                              >Unit Cost ($)
+                              <span class="text-gray-400 font-normal">— for profit tracking</span>
+                            </label>
+                            <input
+                              v-model="variation.cost"
+                              type="number"
+                              step="0.01"
+                              min="0"
+                              placeholder="Not set"
+                              class="input-field"
+                            />
+                          </div>
+                        </div>
+
+                        <p v-if="marginLabel(variation)" class="text-xs text-gray-500">
+                          {{ marginLabel(variation) }}
+                        </p>
+
+                        <div class="flex gap-6 items-center">
+                          <label class="flex items-center gap-2 text-sm text-gray-700">
                             <input v-model="variation.trackInventory" type="checkbox" />
                             Track inventory
                           </label>
-                          <label class="flex items-center gap-2 text-sm text-gray-700 pb-2">
+                          <label class="flex items-center gap-2 text-sm text-gray-700">
                             <input v-model="variation.sellable" type="checkbox" />
                             Sellable
                           </label>
@@ -437,6 +481,13 @@ interface StockRow {
   displayName: string
   sku: string | null
   priceCents: number | null
+  categoryId: string | null
+  categoryName: string
+}
+
+interface CategoryGroup {
+  name: string
+  rows: StockRow[]
 }
 
 interface SquareCategory {
@@ -450,6 +501,7 @@ interface VariationForm {
   name: string
   sku: string | null
   price: number
+  cost: string
   trackInventory: boolean
   sellable: boolean
   quantity: number | null
@@ -479,7 +531,44 @@ const filteredRows = computed(() => {
   )
 })
 
+// Grouped by top-level Square category so a large catalog can be scanned and
+// edited section-by-section instead of one long flat table.
+const groupedFilteredRows = computed((): CategoryGroup[] => {
+  const byName = new Map<string, CategoryGroup>()
+  for (const row of filteredRows.value) {
+    const name = row.categoryName || 'Uncategorized'
+    let group = byName.get(name)
+    if (!group) {
+      group = { name, rows: [] }
+      byName.set(name, group)
+    }
+    group.rows.push(row)
+  }
+  return [...byName.values()].sort((a, b) => {
+    if (a.name === 'Uncategorized') return 1
+    if (b.name === 'Uncategorized') return -1
+    return a.name.localeCompare(b.name)
+  })
+})
+
+const expandedCategories = ref(new Set<string>())
+const toggleCategory = (name: string) => {
+  if (expandedCategories.value.has(name)) expandedCategories.value.delete(name)
+  else expandedCategories.value.add(name)
+}
+
 const formatPrice = (cents: number | null) => (cents == null ? '—' : `$${(cents / 100).toFixed(2)}`)
+
+// Live margin preview while editing — blank until both price and cost are
+// filled in, so an admin isn't shown a misleading 100% margin before they've
+// entered a real cost.
+const marginLabel = (variation: VariationForm) => {
+  const cost = parseFloat(variation.cost)
+  if (variation.cost.trim() === '' || Number.isNaN(cost) || !variation.price) return ''
+  const profit = variation.price - cost
+  const marginPct = (profit / variation.price) * 100
+  return `Margin: $${profit.toFixed(2)} (${marginPct.toFixed(0)}%) per unit`
+}
 
 const fetchRows = async () => {
   loading.value = true
@@ -526,6 +615,7 @@ const toVariationForm = (variation: {
   name: string | null
   sku: string | null
   priceCents: number | null
+  costCents: number | null
   trackInventory: boolean
   sellable: boolean
   quantity: number | null
@@ -534,6 +624,7 @@ const toVariationForm = (variation: {
   name: variation.name || '',
   sku: variation.sku,
   price: variation.priceCents != null ? variation.priceCents / 100 : 0,
+  cost: variation.costCents != null ? (variation.costCents / 100).toFixed(2) : '',
   trackInventory: variation.trackInventory,
   sellable: variation.sellable,
   quantity: variation.quantity,
@@ -597,6 +688,7 @@ const saveEdit = async () => {
           priceCents: Math.round(v.price * 100),
           trackInventory: v.trackInventory,
           sellable: v.sellable,
+          costCents: v.cost.trim() !== '' ? Math.round(parseFloat(v.cost) * 100) : null,
         })),
       }),
     })

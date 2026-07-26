@@ -24,7 +24,7 @@
         </transition>
 
         <!-- Form -->
-        <form class="card-mtg space-y-5" @submit.prevent="handleSubmit">
+        <form class="card space-y-5" @submit.prevent="handleSubmit">
           <div>
             <label class="block text-sm font-medium text-gray-700 mb-1">Event Title *</label>
             <input

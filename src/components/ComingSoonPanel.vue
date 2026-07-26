@@ -1,5 +1,5 @@
 <template>
-  <div class="card-mtg text-center py-12">
+  <div class="card text-center py-12">
     <div
       class="w-20 h-20 bg-outpost-navy rounded-full flex items-center justify-center mx-auto mb-6"
     >

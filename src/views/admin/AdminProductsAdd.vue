@@ -14,7 +14,7 @@
         </div>
 
         <!-- What to add selector -->
-        <div class="card-mtg mb-6">
+        <div class="card mb-6">
           <h2 class="font-cinzel text-lg font-bold mb-4 text-gray-800">What are you adding?</h2>
           <div class="grid grid-cols-3 gap-3">
             <button
@@ -45,7 +45,7 @@
         </transition>
 
         <!-- Add Game Type form -->
-        <form v-if="addMode === 'type'" class="card-mtg space-y-5" @submit.prevent="submitType">
+        <form v-if="addMode === 'type'" class="card space-y-5" @submit.prevent="submitType">
           <h2 class="font-cinzel text-xl font-bold text-gray-800">New Game Type</h2>
           <p class="text-sm text-gray-500">
             A "game type" is the top-level category (e.g., Magic: The Gathering, Pokémon).
@@ -69,7 +69,7 @@
         </form>
 
         <!-- Add Set form -->
-        <form v-else-if="addMode === 'set'" class="card-mtg space-y-5" @submit.prevent="submitSet">
+        <form v-else-if="addMode === 'set'" class="card space-y-5" @submit.prevent="submitSet">
           <h2 class="font-cinzel text-xl font-bold text-gray-800">New Set</h2>
           <p class="text-sm text-gray-500">
             A "set" is a release or expansion (e.g., Tarkir: Dragonstorm, Scarlet &amp; Violet).
@@ -129,7 +129,7 @@
         <!-- Add Product form -->
         <form
           v-else-if="addMode === 'product'"
-          class="card-mtg space-y-5"
+          class="card space-y-5"
           @submit.prevent="submitProduct"
         >
           <h2 class="font-cinzel text-xl font-bold text-gray-800">New Product</h2>

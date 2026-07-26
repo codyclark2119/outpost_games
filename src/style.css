@@ -16,26 +16,14 @@
   --color-outpost-stone-dark: #3d3d3d;
   --color-outpost-black: #0d0d0d;
 
-  /* Lorwyn Eclipsed color palette */
-  --color-lorwyn-teal: #4ecdc4;
-  --color-lorwyn-teal-dark: #3ba39e;
-  --color-lorwyn-gold: #f4d03f;
-  --color-lorwyn-gold-dark: #d4b429;
-  --color-lorwyn-lavender: #b8a8e8;
-  --color-lorwyn-lavender-dark: #9b88d1;
-  --color-lorwyn-sage: #a7c27f;
-  --color-lorwyn-sage-dark: #8ba567;
-  --color-lorwyn-silver: #c4c4c4;
-  --color-lorwyn-silver-dark: #a8a8a8;
-  --color-lorwyn-midnight: #2c3e50;
-  --color-lorwyn-midnight-light: #34495e;
-
-  /* MTG mana colors */
-  --color-mtg-white: #fffbd5;
-  --color-mtg-blue: #0e68ab;
-  --color-mtg-black: #150b00;
-  --color-mtg-red: #d3202a;
-  --color-mtg-green: #00733e;
+  /* Per-game accent colors — used for badging/theming featured items and
+     game-specific sections. Magic reuses the core brand gold rather than a
+     separate token since the brand palette *is* the Magic-era palette. */
+  --color-game-magic: var(--color-outpost-gold);
+  --color-game-pokemon: #ffcb05;
+  --color-game-onepiece: #d4262c;
+  --color-game-gundam: #3a6ea5;
+  --color-game-riftbound: #6b4ce6;
 
   /* Font families */
   --font-family-cinzel: 'Cinzel', serif;
@@ -125,20 +113,40 @@ html {
     }
   }
 
-  .card-mtg {
+  .card {
     @apply bg-white rounded-xl shadow-lg p-6 border border-outpost-stone-light hover:shadow-2xl transition-all duration-500;
     background: linear-gradient(135deg, #ffffff 0%, #f8f9fa 100%);
     backface-visibility: hidden;
   }
 
   @media (hover: hover) and (pointer: fine) {
-    .card-mtg:hover {
+    .card:hover {
       transform: translate3d(0, -8px, 0);
     }
   }
 
-  .card-mtg:hover {
+  .card:hover {
     border-color: theme('colors.outpost.gold');
+  }
+
+  /* Shared section-heading treatment — previously copy-pasted with near-identical
+     CSS independently in Home.vue/Products.vue/Events.vue's scoped styles. */
+  .section-heading {
+    position: relative;
+    display: inline-block;
+    animation: fadeInUp 0.8s ease-out;
+  }
+
+  .section-heading::after {
+    content: '';
+    position: absolute;
+    bottom: -8px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 60%;
+    height: 3px;
+    background: linear-gradient(to right, transparent, #d4af37, transparent);
+    animation: expandWidth 0.8s ease-out 0.3s both;
   }
 
   .text-gradient {
@@ -229,6 +237,15 @@ section:nth-child(odd) {
   50% {
     opacity: 0.5;
     transform: scale3d(1.05, 1.05, 1);
+  }
+}
+
+@keyframes expandWidth {
+  from {
+    width: 0%;
+  }
+  to {
+    width: 60%;
   }
 }
 

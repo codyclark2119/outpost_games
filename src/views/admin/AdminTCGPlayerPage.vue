@@ -27,7 +27,7 @@
         </div>
 
         <!-- Error -->
-        <div v-else-if="fetchError" class="card-mtg text-center py-10">
+        <div v-else-if="fetchError" class="card text-center py-10">
           <p class="text-red-600 mb-4">{{ fetchError }}</p>
           <button class="btn-primary px-6 py-2" @click="fetchListings">Retry</button>
         </div>
@@ -48,7 +48,7 @@
           </div>
 
           <!-- Empty state -->
-          <div v-if="listings.length === 0" class="card-mtg text-center py-12">
+          <div v-if="listings.length === 0" class="card text-center py-12">
             <p class="text-gray-500 mb-4">No listings yet.</p>
             <router-link to="/x/outpostAdmin/tcgplayer/add" class="btn-primary px-6 py-2">
               Add First Listing

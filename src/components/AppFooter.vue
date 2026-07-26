@@ -16,7 +16,7 @@
             <h3 class="font-cinzel text-xl font-bold text-gradient">The Outpost Games</h3>
           </div>
           <p class="text-gray-300 mb-4">
-            Your premier destination for Magic: The Gathering in Rio Grande City, Texas.
+            Rio Grande City's premier TCG shop — Magic, Pokémon, One Piece, Gundam, and Riftbound.
           </p>
           <div class="flex space-x-4">
             <a
@@ -52,11 +52,20 @@
           <ul class="space-y-2">
             <li v-for="link in quickLinks" :key="link.name">
               <router-link
+                v-if="link.path"
                 :to="link.path"
                 class="text-gray-300 hover:text-outpost-gold transition-colors duration-200"
               >
                 {{ link.name }}
               </router-link>
+              <a
+                v-else
+                :href="`/#${link.sectionId}`"
+                class="text-gray-300 hover:text-outpost-gold transition-colors duration-200"
+                @click.prevent="goToSection(link.sectionId)"
+              >
+                {{ link.name }}
+              </a>
             </li>
           </ul>
         </div>
@@ -102,12 +111,13 @@
 
       <!-- Bottom Bar -->
       <div class="border-t border-gray-600 pt-8">
-        <!-- Wizards Fan Content Policy Disclaimer -->
+        <!-- General trademark disclaimer covering every game carried in-store -->
         <div class="text-center mb-6">
           <p class="text-xs text-gray-400 max-w-4xl mx-auto leading-relaxed">
-            This website is unofficial Fan Content permitted under the Fan Content Policy. Not
-            approved/endorsed by Wizards. Portions of the materials used are property of Wizards of
-            the Coast. ©Wizards of the Coast LLC.
+            The Outpost Games is an independent retailer and is not affiliated with, endorsed, or
+            sponsored by Wizards of the Coast, The Pokémon Company, Bandai Namco, or Riot Games.
+            Magic: The Gathering, Pokémon, One Piece Card Game, Gundam Card Game, and Riftbound are
+            trademarks of their respective owners.
           </p>
         </div>
 
@@ -130,7 +140,7 @@
             </router-link>
           </div>
           <p class="text-xs text-gray-400">
-            Built with ❤️ for the MTG community in Rio Grande City, TX
+            Built with ❤️ for the tabletop community in Rio Grande City, TX
           </p>
         </div>
       </div>
@@ -140,32 +150,33 @@
 
 <script setup lang="ts">
 import { MapPinIcon, EnvelopeIcon } from '@heroicons/vue/24/outline'
+import { STORE_INFO } from '../config/storeInfo'
+import { useSectionNav } from '../composables/useSectionNav'
+
+const { goToSection } = useSectionNav()
 
 const currentYear = new Date().getFullYear()
 
-const socialLinks = {
-  facebook: 'https://www.facebook.com/Theoutpostgames/',
-  discord: 'https://discord.gg/PW3YkMtFmz',
+const socialLinks = STORE_INFO.social
+
+interface QuickLink {
+  name: string
+  path?: string
+  sectionId?: string
 }
 
-const quickLinks = [
+const quickLinks: QuickLink[] = [
   { name: 'Products', path: '/products' },
   { name: 'Events Calendar', path: '/events' },
-  { name: 'About Us', path: '/about' },
-  { name: 'Contact', path: '/contact' },
+  { name: 'About Us', sectionId: 'about' },
+  { name: 'Contact', sectionId: 'contact' },
 ]
 
-const storeHours = {
-  'Mon-Wed': 'Closed',
-  Thursday: '5:00 PM - 10:00 PM',
-  Friday: '5:00 PM - 10:00 PM',
-  Saturday: '5:00 PM - 10:00 PM',
-  Sunday: '5:00 PM - 10:00 PM',
-}
+const storeHours = STORE_INFO.hours
 
 const contactInfo = {
-  address: '605 W. Main Street, Suite 4, Rio Grande City, TX 78582',
-  email: 'theoutpostgamingrgv@gmail.com',
-  mapsUrl: 'https://maps.app.goo.gl/BqKucUkatQgWTmjM7',
+  address: STORE_INFO.address.full,
+  email: STORE_INFO.email,
+  mapsUrl: STORE_INFO.mapsUrl,
 }
 </script>

@@ -7,7 +7,7 @@
         </h1>
         <p class="text-center text-sm text-gray-500 mb-12">Last updated July 11, 2026</p>
 
-        <div class="card-mtg space-y-8">
+        <div class="card space-y-8">
           <section>
             <h2 class="font-cinzel text-xl font-bold mb-2 text-gray-800">Overview</h2>
             <p class="text-gray-600">
@@ -83,5 +83,11 @@
 </template>
 
 <script setup lang="ts">
-// Privacy Policy page
+import { usePageMeta } from '../composables/usePageMeta'
+
+usePageMeta({
+  title: 'Privacy Policy — The Outpost Games',
+  description: 'Privacy policy for The Outpost Games website.',
+  path: '/privacy',
+})
 </script>

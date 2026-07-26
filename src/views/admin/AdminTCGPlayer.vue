@@ -1,7 +1,7 @@
 <template>
   <div>
     <!-- Add/Edit Card Form -->
-    <div class="card-mtg mb-8">
+    <div class="card mb-8">
       <h2 class="font-cinzel text-2xl font-bold mb-6 text-gray-800">
         {{ editingCard ? 'Edit Card Listing' : 'Add New Card Listing' }}
       </h2>
@@ -155,7 +155,7 @@
     </div>
 
     <!-- Card Listings -->
-    <div class="card-mtg">
+    <div class="card">
       <div class="flex justify-between items-center mb-6">
         <h2 class="font-cinzel text-2xl font-bold text-gray-800">
           Current Listings ({{ cardListings.length }})
