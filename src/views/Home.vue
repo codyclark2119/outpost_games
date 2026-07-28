@@ -118,9 +118,9 @@
     <!-- Section Divider -->
     <div class="section-divider container mx-auto"></div>
 
-    <!-- Featured Products Carousel -->
+    <!-- Marketing Posters Carousel — auto-populated from public/wpn-assets/posters/ -->
     <section
-      v-if="featuredItemsStore.visibleSorted.length > 0 && currentSlide"
+      v-if="posters.length > 0 && currentSlide"
       class="py-20 bg-outpost-navy relative overflow-hidden"
     >
       <div
@@ -131,33 +131,29 @@
         <transition name="slide-left" mode="out-in">
           <div :key="currentFeaturedIndex">
             <h2
-              class="font-cinzel text-4xl font-bold text-center mb-4 text-outpost-gold section-heading"
+              class="font-cinzel text-4xl font-bold text-center mb-12 text-outpost-gold section-heading"
             >
               {{ currentSlide.title }}
             </h2>
-            <p class="text-center text-gray-300 mb-12 text-lg">
-              {{ currentSlide.subtitle }}
-            </p>
             <div class="max-w-5xl mx-auto">
-              <div class="featured-image-container relative group">
+              <div
+                class="featured-image-container relative group aspect-video rounded-2xl shadow-2xl overflow-hidden bg-outpost-black"
+              >
                 <div
-                  class="absolute inset-0 bg-gradient-to-t from-outpost-navy via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500 rounded-2xl"
+                  class="absolute inset-0 bg-gradient-to-t from-outpost-navy via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500 z-10"
                 ></div>
                 <img
                   :src="currentSlide.imageUrl"
                   :alt="currentSlide.title"
-                  class="w-full h-auto rounded-2xl shadow-2xl transform transition-all duration-500 group-hover:scale-105"
+                  class="w-full h-full object-contain transform transition-all duration-500 group-hover:scale-105"
                   loading="lazy"
-                  width="1800"
-                  height="1200"
+                  width="1920"
+                  height="1080"
                 />
               </div>
               <div class="text-center mt-8">
-                <router-link
-                  :to="currentSlide.linkTo"
-                  class="btn-primary px-8 py-4 text-lg inline-block"
-                >
-                  {{ currentSlide.linkText }}
+                <router-link to="/products" class="btn-primary px-8 py-4 text-lg inline-block">
+                  Shop Now
                 </router-link>
               </div>
             </div>
@@ -165,12 +161,9 @@
         </transition>
 
         <!-- Dot indicators — only shown when there are multiple slides -->
-        <div
-          v-if="featuredItemsStore.visibleSorted.length > 1"
-          class="flex justify-center gap-3 mt-10"
-        >
+        <div v-if="posters.length > 1" class="flex justify-center gap-3 mt-10">
           <button
-            v-for="(slide, i) in featuredItemsStore.visibleSorted"
+            v-for="(slide, i) in posters"
             :key="slide.id"
             class="transition-all duration-300 rounded-full"
             :class="
@@ -307,7 +300,6 @@ import { ref, computed, onMounted, onUnmounted, nextTick, defineAsyncComponent }
 import { useRoute } from 'vue-router'
 import { MapPinIcon, ClockIcon, EnvelopeIcon } from '@heroicons/vue/24/outline'
 import { useEventsStore } from '../stores/events'
-import { useFeaturedItemsStore } from '../stores/featuredItems'
 import { STORE_INFO } from '../config/storeInfo'
 import { WEEKLY_SCHEDULE } from '../config/weeklySchedule'
 import { usePageMeta } from '../composables/usePageMeta'
@@ -324,7 +316,6 @@ usePageMeta({
 
 const route = useRoute()
 const eventsStore = useEventsStore()
-const featuredItemsStore = useFeaturedItemsStore()
 
 // ── Date helper ───────────────────────────────────────────────────────────────
 const parseEventDate = (dateString: string): Date => {
@@ -391,22 +382,25 @@ const displayEvent = computed((): DisplayEvent | null => {
   return nextWeeklyEvent.value
 })
 
-// ── Featured products carousel — admin-managed via /x/outpostAdmin/featured-items ──
+// ── Marketing posters carousel — auto-populated from public/wpn-assets/posters/,
+// no admin step: drop an image in the folder and it shows up here.
+interface MarketingPoster {
+  id: string
+  title: string
+  imageUrl: string
+}
+const posters = ref<MarketingPoster[]>([])
 const currentFeaturedIndex = ref(0)
 const currentSlide = computed(
-  () =>
-    featuredItemsStore.visibleSorted[currentFeaturedIndex.value] ??
-    featuredItemsStore.visibleSorted[0] ??
-    null
+  () => posters.value[currentFeaturedIndex.value] ?? posters.value[0] ?? null
 )
 let featuredInterval: number | null = null
 
 const startFeaturedInterval = () => {
   if (featuredInterval) clearInterval(featuredInterval)
-  if (featuredItemsStore.visibleSorted.length > 1) {
+  if (posters.value.length > 1) {
     featuredInterval = window.setInterval(() => {
-      currentFeaturedIndex.value =
-        (currentFeaturedIndex.value + 1) % featuredItemsStore.visibleSorted.length
+      currentFeaturedIndex.value = (currentFeaturedIndex.value + 1) % posters.value.length
     }, 6000)
   }
 }
@@ -416,10 +410,22 @@ const goToSlide = (index: number) => {
   startFeaturedInterval()
 }
 
+const fetchMarketingPosters = async () => {
+  try {
+    const API_BASE_URL = import.meta.env.VITE_API_URL || '/api'
+    const response = await fetch(`${API_BASE_URL}/marketing-posters`)
+    if (!response.ok) throw new Error(`HTTP ${response.status}`)
+    const data = await response.json()
+    posters.value = data.posters || []
+  } catch (error) {
+    console.error('Marketing posters fetch error:', error)
+  }
+}
+
 onMounted(async () => {
   eventsStore.fetchEvents()
 
-  await featuredItemsStore.fetchFeaturedItems()
+  await fetchMarketingPosters()
   startFeaturedInterval()
 })
 
@@ -562,8 +568,10 @@ img {
     box-shadow 0.4s ease;
 }
 
-/* Glow effect on hover for featured images */
-.featured-image-container:hover img {
+/* Glow effect on hover for featured images — on the container, not the img,
+   since the container now clips overflow (object-cover cropping to a fixed
+   aspect ratio) and would hide a shadow placed on the img itself. */
+.featured-image-container:hover {
   box-shadow:
     0 20px 60px rgba(212, 175, 55, 0.3),
     0 0 40px rgba(212, 175, 55, 0.2);

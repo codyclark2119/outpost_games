@@ -56,6 +56,13 @@ COPY nginx.combined.conf /etc/nginx/conf.d/default.conf
 # Copy backend
 COPY --from=backend-builder /app/api /app/api
 
+# Marketing posters are read directly off disk by the API (see
+# api/marketingPosters.js) as well as served statically by nginx — the API
+# doesn't share nginx's html root in this image, so it needs its own copy at
+# the same repo-root-relative path (/app/public/wpn-assets) it resolves in
+# every other environment (plain `npm run dev`, etc.).
+COPY --from=frontend-builder /app/public/wpn-assets /app/public/wpn-assets
+
 # Fix permissions
 RUN chmod -R 755 /usr/share/nginx/html && \
     find /usr/share/nginx/html -type f -exec chmod 644 {} \; && \

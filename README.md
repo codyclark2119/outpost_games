@@ -4,7 +4,7 @@ Web application for **The Outpost Games**, a TCG card shop in Rio Grande City, T
 
 **Live site:** https://outpostgamesrgv.com
 
-The public site is a single page (`src/views/Home.vue`) plus two standalone routes, `/products` (currently gated behind a "Coming Soon" panel — see `src/config/featureFlags.ts`) and `/events`. `/about` and `/contact` redirect to in-page sections (`/#about`, `/#contact`) rather than 404ing, for anyone with an old bookmark or inbound link.
+The public site is a single page (`src/views/Home.vue`) plus two standalone routes, `/products` (Square-backed live inventory, gated by the `VITE_PRODUCTS_PAGE_LIVE` build-time env var — see `src/config/featureFlags.ts`) and `/events`. `/about` and `/contact` redirect to in-page sections (`/#about`, `/#contact`) rather than 404ing, for anyone with an old bookmark or inbound link.
 
 ---
 
@@ -101,11 +101,11 @@ See `local-dev/README.md` for details.
 ```
 ├── src/
 │   ├── views/
-│   │   ├── Home.vue              # One-page site: hero, featured items, games, about, Discord/Instagram, contact
+│   │   ├── Home.vue              # One-page site: hero, marketing posters carousel, games, about, Discord/Instagram, contact
 │   │   ├── home-sections/         # Async-loaded Home sections (code-split below the fold)
 │   │   │   ├── MultiTcgShowcase.vue
 │   │   │   └── SocialCtaSection.vue    # Discord + Instagram CTA cards
-│   │   ├── Products.vue          # Product catalog (game type sections + carousels; currently Coming Soon)
+│   │   ├── Products.vue          # Square-backed product catalog (carousels per game type); gated by VITE_PRODUCTS_PAGE_LIVE
 │   │   ├── ProductsGameType.vue  # Single game type browse page with filters
 │   │   ├── Events.vue            # Weekly schedule + upcoming special events
 │   │   ├── Terms.vue
@@ -114,8 +114,6 @@ See `local-dev/README.md` for details.
 │   │       ├── AdminDashboard.vue
 │   │       ├── AdminEvents.vue         # Manage special events
 │   │       ├── AdminEventsAdd.vue      # Add event
-│   │       ├── AdminFeaturedItems.vue      # Manage homepage promoted-item carousel
-│   │       ├── AdminFeaturedItemsAdd.vue   # Add featured item
 │   │       ├── AdminProducts.vue       # Manage product catalog (tree view)
 │   │       ├── AdminProductsAdd.vue    # Add game types / sets / products
 │   │       ├── AdminTCGPlayerPage.vue  # Manage single card listings
@@ -126,8 +124,8 @@ See `local-dev/README.md` for details.
 │   │       └── AdminSquareMassInventory.vue # Bulk inventory count corrections
 │   ├── stores/
 │   │   ├── events.ts         # Special events CRUD (Pinia)
-│   │   ├── featuredItems.ts  # Homepage promoted-item carousel CRUD (Pinia)
 │   │   ├── products.ts       # Product catalog CRUD (Pinia)
+│   │   ├── squareCatalog.ts  # Live Square inventory for the public /products page (Pinia)
 │   │   └── cart.ts           # Cart state (reserved for future e-commerce)
 │   ├── components/
 │   │   ├── AppHeader.vue     # Nav — real routes (Products/Events) + in-page anchors (About/Contact)
@@ -177,8 +175,6 @@ The admin is intentionally not linked from the public navigation. Access it at:
 | Dashboard | `/x/outpostAdmin` | Overview with links to all sections |
 | Manage Events | `/x/outpostAdmin/events` | Edit/delete special tournament events |
 | Add Event | `/x/outpostAdmin/events/add` | Create event with game type association |
-| Manage Featured Items | `/x/outpostAdmin/featured-items` | Edit, hide, or reorder the homepage's promoted-item carousel |
-| Add Featured Item | `/x/outpostAdmin/featured-items/add` | Add a new promoted item |
 | Manage Products | `/x/outpostAdmin/products` | Tree view: Types → Sets → Products with visibility toggles |
 | Add Products | `/x/outpostAdmin/products/add` | Add game types, sets, or individual products |
 | Manage Listings | `/x/outpostAdmin/tcgplayer` | Edit/delete featured single card listings |
@@ -202,11 +198,8 @@ POST   /api/events
 PUT    /api/events/:id
 DELETE /api/events/:id
 
-# Featured items (homepage promoted-item carousel)
-GET    /api/featured-items
-POST   /api/featured-items
-PUT    /api/featured-items/:id
-DELETE /api/featured-items/:id
+# Homepage marketing posters carousel — auto-populated from public/wpn-assets/posters/
+GET    /api/marketing-posters
 
 # Product catalog
 GET    /api/products
@@ -291,6 +284,8 @@ A separate system from the manual product catalog above — this talks directly 
 
 **Monthly inventory export**: on the 1st of each month (store-local time), `api/inventoryExport.js` builds an `.xlsx` snapshot of the Square inventory report — non-snack items, sorted by stock status → category → quantity (lowest stock first, to surface aging stock) — and emails it via Gmail SMTP (`api/mailClient.js`) to `theoutpostgamingrgv@gmail.com`. Requires `GMAIL_USER`/`GMAIL_APP_PASSWORD` (see Environment Variables); idle with a log warning until set. Manual trigger for testing: `POST /api/admin/inventory-export/run` (admin auth).
 
+**Uploading a product image**: Square's `CreateCatalogImage` endpoint *appends* the new image to `item_data.image_ids` rather than replacing or prepending it (confirmed live) — but every read path here treats `image_ids[0]` as "the" image. `uploadSquareCatalogImage()` does a follow-up write to move the new image to the front of that array; without it, a freshly uploaded image would never actually display anywhere (admin, or a future public page) even though the upload itself "succeeded."
+
 ### Maintenance scripts (`api/scripts/`)
 
 All follow the same convention: **preview by default, `--apply` to actually write.** Run from `api/`.
@@ -330,6 +325,7 @@ Copy `.env.example` to `.env` and fill in values:
 | Variable | Description | Default |
 |---|---|---|
 | `VITE_API_URL` | Frontend API base path | `/api` |
+| `VITE_PRODUCTS_PAGE_LIVE` | Build-time flag — show the live Square-backed `/products` page instead of "Coming Soon" | `false` |
 | `REDIS_URL` | Redis connection string | `redis://redis:6379` |
 | `PORT` | API server port | `3001` |
 | `NODE_ENV` | Environment | `production` |
@@ -344,6 +340,7 @@ Copy `.env.example` to `.env` and fill in values:
 | `GMAIL_USER` | Gmail account sending the monthly inventory export (requires 2FA + an App Password); export idle if unset | — |
 | `GMAIL_APP_PASSWORD` | App Password for `GMAIL_USER` (Google Account > Security > App Passwords) | — |
 | `MAIL_TO` | Destination address for the monthly inventory export | `theoutpostgamingrgv@gmail.com` |
+| `MARKETING_POSTERS_DIR` | Where the API reads homepage carousel posters from; only needed if the default repo-root-relative path doesn't apply | `<repo>/public/wpn-assets/posters` |
 | `SQUARESPACE_API_KEY` | Read-only Squarespace key (legacy integration); idle if unset | — |
 | `SQUARESPACE_USER_AGENT` | Descriptive User-Agent for Commerce API calls | `TheOutpostGames-Website/1.0` |
 | `SQUARESPACE_CACHE_TTL_MS` | Cache TTL before background refresh | `900000` (15 min) |
@@ -369,6 +366,10 @@ See `docs/deployment/` for full deployment guides.
 
 ---
 
-## Marketing Assets (`/wpn-assets/`)
+## Marketing Assets (`/wpn-assets/posters/`)
 
-`/wpn-assets/` is a static, long-cached directory for **promotional/marketing posters** (e.g. the homepage Featured Items banner) — not product photography. Per-set product images were dropped from here: phase one of the product page rollout uses Square's own hosted product photos instead, so the manual product catalog's `imageUrl` fields are left blank until that's wired up. To add a new poster (for a Featured Item or similar), drop it under `public/wpn-assets/<slug>/posters/` and reference it as `/wpn-assets/<slug>/posters/<file>` — see `tmnt/posters/` for the existing example. See `WPN_ASSET_ACCESS_GUIDE.md` for where to source official WPN marketing materials. Once the shop carries a wider selection of stock, set-based product imagery may return here under a `product-images/` convention like before.
+The homepage carousel is **fully filesystem-driven** — drop an image into `public/wpn-assets/posters/` and it appears automatically, no admin step required. `GET /api/marketing-posters` (`api/marketingPosters.js`) lists whatever's in that folder and titles each slide from its filename (e.g. `tmnt.jpg` → "Tmnt"); removing a file removes its slide. This replaced the old admin-managed Featured Items CRUD, which existed solely to power this carousel.
+
+This is for **promotional/marketing posters**, not product photography — phase one of the product page rollout uses Square's own hosted product photos instead, so the manual product catalog's `imageUrl` fields are left blank until that's wired up. See `WPN_ASSET_ACCESS_GUIDE.md` for where to source official WPN marketing materials. Once the shop carries a wider selection of stock, set-based product imagery may return under a separate convention.
+
+**Deployment note**: the API reads this folder directly off disk (not proxied through nginx), and its path resolution differs by environment — see `MARKETING_POSTERS_DIR` in Environment Variables and the comments in `Dockerfile.combined`/`local-dev/docker-compose.yml` if adding a new deployment target.

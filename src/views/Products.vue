@@ -24,16 +24,14 @@
       <div class="p-6">
         <h2 class="font-cinzel text-xl font-bold text-gray-800 mb-6">Quick Navigation</h2>
         <nav class="space-y-1">
-          <template v-if="PRODUCTS_CATALOG_LIVE">
-            <button
-              v-for="type in visibleTypes"
-              :key="type.id"
-              class="w-full text-left px-4 py-3 rounded-lg hover:bg-outpost-gold/10 transition-colors font-semibold text-gray-700 hover:text-outpost-gold text-sm"
-              @click="scrollToSection(type.id)"
-            >
-              {{ type.name }}
-            </button>
-          </template>
+          <button
+            v-for="section in catalogStore.sections"
+            :key="section.slug"
+            class="w-full text-left px-4 py-3 rounded-lg hover:bg-outpost-gold/10 transition-colors font-semibold text-gray-700 hover:text-outpost-gold text-sm"
+            @click="scrollToSection(section.slug)"
+          >
+            {{ section.name }}
+          </button>
           <button
             class="w-full text-left px-4 py-3 rounded-lg hover:bg-outpost-gold/10 transition-colors font-semibold text-gray-700 hover:text-outpost-gold text-sm"
             @click="scrollToSection('single-cards')"
@@ -61,186 +59,197 @@
             Available Products
           </h1>
           <p class="text-center text-gray-600 text-lg">
-            Click on a set to view products currently available in store
+            Live inventory, straight from what's on our shelves right now
           </p>
         </div>
 
-        <!-- Loading -->
-        <div v-if="PRODUCTS_CATALOG_LIVE && productsStore.loading" class="text-center py-20">
-          <div
-            class="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-outpost-gold"
-          ></div>
-          <p class="mt-4 text-gray-600">Loading products…</p>
-        </div>
+        <ComingSoonPanel
+          v-if="!PRODUCTS_CATALOG_LIVE"
+          class="mb-20"
+          title="Our Online Catalog is Getting a Refresh"
+          message="Live inventory isn't available online just yet. Everything is still fully stocked in store — come see the full selection in person!"
+        />
 
-        <ComingSoonPanel v-else-if="!PRODUCTS_CATALOG_LIVE" class="mb-20" />
-
-        <!-- Game type sections -->
         <template v-else>
-          <section
-            v-for="type in visibleTypes"
-            :id="type.id"
-            :key="type.id"
-            class="mb-20 scroll-mt-24"
+          <!-- Loading -->
+          <div
+            v-if="catalogStore.loading && catalogStore.items.length === 0"
+            class="text-center py-20"
           >
-            <!-- Section header with View All link -->
-            <div class="flex items-end justify-between mb-8">
-              <h2 class="font-cinzel text-3xl md:text-4xl font-bold text-gray-800 section-heading">
-                {{ type.name }}
-              </h2>
-              <router-link
-                v-if="visibleSets(type).length > 0"
-                :to="`/products/${type.id}`"
-                class="text-outpost-gold hover:text-outpost-gold-dark font-semibold text-sm flex items-center gap-1 transition-colors mb-2"
-              >
-                View All
-                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path
-                    stroke-linecap="round"
-                    stroke-linejoin="round"
-                    stroke-width="2"
-                    d="M9 5l7 7-7 7"
-                  />
-                </svg>
-              </router-link>
-            </div>
+            <div
+              class="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-outpost-gold"
+            ></div>
+            <p class="mt-4 text-gray-600">Loading products…</p>
+          </div>
 
-            <div v-if="visibleSets(type).length === 0" class="text-center text-gray-400 py-8">
-              No products available right now — check back soon!
-            </div>
+          <ComingSoonPanel
+            v-else-if="catalogStore.sections.length === 0"
+            class="mb-20"
+            title="Our Online Catalog is Getting a Refresh"
+            message="Live inventory isn't available online just yet. Everything is still fully stocked in store — come see the full selection in person!"
+          />
 
-            <!-- Carousel -->
-            <div v-else class="relative">
-              <!-- Prev arrow -->
-              <button
-                v-if="getCarouselIndex(type.id) > 0"
-                class="absolute left-0 top-1/2 -translate-y-1/2 -translate-x-4 z-10 w-10 h-10 bg-white border border-gray-200 rounded-full shadow-lg flex items-center justify-center hover:border-outpost-gold hover:text-outpost-gold transition-all"
-                aria-label="Previous"
-                @click="carouselPrev(type.id)"
-              >
-                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path
-                    stroke-linecap="round"
-                    stroke-linejoin="round"
-                    stroke-width="2"
-                    d="M15 19l-7-7 7-7"
-                  />
-                </svg>
-              </button>
-
-              <!-- Set cards window -->
-              <transition name="carousel-slide" mode="out-in">
-                <div
-                  :key="`${type.id}-${getCarouselIndex(type.id)}`"
-                  class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-5"
+          <!-- Game type sections -->
+          <template v-else>
+            <section
+              v-for="section in catalogStore.sections"
+              :id="section.slug"
+              :key="section.slug"
+              class="mb-20 scroll-mt-24"
+            >
+              <!-- Section header with View All link -->
+              <div class="flex items-end justify-between mb-8">
+                <h2
+                  class="font-cinzel text-3xl md:text-4xl font-bold text-gray-800 section-heading"
                 >
-                  <router-link
-                    v-for="(set, si) in visibleSets(type).slice(
-                      getCarouselIndex(type.id),
-                      getCarouselIndex(type.id) + CAROUSEL_SIZE
-                    )"
-                    :key="set.id"
-                    :to="`/products/${type.id}?set=${set.id}`"
-                    class="product-card block"
-                    :style="{ animationDelay: `${si * 0.06}s` }"
+                  {{ section.name }}
+                </h2>
+                <router-link
+                  :to="`/products/${section.slug}`"
+                  class="text-outpost-gold hover:text-outpost-gold-dark font-semibold text-sm flex items-center gap-1 transition-colors mb-2"
+                >
+                  View All
+                  <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                      stroke-width="2"
+                      d="M9 5l7 7-7 7"
+                    />
+                  </svg>
+                </router-link>
+              </div>
+
+              <!-- Carousel -->
+              <div class="relative">
+                <!-- Prev arrow -->
+                <button
+                  v-if="getCarouselIndex(section.slug) > 0"
+                  class="absolute left-0 top-1/2 -translate-y-1/2 -translate-x-4 z-10 w-10 h-10 bg-white border border-gray-200 rounded-full shadow-lg flex items-center justify-center hover:border-outpost-gold hover:text-outpost-gold transition-all"
+                  aria-label="Previous"
+                  @click="carouselPrev(section.slug)"
+                >
+                  <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                      stroke-width="2"
+                      d="M15 19l-7-7 7-7"
+                    />
+                  </svg>
+                </button>
+
+                <!-- Item cards window -->
+                <transition name="carousel-slide" mode="out-in">
+                  <div
+                    :key="`${section.slug}-${getCarouselIndex(section.slug)}`"
+                    class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-5"
                   >
                     <div
-                      class="bg-white rounded-xl shadow-lg p-5 hover:shadow-2xl transition-all duration-500 flex flex-col h-full relative overflow-hidden group border border-transparent hover:border-outpost-gold"
+                      v-for="(item, si) in section.items.slice(
+                        getCarouselIndex(section.slug),
+                        getCarouselIndex(section.slug) + CAROUSEL_SIZE
+                      )"
+                      :key="item.id"
+                      class="product-card"
+                      :style="{ animationDelay: `${si * 0.06}s` }"
                     >
                       <div
-                        class="shimmer-overlay absolute inset-0 bg-gradient-to-r from-transparent via-outpost-gold/10 to-transparent -translate-x-full group-hover:translate-x-full"
-                      ></div>
-
-                      <div
-                        class="aspect-square flex items-center justify-center mb-3 flex-shrink-0 relative z-10"
+                        class="bg-white rounded-xl shadow-lg p-5 hover:shadow-2xl transition-all duration-500 flex flex-col h-full relative overflow-hidden group border border-transparent hover:border-outpost-gold"
                       >
-                        <img
-                          v-if="set.imageUrl"
-                          :src="set.imageUrl"
-                          :alt="set.name"
-                          class="product-image w-28 h-28 object-contain"
-                          loading="lazy"
-                          width="160"
-                          height="160"
-                        />
                         <div
-                          v-else
-                          class="w-28 h-28 bg-gray-100 rounded-xl flex items-center justify-center text-gray-400"
+                          class="shimmer-overlay absolute inset-0 bg-gradient-to-r from-transparent via-outpost-gold/10 to-transparent -translate-x-full group-hover:translate-x-full"
+                        ></div>
+
+                        <div
+                          class="aspect-square flex items-center justify-center mb-3 flex-shrink-0 relative z-10"
                         >
-                          <svg
-                            class="w-12 h-12"
-                            fill="none"
-                            stroke="currentColor"
-                            viewBox="0 0 24 24"
+                          <img
+                            v-if="item.imageUrl"
+                            :src="item.imageUrl"
+                            :alt="item.name"
+                            class="product-image w-28 h-28 object-contain"
+                            loading="lazy"
+                            width="160"
+                            height="160"
+                          />
+                          <div
+                            v-else
+                            class="w-28 h-28 bg-gray-100 rounded-xl flex items-center justify-center text-gray-400"
                           >
-                            <path
-                              stroke-linecap="round"
-                              stroke-linejoin="round"
-                              stroke-width="1.5"
-                              d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"
-                            />
-                          </svg>
+                            <svg
+                              class="w-12 h-12"
+                              fill="none"
+                              stroke="currentColor"
+                              viewBox="0 0 24 24"
+                            >
+                              <path
+                                stroke-linecap="round"
+                                stroke-linejoin="round"
+                                stroke-width="1.5"
+                                d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"
+                              />
+                            </svg>
+                          </div>
+                        </div>
+
+                        <div class="flex-grow flex flex-col justify-center relative z-10">
+                          <h3
+                            class="font-cinzel font-semibold text-center text-gray-800 text-xs md:text-sm group-hover:text-outpost-gold transition-colors duration-300 leading-tight"
+                          >
+                            {{ item.name }}
+                          </h3>
+                          <p
+                            class="text-center text-xs font-medium mt-2 px-2 py-1 rounded-full inline-block mx-auto text-outpost-gold bg-outpost-gold/10"
+                          >
+                            {{ formatPrice(item) }}
+                          </p>
                         </div>
                       </div>
-
-                      <div class="flex-grow flex flex-col justify-center relative z-10">
-                        <h3
-                          class="font-cinzel font-semibold text-center text-gray-800 text-xs md:text-sm group-hover:text-outpost-gold transition-colors duration-300 leading-tight"
-                        >
-                          {{ set.name }}
-                        </h3>
-                        <p
-                          class="text-center text-xs text-outpost-gold font-medium mt-2 px-2 py-1 bg-outpost-gold/10 rounded-full inline-block mx-auto"
-                        >
-                          {{
-                            visibleProducts(set).length > 0
-                              ? `${visibleProducts(set).length} in stock`
-                              : 'View'
-                          }}
-                        </p>
-                      </div>
                     </div>
-                  </router-link>
-                </div>
-              </transition>
+                  </div>
+                </transition>
 
-              <!-- Next arrow -->
-              <button
-                v-if="getCarouselIndex(type.id) + CAROUSEL_SIZE < visibleSets(type).length"
-                class="absolute right-0 top-1/2 -translate-y-1/2 translate-x-4 z-10 w-10 h-10 bg-white border border-gray-200 rounded-full shadow-lg flex items-center justify-center hover:border-outpost-gold hover:text-outpost-gold transition-all"
-                aria-label="Next"
-                @click="carouselNext(type.id, visibleSets(type).length)"
-              >
-                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path
-                    stroke-linecap="round"
-                    stroke-linejoin="round"
-                    stroke-width="2"
-                    d="M9 5l7 7-7 7"
-                  />
-                </svg>
-              </button>
-
-              <!-- Dot indicators (shown only when carousel is active) -->
-              <div
-                v-if="visibleSets(type).length > CAROUSEL_SIZE"
-                class="flex justify-center gap-1.5 mt-4"
-              >
+                <!-- Next arrow -->
                 <button
-                  v-for="page in Math.ceil(visibleSets(type).length / CAROUSEL_SIZE)"
-                  :key="page"
-                  class="w-2 h-2 rounded-full transition-all"
-                  :class="currentPage(type.id) === page - 1 ? 'bg-outpost-gold w-5' : 'bg-gray-300'"
-                  :aria-label="`Page ${page}`"
-                  @click="carouselGoTo(type.id, (page - 1) * CAROUSEL_SIZE)"
-                ></button>
+                  v-if="getCarouselIndex(section.slug) + CAROUSEL_SIZE < section.items.length"
+                  class="absolute right-0 top-1/2 -translate-y-1/2 translate-x-4 z-10 w-10 h-10 bg-white border border-gray-200 rounded-full shadow-lg flex items-center justify-center hover:border-outpost-gold hover:text-outpost-gold transition-all"
+                  aria-label="Next"
+                  @click="carouselNext(section.slug, section.items.length)"
+                >
+                  <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                      stroke-width="2"
+                      d="M9 5l7 7-7 7"
+                    />
+                  </svg>
+                </button>
+
+                <!-- Dot indicators (shown only when carousel is active) -->
+                <div
+                  v-if="section.items.length > CAROUSEL_SIZE"
+                  class="flex justify-center gap-1.5 mt-4"
+                >
+                  <button
+                    v-for="page in Math.ceil(section.items.length / CAROUSEL_SIZE)"
+                    :key="page"
+                    class="w-2 h-2 rounded-full transition-all"
+                    :class="
+                      currentPage(section.slug) === page - 1 ? 'bg-outpost-gold w-5' : 'bg-gray-300'
+                    "
+                    :aria-label="`Page ${page}`"
+                    @click="carouselGoTo(section.slug, (page - 1) * CAROUSEL_SIZE)"
+                  ></button>
+                </div>
               </div>
-            </div>
-          </section>
+            </section>
+          </template>
         </template>
 
-        <!-- Featured Single Cards Section — independent of the manual catalog, always live -->
-        <!-- <section id="single-cards" class="mb-20 scroll-mt-24">
+        <!-- Featured Single Cards Section — independent of the Square catalog, always live -->
+        <section id="single-cards" class="mb-20 scroll-mt-24">
           <div class="text-center mb-12">
             <h2
               class="font-cinzel text-3xl md:text-4xl font-bold mb-4 text-gray-800 section-heading inline-block"
@@ -332,48 +341,52 @@
               </div>
             </a>
           </div>
-        </section> -->
+        </section>
       </div>
     </div>
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted } from 'vue'
-import { useProductsStore, type ProductType, type ProductSet } from '../stores/products'
-import { PRODUCTS_CATALOG_LIVE } from '../config/featureFlags'
+import { ref, onMounted } from 'vue'
+import { useSquareCatalogStore, type SquarePublicItem } from '../stores/squareCatalog'
 import ComingSoonPanel from '../components/ComingSoonPanel.vue'
+import { usePageMeta } from '../composables/usePageMeta'
+import { PRODUCTS_CATALOG_LIVE } from '../config/featureFlags'
 
-const productsStore = useProductsStore()
+usePageMeta({
+  title: 'Products — The Outpost Games',
+  description:
+    'Singles and sealed product for Magic, Pokémon, One Piece, Gundam, and Riftbound at The Outpost Games in Rio Grande City, TX.',
+  path: '/products',
+})
+
+const catalogStore = useSquareCatalogStore()
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || '/api'
 
-// Filtered views
-const visibleTypes = computed(() =>
-  productsStore.catalog.types.filter(t => t.isVisible).sort((a, b) => a.sortOrder - b.sortOrder)
-)
-const visibleSets = (type: ProductType) =>
-  type.sets.filter(s => s.isVisible).sort((a, b) => a.sortOrder - b.sortOrder)
+const formatPrice = (item: SquarePublicItem) =>
+  item.priceCents != null ? `$${(item.priceCents / 100).toFixed(2)}` : 'See in store'
 
-const visibleProducts = (set: ProductSet) =>
-  set.products.filter(p => p.isVisible).sort((a, b) => a.sortOrder - b.sortOrder)
-
-// Carousel state — tracks the first visible index per game type
+// Carousel state — tracks the first visible index per section
 const CAROUSEL_SIZE = 5
 const carouselIndexes = ref<Record<string, number>>({})
 
-const getCarouselIndex = (typeId: string) => carouselIndexes.value[typeId] ?? 0
+const getCarouselIndex = (slug: string) => carouselIndexes.value[slug] ?? 0
 
-const carouselPrev = (typeId: string) => {
-  carouselIndexes.value[typeId] = Math.max(0, getCarouselIndex(typeId) - 1)
+const carouselPrev = (slug: string) => {
+  carouselIndexes.value[slug] = Math.max(0, getCarouselIndex(slug) - CAROUSEL_SIZE)
 }
-const carouselNext = (typeId: string, totalSets: number) => {
-  carouselIndexes.value[typeId] = Math.min(totalSets - CAROUSEL_SIZE, getCarouselIndex(typeId) + 1)
+const carouselNext = (slug: string, totalItems: number) => {
+  carouselIndexes.value[slug] = Math.min(
+    totalItems - CAROUSEL_SIZE,
+    getCarouselIndex(slug) + CAROUSEL_SIZE
+  )
 }
-const carouselGoTo = (typeId: string, index: number) => {
-  carouselIndexes.value[typeId] = index
+const carouselGoTo = (slug: string, index: number) => {
+  carouselIndexes.value[slug] = index
 }
-const currentPage = (typeId: string) => Math.floor(getCarouselIndex(typeId) / CAROUSEL_SIZE)
+const currentPage = (slug: string) => Math.floor(getCarouselIndex(slug) / CAROUSEL_SIZE)
 
 // Sidebar
 const sidebarOpen = ref(false)
@@ -416,7 +429,7 @@ const fetchTCGPlayerListings = async () => {
 }
 
 onMounted(() => {
-  if (PRODUCTS_CATALOG_LIVE) productsStore.fetchCatalog()
+  if (PRODUCTS_CATALOG_LIVE) catalogStore.fetchCatalog()
   fetchTCGPlayerListings()
 })
 </script>
@@ -442,32 +455,6 @@ aside {
 .hero-content {
   animation: fadeInUp 0.8s ease-out;
   will-change: transform, opacity;
-}
-
-.section-heading {
-  position: relative;
-  animation: fadeInUp 0.8s ease-out;
-}
-
-.section-heading::after {
-  content: '';
-  position: absolute;
-  bottom: -8px;
-  left: 50%;
-  transform: translateX(-50%);
-  width: 60%;
-  height: 3px;
-  background: linear-gradient(to right, transparent, #d4af37, transparent);
-  animation: expandWidth 0.8s ease-out 0.3s both;
-}
-
-@keyframes expandWidth {
-  from {
-    width: 0%;
-  }
-  to {
-    width: 60%;
-  }
 }
 
 @keyframes fadeInUp {

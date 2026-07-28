@@ -67,7 +67,6 @@ Frontend reads `VITE_API_URL` (defaults to `/api`). In dev, Vite proxies `/api` 
 ### Pinia stores
 - `src/stores/events.ts` — `SpecialEvent` interface (id, title, date, time, entry, description, gameTypeId?, gameTypeName?)
 - `src/stores/products.ts` — `ProductType → ProductSet → SetProduct` hierarchy with full CRUD
-- `src/stores/featuredItems.ts` — homepage promoted-item carousel CRUD (`visibleSorted` computed feeds `Home.vue` directly)
 - `src/stores/cart.ts` — cart state (reserved for future e-commerce, not wired to checkout)
 - `src/stores/auth.ts` — admin session state
 
@@ -75,7 +74,7 @@ Frontend reads `VITE_API_URL` (defaults to `/api`). In dev, Vite proxies `/api` 
 The public site is a single page (`Home.vue`) plus two standalone routes. `/about` and `/contact` are redirects to in-page anchors (`/#about`, `/#contact`), not separate views.
 | Path | View |
 |---|---|
-| `/` | `Home.vue` — one-page site: hero, featured items carousel, multi-TCG showcase, weekly events, about, Discord/Instagram social CTA, contact |
+| `/` | `Home.vue` — one-page site: hero, marketing posters carousel, multi-TCG showcase, weekly events, about, Discord/Instagram social CTA, contact |
 | `/products` | `Products.vue` (carousel per game type, "View All" links) |
 | `/products/:typeId` | `ProductsGameType.vue` (flat product list + filter/sort, reads `?set=` query param) |
 | `/events` | `Events.vue` |
@@ -88,8 +87,6 @@ The public site is a single page (`Home.vue`) plus two standalone routes. `/abou
 | `/x/outpostAdmin` | `AdminDashboard.vue` | Dashboard with links to every section |
 | `/x/outpostAdmin/events` | `AdminEvents.vue` | Manage events (list + edit modal) |
 | `/x/outpostAdmin/events/add` | `AdminEventsAdd.vue` | Add event form |
-| `/x/outpostAdmin/featured-items` | `AdminFeaturedItems.vue` | Manage homepage promoted-item carousel |
-| `/x/outpostAdmin/featured-items/add` | `AdminFeaturedItemsAdd.vue` | Add a featured item |
 | `/x/outpostAdmin/products` | `AdminProducts.vue` | Hierarchical tree with visibility toggles |
 | `/x/outpostAdmin/products/add` | `AdminProductsAdd.vue` | Add game type / set / product |
 | `/x/outpostAdmin/tcgplayer` | `AdminTCGPlayerPage.vue` | Manage card listings |
@@ -116,12 +113,14 @@ Seeded on first run via `DEFAULT_CATALOG` in `api/server.js` (includes all curre
 
 ### Square POS integration
 
-A separate system from the manual `outpost:products` catalog above — talks directly to the shop's live Square point-of-sale account (catalog, inventory, sales), not Redis. Admin editing happens via the four `/x/outpostAdmin/square-*` routes above; not wired into any public page yet.
+A separate system from the manual `outpost:products` catalog above — talks directly to the shop's live Square point-of-sale account (catalog, inventory, sales), not Redis. Admin editing happens via the four `/x/outpostAdmin/square-*` routes above.
 
-- `api/squarePosClient.js` — Catalog + Inventory API client. Every credential lookup goes through `resolveSquareCredentials(env)`, which picks production vs. sandbox creds based on `SQUARE_ENV`. Key exports: `listSquareCatalogItems`/`getSquareInventoryReport` (catalog + on-hand counts merged), `getSquareCatalogItem`/`updateSquareCatalogItem` (item editing — see the `reporting_category` note below), `listSquareCategories`/`resolveTopLevelCategoryMap` (category tree + collapse-to-top-level for grouping), `uploadSquareCatalogImage`, `adjustSquareInventoryCount(Batch)`.
+- `api/squarePosClient.js` — Catalog + Inventory API client. Every credential lookup goes through `resolveSquareCredentials(env)`, which picks production vs. sandbox creds based on `SQUARE_ENV`. Key exports: `listSquareCatalogItems`/`getSquareInventoryReport` (catalog + on-hand counts merged), `getSquareCatalogItem`/`updateSquareCatalogItem` (item editing — see the `reporting_category` note below), `listSquareCategories`/`resolveTopLevelCategoryMap` (category tree + collapse-to-top-level for grouping), `getPublicSquareCatalog` (public-facing subset, excludes snack/food categories), `uploadSquareCatalogImage`, `adjustSquareInventoryCount(Batch)`.
 - `api/squareOrdersClient.js` — Orders API client for the Sales dashboard: revenue/order/AOV trends, category + payment-method + day-of-week/hour-of-day breakdowns (store-local `America/Chicago` time), and per-product profit (via a `outpost_unit_cost` custom attribute on `ITEM_VARIATION` — Square has no native cost-of-goods field).
 - **`categories` vs. `reporting_category`**: an ITEM's `item_data.categories` (array) and `item_data.reporting_category` (single value) are independent fields — Square's Dashboard/POS/reports read `reporting_category` as *the* category, but it doesn't follow `categories` automatically. `updateSquareCatalogItem` keeps both in sync on every category change; if a category edit ever looks like it "didn't save," check whether these two have drifted apart on the raw catalog object.
+- **Image upload ordering**: Square's `CreateCatalogImage` appends to `item_data.image_ids` rather than replacing/prepending it (confirmed live), but every read path treats `image_ids[0]` as "the" image. `uploadSquareCatalogImage` does a follow-up write to move the new image to the front — without it, a freshly uploaded image silently never displays.
 - `api/inventoryExport.js` + `api/mailClient.js` — monthly `.xlsx` inventory export (non-snack items, sorted by stock status → category → quantity), emailed via Gmail SMTP to `theoutpostgamingrgv@gmail.com` on the 1st of the month (store-local time). Scheduler runs hourly and no-ops until `GMAIL_USER`/`GMAIL_APP_PASSWORD` are set. Manual trigger: `POST /api/admin/inventory-export/run` (admin auth).
+- **Public product page** (`/products`, `/products/:typeId`): `api/squarePublicCatalogCache.js` (store-hours-aware TTL cache, Redis-backed like the Squarespace cache below) wraps `getPublicSquareCatalog` and exposes `GET /api/square/public-catalog`. `src/stores/squareCatalog.ts` consumes it; `Products.vue`/`ProductsGameType.vue` render straight from Square inventory — no manual catalog entry needed. Gated behind `VITE_PRODUCTS_PAGE_LIVE` (see Environment Variables) — flip that to `true` and rebuild once ready to go public; until then both views show `ComingSoonPanel`.
 
 ### Squarespace integration (legacy — superseded by the Square POS integration above, read-only, additive, separate from manual catalog)
 
@@ -150,7 +149,7 @@ Grouping is manual: `PUT /api/squarespace/products/:productId/assignment` tags a
 ### Home page
 - Hero section with side banner carousels
 - Featured event banner (next API special event, or next weekly recurring event as fallback)
-- Featured/promoted items carousel — admin-managed via `featuredItems` store/`AdminFeaturedItems.vue`, not a hardcoded array
+- Marketing posters carousel — fully filesystem-driven, no admin step: `GET /api/marketing-posters` (`api/marketingPosters.js`) lists whatever image files exist in `public/wpn-assets/posters/`, titled from the filename. Drop an image in, it shows up; delete it, it disappears. Replaces the old admin-managed Featured Items CRUD, which existed solely for this carousel.
 - Multi-TCG showcase (`home-sections/MultiTcgShowcase.vue`, async-loaded)
 - Weekly events section
 - About section (`id="about"`)
@@ -176,3 +175,5 @@ In-page navigation (`About`/`Contact` links, cross-route anchors) is handled by 
 | `GMAIL_USER` | Gmail account sending the monthly inventory export (requires 2FA + an App Password); export job idle if unset | — |
 | `GMAIL_APP_PASSWORD` | App Password for `GMAIL_USER` (Google Account > Security > App Passwords) | — |
 | `MAIL_TO` | Destination address for the monthly inventory export | `theoutpostgamingrgv@gmail.com` |
+| `MARKETING_POSTERS_DIR` | Where the API reads homepage carousel posters from; only needed if the default repo-root-relative path doesn't apply (see `api/marketingPosters.js`) | `<repo>/public/wpn-assets/posters` |
+| `VITE_PRODUCTS_PAGE_LIVE` | Frontend build-time flag — show the live Square-backed `/products` page instead of "Coming Soon" | `false` |

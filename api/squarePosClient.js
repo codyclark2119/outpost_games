@@ -227,20 +227,29 @@ export const listSquareCatalogItems = async (env = process.env) => {
   const client = clientFromEnv(env)
 
   const variations = []
+  const imagesById = new Map()
   let cursor
   let page = 0
 
   do {
-    const query = new URLSearchParams({ types: 'ITEM' })
+    // IMAGE is requested alongside ITEM in the same paginated call so bulk
+    // reads (stock report, public catalog) never need a per-item image fetch.
+    const query = new URLSearchParams({ types: 'ITEM,IMAGE' })
     if (cursor) query.set('cursor', cursor)
 
     const payload = await client.request(`/v2/catalog/list?${query.toString()}`)
 
     for (const object of payload.objects || []) {
+      if (object.type === 'IMAGE') {
+        imagesById.set(object.id, object.image_data?.url || null)
+        continue
+      }
+
       const itemData = object.item_data
       if (!itemData) continue
 
       const categoryIds = (itemData.categories || []).map(category => category.id)
+      const primaryImageId = itemData.image_ids?.[0] || null
 
       for (const variation of itemData.variations || []) {
         const variationData = variation.item_variation_data || {}
@@ -256,6 +265,7 @@ export const listSquareCatalogItems = async (env = process.env) => {
           sellable: variationData.sellable !== false,
           presentAtAllLocations: object.present_at_all_locations || false,
           categoryIds,
+          primaryImageId,
           costCents: readCostCents(variation),
           itemCreatedAt: object.created_at || null,
         })
@@ -265,6 +275,15 @@ export const listSquareCatalogItems = async (env = process.env) => {
     cursor = payload.cursor
     page += 1
   } while (cursor && page < CATALOG_PAGE_SAFETY_CAP)
+
+  // Resolved as a second pass rather than inline — an item can be paginated
+  // before the IMAGE object it references, so imagesById isn't complete
+  // until the whole list has been walked.
+  for (const variation of variations) {
+    variation.imageUrl = variation.primaryImageId
+      ? imagesById.get(variation.primaryImageId) || null
+      : null
+  }
 
   return variations
 }
@@ -338,6 +357,107 @@ export const getSquareInventoryReport = async (env = process.env) => {
     ok: true,
     environment: resolveSquareEnvironment(env),
     locationId: locationId || null,
+    itemCount: items.length,
+    items,
+  }
+}
+
+// Categories the public site never shows even if they're sellable in Square —
+// e.g. snacks/concessions sold in-store but out of scope for the TCG-only
+// public catalog. Matched case-insensitively against the item's top-level
+// category name, so tagging a new item under one of these just works with no
+// code change; anything not listed here shows up on the public site by default.
+const PUBLIC_CATALOG_EXCLUDED_CATEGORIES = ['snacks', 'food', 'drinks', 'concessions']
+
+// Display order for the public catalog's category sections: these three
+// always lead, in this exact sequence, when present; Accessories always
+// trails everything else; every other category falls in between, ranked by
+// how much is actually on hand (busiest categories first).
+const PINNED_CATEGORY_ORDER = ['magic', 'pokemon', 'bandai']
+const CATEGORY_ALWAYS_LAST = 'accessories'
+
+// Public-facing catalog: sellable items only, grouped by top-level category,
+// with non-TCG categories (snacks, etc.) filtered out entirely. Internal
+// fields (SKU, raw inventory state) are intentionally left off this shape —
+// it's meant to be served to customers, unlike getSquareInventoryReport above.
+export const getPublicSquareCatalog = async (env = process.env) => {
+  loadSquareEnvironment()
+  const variations = await listSquareCatalogItems(env)
+  const locationId = resolveSquareCredentials(env).locationId
+  const sellableVariations = variations.filter(variation => variation.sellable)
+  const trackedVariations = sellableVariations.filter(variation => variation.trackInventory)
+
+  const [counts, { topOf }] = await Promise.all([
+    locationId && trackedVariations.length
+      ? listSquareInventory(env, {
+          catalogObjectIds: trackedVariations.map(variation => variation.id),
+          locationIds: [locationId],
+        })
+      : Promise.resolve([]),
+    resolveTopLevelCategoryMap(env),
+  ])
+  const countByVariationId = new Map(counts.map(count => [count.catalog_object_id, count]))
+
+  // The public site only ever shows items actually available right now — out-of-stock
+  // items are still visible internally via the admin stock report, just not here. No
+  // tracked count at all means Square isn't keeping stock for this variation
+  // (made-to-order, custom work, etc.), so it's treated as available; a tracked
+  // variation only counts as in stock once its on-hand quantity is over zero.
+  const isInStock = variation => {
+    if (!variation.trackInventory) return true
+    const count = countByVariationId.get(variation.id)
+    return Boolean(count && Number(count.quantity) > 0)
+  }
+
+  // Single pass: filters to in-stock + non-excluded, builds the public item
+  // shape, and tallies on-hand quantity per category for the ordering below —
+  // all in one loop rather than several chained filter/map passes, since the
+  // per-category tally needs quantity that the returned item shape omits.
+  const rawItems = []
+  const stockByCategory = new Map()
+
+  for (const variation of sellableVariations) {
+    if (!isInStock(variation)) continue
+
+    const topCategory = variation.categoryIds?.[0] ? topOf(variation.categoryIds[0]) : null
+    const categoryName = topCategory?.name || 'Uncategorized'
+    if (PUBLIC_CATALOG_EXCLUDED_CATEGORIES.includes(categoryName.toLowerCase())) continue
+
+    const count = countByVariationId.get(variation.id)
+    const quantity = variation.trackInventory ? Number(count?.quantity ?? 0) : 0
+    stockByCategory.set(categoryName, (stockByCategory.get(categoryName) || 0) + quantity)
+
+    rawItems.push({
+      id: variation.id,
+      itemId: variation.itemId,
+      name: variation.variationName && variation.variationName !== 'Regular'
+        ? `${variation.name} - ${variation.variationName}`
+        : variation.name || 'Unnamed item',
+      priceCents: variation.priceCents,
+      currency: variation.currency,
+      imageUrl: variation.imageUrl,
+      categoryId: topCategory?.id || null,
+      categoryName,
+    })
+  }
+
+  const categoryNames = [...stockByCategory.keys()]
+  const pinned = PINNED_CATEGORY_ORDER.map(lower =>
+    categoryNames.find(name => name.toLowerCase() === lower)
+  ).filter(Boolean)
+  const last = categoryNames.filter(name => name.toLowerCase() === CATEGORY_ALWAYS_LAST)
+  const middle = categoryNames
+    .filter(name => !pinned.includes(name) && !last.includes(name))
+    .sort((a, b) => (stockByCategory.get(b) || 0) - (stockByCategory.get(a) || 0))
+
+  const categoryRank = new Map([...pinned, ...middle, ...last].map((name, index) => [name, index]))
+  // Array#sort is stable (guaranteed since ES2019), so items keep their
+  // original relative order within a category — only category order changes.
+  const items = rawItems.sort((a, b) => categoryRank.get(a.categoryName) - categoryRank.get(b.categoryName))
+
+  return {
+    fetchedAt: new Date().toISOString(),
+    environment: resolveSquareEnvironment(env),
     itemCount: items.length,
     items,
   }
@@ -685,7 +805,30 @@ export const uploadSquareCatalogImage = async (itemId, { buffer, filename, mimeT
     throw error
   }
 
-  return { imageUrl: payload.image?.image_data?.url || null }
+  const newImageId = payload.image?.id
+  const imageUrl = payload.image?.image_data?.url || null
+
+  // Square's CreateCatalogImage APPENDS to item_data.image_ids rather than
+  // replacing/prepending it (confirmed live) — every other read path here
+  // treats image_ids[0] as "the" image, so a newly uploaded image silently
+  // never displays unless it's moved to the front ourselves.
+  if (newImageId) {
+    const client = clientFromEnv(env)
+    const current = await fetchRawCatalogObject(client, itemId)
+    const object = current.object
+    const itemData = object.item_data || {}
+    const existingIds = itemData.image_ids || []
+
+    itemData.image_ids = [newImageId, ...existingIds.filter(id => id !== newImageId)]
+    object.item_data = itemData
+
+    await client.request('/v2/catalog/object', {
+      method: 'POST',
+      body: { idempotency_key: crypto.randomUUID(), object },
+    })
+  }
+
+  return { imageUrl }
 }
 
 export const adjustSquareInventoryCount = async (variationId, { quantity, locationId }, env = process.env) => {

@@ -2,60 +2,47 @@
   <div class="min-h-screen bg-gradient-to-br from-gray-50 via-white to-gray-100 py-12">
     <div class="container mx-auto px-4">
       <div class="max-w-7xl mx-auto">
-        <!-- Manual catalog retired — coming soon until Square inventory is ready -->
-        <template v-if="!PRODUCTS_CATALOG_LIVE">
-          <router-link
-            to="/products"
-            class="text-outpost-gold hover:text-outpost-gold-dark text-sm font-medium flex items-center gap-1 mb-6"
-          >
-            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path
-                stroke-linecap="round"
-                stroke-linejoin="round"
-                stroke-width="2"
-                d="M15 19l-7-7 7-7"
-              />
-            </svg>
-            All Products
-          </router-link>
-          <ComingSoonPanel />
-        </template>
+        <router-link
+          to="/products"
+          class="text-outpost-gold hover:text-outpost-gold-dark text-sm font-medium flex items-center gap-1 mb-6"
+        >
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              stroke-width="2"
+              d="M15 19l-7-7 7-7"
+            />
+          </svg>
+          All Products
+        </router-link>
+
+        <ComingSoonPanel v-if="!PRODUCTS_CATALOG_LIVE" />
 
         <template v-else>
           <!-- Header -->
           <div class="flex flex-wrap items-center justify-between gap-4 mb-8">
             <div>
-              <router-link
-                to="/products"
-                class="text-outpost-gold hover:text-outpost-gold-dark text-sm font-medium flex items-center gap-1 mb-2"
-              >
-                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path
-                    stroke-linecap="round"
-                    stroke-linejoin="round"
-                    stroke-width="2"
-                    d="M15 19l-7-7 7-7"
-                  />
-                </svg>
-                All Products
-              </router-link>
               <h1 class="font-cinzel text-4xl font-bold text-gray-800">{{ typeName }}</h1>
               <p class="text-gray-500 mt-1">
-                {{ filteredProducts.length }} product{{ filteredProducts.length !== 1 ? 's' : '' }}
+                {{ filteredItems.length }} product{{ filteredItems.length !== 1 ? 's' : '' }}
                 available
               </p>
             </div>
           </div>
 
           <!-- Loading -->
-          <div v-if="productsStore.loading" class="text-center py-20">
+          <div
+            v-if="catalogStore.loading && catalogStore.items.length === 0"
+            class="text-center py-20"
+          >
             <div
               class="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-outpost-gold"
             ></div>
           </div>
 
           <!-- Type not found -->
-          <div v-else-if="!currentType" class="text-center py-20">
+          <div v-else-if="!currentSection" class="text-center py-20">
             <p class="text-gray-500 text-lg mb-4">Game type not found.</p>
             <router-link to="/products" class="btn-primary px-6 py-2"
               >← Back to Products</router-link
@@ -79,12 +66,10 @@
                       v-model="sortBy"
                       class="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-outpost-navy"
                     >
-                      <option value="default">Default</option>
                       <option value="name-asc">Name A–Z</option>
                       <option value="name-desc">Name Z–A</option>
                       <option value="price-asc">Price Low–High</option>
                       <option value="price-desc">Price High–Low</option>
-                      <option value="set-asc">Set Name A–Z</option>
                     </select>
                   </div>
 
@@ -113,42 +98,23 @@
                     </div>
                   </div>
 
-                  <!-- Filter by set -->
-                  <div>
-                    <label
-                      class="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2"
-                      >Sets</label
-                    >
-                    <div class="space-y-2 max-h-56 overflow-y-auto">
-                      <label
-                        v-for="set in availableSets"
-                        :key="set.id"
-                        class="flex items-center gap-2 cursor-pointer text-sm text-gray-700 hover:text-outpost-gold transition-colors"
-                      >
-                        <input
-                          v-model="selectedSetIds"
-                          type="checkbox"
-                          :value="set.id"
-                          class="accent-outpost-navy rounded"
-                        />
-                        {{ set.name }}
-                      </label>
-                    </div>
-                    <button
-                      v-if="selectedSetIds.length > 0"
-                      class="text-xs text-gray-400 hover:text-red-500 mt-2 transition-colors"
-                      @click="selectedSetIds = []"
-                    >
-                      Clear selection
-                    </button>
-                  </div>
+                  <button
+                    v-if="minPrice !== null || maxPrice !== null"
+                    class="text-xs text-gray-400 hover:text-red-500 mt-4 transition-colors"
+                    @click="clearFilters"
+                  >
+                    Clear filters
+                  </button>
                 </div>
               </aside>
 
               <!-- Product grid -->
               <div class="flex-1 min-w-0">
                 <!-- Empty state -->
-                <div v-if="allProducts.length === 0" class="text-center py-16 text-gray-400">
+                <div
+                  v-if="currentSection.items.length === 0"
+                  class="text-center py-16 text-gray-400"
+                >
                   <svg
                     class="w-16 h-16 mx-auto mb-4 opacity-30"
                     fill="none"
@@ -166,10 +132,7 @@
                   <p class="text-sm mt-1">Check back soon or visit us in store!</p>
                 </div>
 
-                <div
-                  v-else-if="filteredProducts.length === 0"
-                  class="text-center py-16 text-gray-400"
-                >
+                <div v-else-if="filteredItems.length === 0" class="text-center py-16 text-gray-400">
                   <p class="text-lg font-medium">No products match your filters.</p>
                   <button class="btn-primary px-5 py-2 mt-4 text-sm" @click="clearFilters">
                     Clear Filters
@@ -178,8 +141,8 @@
 
                 <div v-else class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-6">
                   <div
-                    v-for="item in filteredProducts"
-                    :key="item.product.id"
+                    v-for="item in filteredItems"
+                    :key="item.id"
                     class="bg-white rounded-xl shadow border border-gray-200 hover:border-outpost-gold hover:shadow-lg transition-all duration-300 overflow-hidden flex flex-col group"
                   >
                     <!-- Product image -->
@@ -187,9 +150,9 @@
                       class="aspect-video bg-gray-50 flex items-center justify-center overflow-hidden"
                     >
                       <img
-                        v-if="item.product.imageUrl"
-                        :src="item.product.imageUrl"
-                        :alt="item.product.name"
+                        v-if="item.imageUrl"
+                        :src="item.imageUrl"
+                        :alt="item.name"
                         class="w-full h-full object-contain p-3 no-hover group-hover:scale-105 transition-transform duration-300"
                         loading="lazy"
                       />
@@ -212,28 +175,13 @@
 
                     <!-- Info -->
                     <div class="p-4 flex flex-col flex-grow">
-                      <!-- Set badge -->
-                      <span
-                        class="text-xs text-outpost-gold font-semibold bg-outpost-gold/10 px-2 py-0.5 rounded-full inline-block mb-2 self-start"
-                      >
-                        {{ item.setName }}
-                      </span>
                       <h3 class="font-cinzel font-bold text-gray-800 mb-1 leading-tight">
-                        {{ item.product.name }}
+                        {{ item.name }}
                       </h3>
-                      <p
-                        v-if="item.product.description"
-                        class="text-sm text-gray-500 mb-3 flex-grow line-clamp-3"
-                      >
-                        {{ item.product.description }}
-                      </p>
-                      <div
-                        v-if="item.product.price !== null"
-                        class="mt-auto pt-2 border-t border-gray-100"
-                      >
-                        <span class="text-xl font-bold text-outpost-navy"
-                          >${{ Number(item.product.price).toFixed(2) }}</span
-                        >
+                      <div class="mt-auto pt-2 border-t border-gray-100">
+                        <span class="text-xl font-bold text-outpost-navy">{{
+                          formatPrice(item)
+                        }}</span>
                       </div>
                     </div>
                   </div>
@@ -248,109 +196,79 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, watch, onMounted } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import { useRoute } from 'vue-router'
-import { useProductsStore, type SetProduct } from '../stores/products'
+import { useHead } from '@unhead/vue'
+import { useSquareCatalogStore, type SquarePublicItem } from '../stores/squareCatalog'
+import { SITE_URL } from '../composables/usePageMeta'
 import { PRODUCTS_CATALOG_LIVE } from '../config/featureFlags'
 import ComingSoonPanel from '../components/ComingSoonPanel.vue'
 
 const route = useRoute()
-const productsStore = useProductsStore()
+const catalogStore = useSquareCatalogStore()
 
 const typeId = computed(() => route.params.typeId as string)
 
-const currentType = computed(
-  () => productsStore.catalog.types.find(t => t.id === typeId.value && t.isVisible) ?? null
-)
+const currentSection = computed(() => catalogStore.sectionBySlug(typeId.value))
+const typeName = computed(() => currentSection.value?.name ?? '')
 
-const typeName = computed(() => currentType.value?.name ?? '')
+useHead(() => ({
+  title: typeName.value ? `${typeName.value} — The Outpost Games` : 'Products — The Outpost Games',
+  meta: [
+    {
+      name: 'description',
+      content: typeName.value
+        ? `Browse ${typeName.value} singles and sealed product at The Outpost Games in Rio Grande City, TX.`
+        : 'Browse products at The Outpost Games in Rio Grande City, TX.',
+    },
+  ],
+  link: [{ rel: 'canonical', href: `${SITE_URL}/products/${typeId.value}` }],
+}))
 
-// All visible sets in this type
-const availableSets = computed(() =>
-  (currentType.value?.sets ?? []).filter(s => s.isVisible).sort((a, b) => a.sortOrder - b.sortOrder)
-)
-
-// Flat list of all visible products across visible sets
-interface ProductItem {
-  product: SetProduct
-  setName: string
-  setId: string
-  sortOrder: number
-}
-
-const allProducts = computed((): ProductItem[] => {
-  const items: ProductItem[] = []
-  for (const set of availableSets.value) {
-    for (const product of set.products) {
-      if (product.isVisible) {
-        items.push({ product, setName: set.name, setId: set.id, sortOrder: product.sortOrder })
-      }
-    }
-  }
-  return items
-})
-
-// Filter state — seeded from ?set=<setId> query param
-const selectedSetIds = ref<string[]>([])
+// Filter state
 const minPrice = ref<number | null>(null)
 const maxPrice = ref<number | null>(null)
-const sortBy = ref('default')
+const sortBy = ref('name-asc')
 
-watch(
-  () => route.query.set,
-  setParam => {
-    selectedSetIds.value = typeof setParam === 'string' && setParam ? [setParam] : []
-  },
-  { immediate: true }
-)
+const formatPrice = (item: SquarePublicItem) =>
+  item.priceCents != null ? `$${(item.priceCents / 100).toFixed(2)}` : 'See in store'
 
 const clearFilters = () => {
-  selectedSetIds.value = []
   minPrice.value = null
   maxPrice.value = null
-  sortBy.value = 'default'
+  sortBy.value = 'name-asc'
 }
 
-const filteredProducts = computed((): ProductItem[] => {
-  let items = allProducts.value
+const filteredItems = computed((): SquarePublicItem[] => {
+  let items = currentSection.value?.items ?? []
 
-  // Filter by set
-  if (selectedSetIds.value.length > 0) {
-    items = items.filter(i => selectedSetIds.value.includes(i.setId))
-  }
-
-  // Filter by price range
   if (minPrice.value !== null) {
-    items = items.filter(i => i.product.price !== null && i.product.price >= (minPrice.value ?? 0))
+    items = items.filter(
+      item => item.priceCents !== null && item.priceCents / 100 >= (minPrice.value ?? 0)
+    )
   }
   if (maxPrice.value !== null) {
     items = items.filter(
-      i => i.product.price !== null && i.product.price <= (maxPrice.value ?? Infinity)
+      item => item.priceCents !== null && item.priceCents / 100 <= (maxPrice.value ?? Infinity)
     )
   }
 
-  // Sort
   return [...items].sort((a, b) => {
     switch (sortBy.value) {
-      case 'name-asc':
-        return a.product.name.localeCompare(b.product.name)
       case 'name-desc':
-        return b.product.name.localeCompare(a.product.name)
+        return b.name.localeCompare(a.name)
       case 'price-asc':
-        return (a.product.price ?? Infinity) - (b.product.price ?? Infinity)
+        return (a.priceCents ?? Infinity) - (b.priceCents ?? Infinity)
       case 'price-desc':
-        return (b.product.price ?? -Infinity) - (a.product.price ?? -Infinity)
-      case 'set-asc':
-        return a.setName.localeCompare(b.setName)
+        return (b.priceCents ?? -Infinity) - (a.priceCents ?? -Infinity)
       default:
-        return a.sortOrder - b.sortOrder
+        return a.name.localeCompare(b.name)
     }
   })
 })
 
-onMounted(async () => {
-  if (PRODUCTS_CATALOG_LIVE && productsStore.catalog.types.length === 0)
-    await productsStore.fetchCatalog()
+onMounted(() => {
+  if (PRODUCTS_CATALOG_LIVE && catalogStore.items.length === 0) catalogStore.fetchCatalog()
 })
 </script>
 

@@ -26,8 +26,14 @@ services:
       - PORT=3001
       - REDIS_URL=redis://redis:6379
       - NODE_ENV=production
+      - MARKETING_POSTERS_DIR=/wpn-assets/posters
     ports:
       - "3001:3001"
+    volumes:
+      # Marketing posters, read directly off disk by api/marketingPosters.js —
+      # this container's WORKDIR/repo-root layout differs from the combined
+      # production image, so the default path resolution doesn't apply here.
+      - ../public/wpn-assets/posters:/wpn-assets/posters:ro
     depends_on:
       redis:
         condition: service_healthy

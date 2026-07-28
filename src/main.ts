@@ -77,16 +77,6 @@ const routes = [
     component: () => import('./views/admin/AdminEventsAdd.vue'),
   },
   {
-    path: '/x/outpostAdmin/featured-items',
-    name: 'AdminFeaturedItems',
-    component: () => import('./views/admin/AdminFeaturedItems.vue'),
-  },
-  {
-    path: '/x/outpostAdmin/featured-items/add',
-    name: 'AdminFeaturedItemsAdd',
-    component: () => import('./views/admin/AdminFeaturedItemsAdd.vue'),
-  },
-  {
     path: '/x/outpostAdmin/products',
     name: 'AdminProducts',
     component: () => import('./views/admin/AdminProducts.vue'),
