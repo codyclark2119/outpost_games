@@ -1148,6 +1148,15 @@ app.get('/api/square/public-catalog', async (req, res) => {
   }
 })
 
+// Fire-and-forget: called after every admin write that could change what the
+// public Products page shows (image, name, price, category, stock, deletion).
+// Without this, an admin's edit only reaches customers once the store-hours
+// TTL in squarePublicCatalogCache.js next expires (up to an hour open, a day
+// closed) — which reads as "the save didn't work" even though it did.
+const invalidatePublicCatalog = () => {
+  refreshSquarePublicCatalog().catch(() => {}) // failure is already logged inside refreshSquarePublicCatalog
+}
+
 app.post('/api/square/public-catalog/refresh', requireAdminAuth, async (req, res) => {
   try {
     const cache = await refreshSquarePublicCatalog()
@@ -1227,6 +1236,7 @@ app.put('/api/square/products/:itemId', requireAdminAuth, async (req, res) => {
     }
 
     const updated = await updateSquareCatalogItem(req.params.itemId, body, process.env)
+    invalidatePublicCatalog()
     res.json({ ok: true, item: updated })
   } catch (error) {
     if (error instanceof SquareVersionMismatchError) {
@@ -1242,6 +1252,7 @@ app.put('/api/square/products/:itemId', requireAdminAuth, async (req, res) => {
 app.delete('/api/square/products/:itemId', requireAdminAuth, async (req, res) => {
   try {
     const result = await deleteSquareCatalogItem(req.params.itemId, process.env)
+    invalidatePublicCatalog()
     res.json({ ok: true, deletedIds: result.deleted_object_ids || [] })
   } catch (error) {
     console.error('❌ Square product delete failed:', error.message)
@@ -1261,6 +1272,7 @@ app.delete(
         req.params.variationId,
         process.env
       )
+      invalidatePublicCatalog()
       res.json({ ok: true, deletedIds: result.deleted_object_ids || [] })
     } catch (error) {
       console.error('❌ Square variation delete failed:', error.message)
@@ -1301,6 +1313,7 @@ app.post('/api/square/products/:itemId/image', requireAdminAuth, (req, res) => {
         },
         process.env
       )
+      invalidatePublicCatalog()
       res.json({ ok: true, imageUrl: result.imageUrl })
     } catch (error) {
       console.error('❌ Square image upload failed:', error.message)
@@ -1329,6 +1342,7 @@ app.post('/api/square/products/:itemId/inventory', requireAdminAuth, async (req,
 
     const { locationId } = resolveSquareCredentials(process.env)
     await adjustSquareInventoryCount(variationId, { quantity, locationId }, process.env)
+    invalidatePublicCatalog()
     res.json({ ok: true, quantity })
   } catch (error) {
     console.error('❌ Square inventory correction failed:', error.message)
@@ -1366,6 +1380,7 @@ app.post('/api/square/inventory/batch', requireAdminAuth, async (req, res) => {
       changes.map(c => ({ variationId: c.variationId, quantity: Number(c.quantity) })),
       process.env
     )
+    invalidatePublicCatalog()
     res.json({ ok: true, updatedCount: result.updatedCount })
   } catch (error) {
     console.error('❌ Square batch inventory correction failed:', error.message)
