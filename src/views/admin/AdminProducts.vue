@@ -306,7 +306,7 @@
                   v-model="editForm.imageUrl"
                   type="text"
                   class="input-field"
-                  placeholder="/wpn-assets/..."
+                  placeholder="https://... (e.g. a Square product image URL)"
                 />
                 <img
                   v-if="editForm.imageUrl"

@@ -103,6 +103,36 @@ test('updateSquareCatalogItem changes only the allow-listed fields, leaving sku/
   })
 })
 
+test('updateSquareCatalogItem syncs reporting_category to match a categoryIds change', async () => {
+  const responses = [
+    { ok: true, body: singleVariationObject() },
+    { ok: true, body: { catalog_object: { id: 'ITEM123', version: 112 } } },
+  ]
+
+  await withMockedFetch(responses, async calls => {
+    await updateSquareCatalogItem('ITEM123', { categoryIds: ['CAT_NEW'] }, FAKE_ENV)
+
+    const sentObject = JSON.parse(calls[1].options.body).object
+    assert.deepEqual(sentObject.item_data.categories, [{ id: 'CAT_NEW' }])
+    assert.deepEqual(sentObject.item_data.reporting_category, { id: 'CAT_NEW' })
+  })
+})
+
+test('updateSquareCatalogItem clears reporting_category when categoryIds is emptied', async () => {
+  const responses = [
+    { ok: true, body: singleVariationObject() },
+    { ok: true, body: { catalog_object: { id: 'ITEM123', version: 112 } } },
+  ]
+
+  await withMockedFetch(responses, async calls => {
+    await updateSquareCatalogItem('ITEM123', { categoryIds: [] }, FAKE_ENV)
+
+    const sentObject = JSON.parse(calls[1].options.body).object
+    assert.deepEqual(sentObject.item_data.categories, [])
+    assert.equal('reporting_category' in sentObject.item_data, false)
+  })
+})
+
 test('updateSquareCatalogItem sends an idempotency_key and preserves the object version', async () => {
   const responses = [
     { ok: true, body: singleVariationObject() },

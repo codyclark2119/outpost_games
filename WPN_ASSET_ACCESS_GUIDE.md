@@ -1,5 +1,7 @@
 # WPN Marketing Assets Access Guide
 
+> **Current usage note:** `public/wpn-assets/` is now used specifically for promotional/marketing posters (e.g. the homepage Featured Items banner), not per-set product photography — phase one of the product page rollout uses Square's own hosted product photos instead. This guide's steps for sourcing official WPN materials still apply; once the shop carries a wider selection of stock, set-based product imagery may be reintroduced here.
+
 ## Overview
 As a Wizards Play Network (WPN) member store, The Outpost Games has access to official marketing materials, promotional assets, and resources that can be used legally on your website and in-store materials.
 

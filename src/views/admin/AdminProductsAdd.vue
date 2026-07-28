@@ -104,7 +104,7 @@
               v-model="setForm.imageUrl"
               type="text"
               class="input-field"
-              placeholder="/wpn-assets/... or https://..."
+              placeholder="https://... (e.g. a Square product image URL)"
             />
             <img
               v-if="setForm.imageUrl"

@@ -142,12 +142,14 @@ interface SquareStockItem {
   priceCents: number | null
   currency: string | null
   trackInventory: boolean
+  sellable: boolean
   quantity: number | null
   state: string
   inStock: boolean
   source: string
   categoryId: string | null
   categoryName: string
+  itemCreatedAt: string | null
 }
 
 interface CategoryGroup {
@@ -238,14 +240,41 @@ const csvEscape = (value: string) => {
   return value
 }
 
+// Days since this item was first added to the Square catalog — a proxy for
+// "how long has this been sitting around," since Square doesn't track
+// per-batch/lot arrival dates without the Retail plan's Purchase Orders.
+// Not exact for restocked SKUs, but close enough to flag likely-old stock.
+const daysInCatalog = (item: SquareStockItem) => {
+  if (!item.itemCreatedAt) return ''
+  const createdAt = new Date(item.itemCreatedAt).getTime()
+  if (Number.isNaN(createdAt)) return ''
+  return Math.floor((Date.now() - createdAt) / (24 * 60 * 60 * 1000))
+}
+
 const exportCsv = () => {
-  const header = ['Item', 'SKU', 'Price', 'Quantity', 'Status']
+  const header = [
+    'Item',
+    'SKU',
+    'Category',
+    'Price',
+    'Quantity',
+    'Status',
+    'Sellable',
+    'Variation ID',
+    'Added to Catalog',
+    'Days in Catalog',
+  ]
   const rows = items.value.map(item => [
     csvEscape(item.displayName),
     csvEscape(item.sku || ''),
+    csvEscape(item.categoryName || 'Uncategorized'),
     item.priceCents != null ? (item.priceCents / 100).toFixed(2) : '',
     item.quantity ?? '',
     statusLabel(item),
+    item.sellable ? 'Yes' : 'No',
+    item.id,
+    item.itemCreatedAt ? item.itemCreatedAt.slice(0, 10) : '',
+    daysInCatalog(item),
   ])
   const csv = [header, ...rows].map(row => row.join(',')).join('\n')
 

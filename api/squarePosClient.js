@@ -253,9 +253,11 @@ export const listSquareCatalogItems = async (env = process.env) => {
           priceCents: variationData.price_money?.amount ?? null,
           currency: variationData.price_money?.currency ?? null,
           trackInventory: Boolean(variationData.track_inventory),
+          sellable: variationData.sellable !== false,
           presentAtAllLocations: object.present_at_all_locations || false,
           categoryIds,
           costCents: readCostCents(variation),
+          itemCreatedAt: object.created_at || null,
         })
       }
     }
@@ -321,12 +323,14 @@ export const getSquareInventoryReport = async (env = process.env) => {
       priceCents: variation.priceCents,
       currency: variation.currency,
       trackInventory: variation.trackInventory,
+      sellable: variation.sellable,
       quantity,
       state: count?.state || (variation.trackInventory ? 'UNKNOWN' : 'NOT_TRACKED'),
       inStock: variation.trackInventory ? Boolean(quantity > 0) : true,
       source: 'square',
       categoryId: topCategory?.id || null,
       categoryName: topCategory?.name || 'Uncategorized',
+      itemCreatedAt: variation.itemCreatedAt,
     }
   })
 
@@ -507,6 +511,15 @@ export const updateSquareCatalogItem = async (itemId, changes, env = process.env
   if (changes.ecomVisibility !== undefined) itemData.ecom_visibility = changes.ecomVisibility
   if (changes.categoryIds !== undefined) {
     itemData.categories = changes.categoryIds.map(id => ({ id }))
+    // Square's Dashboard/POS/reports read `reporting_category` (a separate,
+    // single-value field) as the item's "real" category — it doesn't follow
+    // `categories` automatically, so it has to be kept in sync by hand or a
+    // category change silently fails to show up anywhere that reads it.
+    if (changes.categoryIds.length > 0) {
+      itemData.reporting_category = { id: changes.categoryIds[0] }
+    } else {
+      delete itemData.reporting_category
+    }
   }
 
   if (changes.variations !== undefined) {

@@ -73,6 +73,12 @@ import {
   destroySession,
   requireAdminAuth,
 } from './auth.js'
+import {
+  initInventoryExport,
+  runMonthlyInventoryExport,
+  startInventoryExportScheduler,
+} from './inventoryExport.js'
+import { isMailConfigured, MailNotConfiguredError } from './mailClient.js'
 import multer from 'multer'
 
 console.log('✅ Modules imported successfully')
@@ -155,6 +161,7 @@ let redisConnected = false
 initSquarespaceCache({ redisClient, isRedisConnected: () => redisConnected })
 initSquarespaceOAuth({ redisClient, isRedisConnected: () => redisConnected })
 initAuth({ redisClient, isRedisConnected: () => redisConnected })
+initInventoryExport({ redisClient, isRedisConnected: () => redisConnected })
 
 // Try to connect to Redis (non-blocking)
 ;(async () => {
@@ -172,6 +179,9 @@ initAuth({ redisClient, isRedisConnected: () => redisConnected })
     // Kick off the initial Squarespace refresh once the Redis state is settled
     // (connected or not). No-ops with a one-time warning if no API key is set.
     bootstrapSquarespaceCache()
+    // Checks hourly for the 1st of the month (store-local time); no-ops until
+    // GMAIL_USER/GMAIL_APP_PASSWORD are configured.
+    startInventoryExportScheduler()
   }
 })()
 
@@ -810,8 +820,7 @@ const DEFAULT_CATALOG = {
         {
           id: 'tarkir-dragonstorm',
           name: 'Tarkir: Dragonstorm',
-          imageUrl:
-            '/wpn-assets/tarkir-dragonstorm/product-images/set-symbols/TDM_expsym_m_3in.png',
+          imageUrl: null,
           isVisible: true,
           sortOrder: 0,
           products: [],
@@ -819,7 +828,7 @@ const DEFAULT_CATALOG = {
         {
           id: 'edge-eternities',
           name: 'Edge of Eternities',
-          imageUrl: '/wpn-assets/edge-eternities/product-images/set-symbols/EOE_expsym_m_3in.png',
+          imageUrl: null,
           isVisible: true,
           sortOrder: 1,
           products: [],
@@ -827,8 +836,7 @@ const DEFAULT_CATALOG = {
         {
           id: 'final-fantasy',
           name: 'Final Fantasy',
-          imageUrl:
-            '/wpn-assets/final-fantasy/product-images/set-symbols/FIN_main_expsym_m_3in.png',
+          imageUrl: null,
           isVisible: true,
           sortOrder: 2,
           products: [],
@@ -836,8 +844,7 @@ const DEFAULT_CATALOG = {
         {
           id: 'avatar-last-airbender',
           name: 'Avatar: The Last Airbender',
-          imageUrl:
-            '/wpn-assets/avatar-last-airbender/product-images/set-symbols/TLAMythic_3in.png',
+          imageUrl: null,
           isVisible: true,
           sortOrder: 3,
           products: [],
@@ -845,7 +852,7 @@ const DEFAULT_CATALOG = {
         {
           id: 'spiderman',
           name: 'Spider-Man',
-          imageUrl: '/wpn-assets/spiderman/product-images/set-symbols/SPM_expsym_m_3in.png',
+          imageUrl: null,
           isVisible: true,
           sortOrder: 4,
           products: [],
@@ -853,7 +860,7 @@ const DEFAULT_CATALOG = {
         {
           id: 'tmnt',
           name: 'Teenage Mutant Ninja Turtles',
-          imageUrl: '/wpn-assets/tmnt/product-images/set-symbols/MTGTMT_expsym_M.png',
+          imageUrl: null,
           isVisible: true,
           sortOrder: 5,
           products: [],
@@ -861,7 +868,7 @@ const DEFAULT_CATALOG = {
         {
           id: 'lorwyn-eclipsed',
           name: 'Lorwyn Eclipsed',
-          imageUrl: '/wpn-assets/lorwyn-eclipsed/product-images/set-symbols/MTGECL_expsymb_m.png',
+          imageUrl: null,
           isVisible: true,
           sortOrder: 6,
           products: [],
@@ -869,8 +876,7 @@ const DEFAULT_CATALOG = {
         {
           id: 'duskmourn',
           name: 'Duskmourn: House of Horror',
-          imageUrl:
-            '/wpn-assets/duskmourn-house-horror/product-images/set-symbols/SetSymbol_Web/DSKC_expsym_m_web_800x800.png',
+          imageUrl: null,
           isVisible: true,
           sortOrder: 7,
           products: [],
@@ -878,8 +884,7 @@ const DEFAULT_CATALOG = {
         {
           id: 'outlaws-thunder-junction',
           name: 'Outlaws of Thunder Junction',
-          imageUrl:
-            '/wpn-assets/outlaws-thunder-junction/product-images/set-symbols/OTJ_expsym_m_web_800x800.png',
+          imageUrl: null,
           isVisible: true,
           sortOrder: 8,
           products: [],
@@ -887,8 +892,7 @@ const DEFAULT_CATALOG = {
         {
           id: 'secrets-strixhaven',
           name: 'Secrets of Strixhaven',
-          imageUrl:
-            '/wpn-assets/secrets-strixhaven/product-images/set-logos/MTGSOS_EN_SetLogo_4C.png',
+          imageUrl: null,
           isVisible: false,
           sortOrder: 9,
           products: [],
@@ -1490,6 +1494,28 @@ app.get('/api/square/sales', requireAdminAuth, async (req, res) => {
   } catch (error) {
     console.error('❌ Square sales report failed:', error.message)
     res.status(502).json({ ok: false, error: 'Square sales report failed', message: error.message })
+  }
+})
+
+// Manual trigger for the monthly inventory export — lets an admin test the
+// email/xlsx pipeline on demand, or re-run it if the 1st was missed (e.g. the
+// server was down). The scheduler in inventoryExport.js otherwise fires this
+// automatically once per month.
+app.post('/api/admin/inventory-export/run', requireAdminAuth, async (req, res) => {
+  if (!isMailConfigured(process.env)) {
+    return res
+      .status(503)
+      .json({ ok: false, error: 'Email is not configured — set GMAIL_USER and GMAIL_APP_PASSWORD' })
+  }
+  try {
+    const result = await runMonthlyInventoryExport(process.env)
+    res.json({ ok: true, ...result })
+  } catch (error) {
+    if (error instanceof MailNotConfiguredError) {
+      return res.status(503).json({ ok: false, error: error.message })
+    }
+    console.error('❌ Manual inventory export failed:', error.message)
+    res.status(502).json({ ok: false, error: 'Inventory export failed', message: error.message })
   }
 })
 

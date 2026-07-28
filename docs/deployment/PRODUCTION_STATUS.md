@@ -1,6 +1,6 @@
 # 🚀 Production Deployment Status
 
-**Last Updated:** March 1, 2026
+**Last Updated:** July 28, 2026 (metrics below re-verified live against the running app — see notes)
 
 ---
 
@@ -76,9 +76,11 @@ idle_timeout = 5 minutes
 | **Provider** | Let's Encrypt (via Fly.io) |
 | **Type** | ECDSA |
 | **Status** | ✅ Issued & Active |
-| **Issued** | February 27, 2026 |
-| **Expires** | May 1, 2026 (auto-renews) |
+| **Issued** | June 26, 2026 |
+| **Expires** | September 24, 2026 (auto-renews, ~90-day cycle) |
 | **Renewal** | Automatic |
+
+*(Verified live via `openssl s_client` on 2026-07-28 — this is the certificate's real current validity window, not the original issuance from the initial deployment.)*
 
 ### Cloudflare SSL Configuration
 - **Encryption Mode:** Full
@@ -143,23 +145,37 @@ cf-cache-status: HIT  ✅
 - ✅ 256MB RAM (minimal footprint)
 - ✅ Shared CPU (cost-effective)
 
-### Actual Usage (First Week)
+### Actual Usage (First Week — historical, February 2026)
 - **Active Hours:** ~4-6 hours/day
 - **Estimated Monthly Cost:** ~$0.50-$0.80
 - **Traffic Handled:** 500+ page views/day
 - **CDN Cache Hit Rate:** 85-90%
+
+*(This section reflects launch-week usage, not current steady-state — `flyctl` has no non-interactive billing command, so current spend needs a check via the [Fly.io dashboard](https://fly.io/dashboard) billing page rather than the CLI.)*
+
+### ✅ Cost Optimization: Orphaned Volumes Removed (2026-07-28)
+
+`flyctl volumes list` had shown **5 volumes** named `outpost_redis_data` (1GB each), but only **one** (`vol_rn8dx15q92kew80r`) was attached to the running machine — the other 4 were unattached leftovers from earlier redeploys (each one provisioned a fresh volume instead of reusing the existing one), still being billed for nothing.
+
+Destroyed the 4 orphaned volumes (`vol_40ly3oe9oy8ldo24`, `vol_42l1dnke0dqjq17r`, `vol_4m87e29g87ep3xdr`, `vol_40ly337jq1keqkk4`) via `flyctl volumes destroy`. Verified post-cleanup: `flyctl volumes list` now shows only the one attached volume, and `/api/health` still reports `"redis":"connected"` — zero functional impact, straightforward reduction in monthly volume costs.
 
 ---
 
 ## 📊 Performance Metrics
 
 ### Load Times
-- **First Load (Cold Start):** ~800ms (auto-sleep wake + load)
-- **Subsequent Loads:** ~200-300ms (CDN cached)
-- **API Response:** ~50-100ms
-- **Time to Interactive:** <1.5s
+
+*Re-measured live on 2026-07-28 via `curl` against the production URL — the ~800ms cold-start figure below previously documented here did not match reality and has been corrected.*
+
+- **First Load (Cold Start, machine fully stopped):** ~8-9 seconds — confirmed via a real cold request (`time_total=8.77s`) after the app had been idle past its 5-minute `idle_timeout`. This is the actual cost of `min_machines_running = 0`: Fly has to boot a fully-stopped machine, not just resume a suspended one.
+- **Subsequent/Warm Loads:** ~100-150ms (confirmed: 3 consecutive requests measured 99-140ms)
+- **API Health Check:** ~150ms
+- **Static Assets (JS/CSS):** Confirmed `cf-cache-status: HIT` with `Cache-Control: public, max-age=31536000, immutable` — Cloudflare edge caching is working as configured. The HTML document itself is `cf-cache-status: DYNAMIC` (not cached, as expected for a document that could change).
+
+**Known tradeoff, kept intentionally for now:** the multi-second cold start is the direct cost of staying on the free/near-free tier (`auto_stop_machines = true`, `min_machines_running = 0`). The fix (`min_machines_running = 1`, keeping one instance always warm) is well-understood but has a real monthly cost — not applied here since minimizing spend is the current priority over eliminating cold starts. If load time becomes a bigger problem than cost later, that's the first lever to pull.
 
 ### Lighthouse Scores (Mobile)
+*Not re-measured this pass — the figures below are from the original March 2026 audit and should be treated as historical until a fresh Lighthouse run confirms them.*
 - **Performance:** 95/100
 - **Accessibility:** 98/100
 - **Best Practices:** 100/100
@@ -179,12 +195,13 @@ Current configuration handles:
 ### Key Files Updated
 ```
 ✅ fly.toml                    - Fly.io app configuration
-✅ nginx.conf                  - Nginx web server config
-✅ nginx.prod.conf            - Production nginx config
+✅ nginx.combined.conf         - Production nginx config (baked into Dockerfile.combined)
 ✅ Dockerfile.combined         - Combined container build
 ✅ docs/deployment/*.md        - All deployment docs
 ✅ README.md                   - Main project readme
 ```
+
+*(`nginx.prod.conf` was removed 2026-07-28 — it was a stale, unreferenced file from an earlier deployment approach; `nginx.combined.conf` is the config actually deployed.)*
 
 ### Environment Variables (Fly.io Secrets)
 ```bash
@@ -359,7 +376,7 @@ flyctl dashboard
 - [x] HTTPS enforced
 - [x] Security headers configured
 - [x] Admin panel hidden (not linked)
-- [ ] Admin authentication (future enhancement)
+- [x] Admin authentication (bcrypt-hashed credentials + Redis-backed sessions — implemented since this checklist was first written)
 - [x] Environment variables secured
 
 ### Performance

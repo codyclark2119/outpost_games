@@ -27,6 +27,5 @@ api/node_modules
 README.md
 WPN_ASSET_ACCESS_GUIDE.md
 
-# Dev-only: exclude WPN assets from build context — they are volume-mounted instead.
-# This removes ~1GB from the build context and the final image.
+# Dev-only: exclude marketing/poster assets from build context — they are volume-mounted instead.
 public/wpn-assets

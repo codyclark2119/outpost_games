@@ -41,9 +41,7 @@
               </router-link>
               <h1 class="font-cinzel text-4xl font-bold text-gray-800">{{ typeName }}</h1>
               <p class="text-gray-500 mt-1">
-                {{ filteredProducts.length }} product{{
-                  filteredProducts.length !== 1 ? 's' : ''
-                }}
+                {{ filteredProducts.length }} product{{ filteredProducts.length !== 1 ? 's' : '' }}
                 available
               </p>
             </div>
