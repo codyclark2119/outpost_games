@@ -356,6 +356,9 @@ const nextWeeklyEvent = computed((): DisplayEvent | null => {
 
   for (let daysAhead = 0; daysAhead <= 7; daysAhead++) {
     const targetDay = (todayDay + daysAhead) % 7
+    // A day can carry more than one entry (e.g. Friday has both Nexus Night
+    // and FNM) — the first one defined for that day is treated as the
+    // featured slot for this fallback card.
     const def = WEEKLY_SCHEDULE.find(e => e.jsDay === targetDay)
     if (!def) continue
     if (daysAhead === 0 && eventStartedToday) continue
@@ -368,7 +371,7 @@ const nextWeeklyEvent = computed((): DisplayEvent | null => {
       time: def.time,
       entry: '0.00',
       description: def.description,
-      gameTypeId: 'magic',
+      gameTypeId: def.gameTypeId,
       gameTypeName: def.gameType,
       isWeekly: true,
     }

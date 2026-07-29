@@ -149,6 +149,36 @@ router.beforeEach(async to => {
   return true
 })
 
+// A tab left open across a deploy still has the old index.html's chunk
+// references baked in — those hashed filenames (e.g. Events-3CqzmABZ.js) get
+// deleted from the server the moment a new build replaces them, so the next
+// lazy-loaded route 404s with "error loading dynamically imported module".
+// The fix is a one-time hard reload to pick up the new index.html/chunk map,
+// guarded by sessionStorage so a route that's genuinely broken (not just
+// stale) doesn't reload forever.
+const CHUNK_RELOAD_GUARD_KEY = 'outpost-chunk-reload-attempted'
+
+const reloadOnStaleChunk = (path?: string) => {
+  if (sessionStorage.getItem(CHUNK_RELOAD_GUARD_KEY)) return
+  sessionStorage.setItem(CHUNK_RELOAD_GUARD_KEY, '1')
+  window.location.href = path || window.location.href
+}
+
+// Vite's own recommended hook for stale module-preload links.
+window.addEventListener('vite:preloadError', () => {
+  reloadOnStaleChunk()
+})
+
+router.onError((error, to) => {
+  if (/dynamically imported module|Importing a module script failed/i.test(error.message)) {
+    reloadOnStaleChunk(to.fullPath)
+  }
+})
+
+router.afterEach(() => {
+  sessionStorage.removeItem(CHUNK_RELOAD_GUARD_KEY)
+})
+
 // Create and mount the Vue app
 const head = createHead()
 const app = createApp(App)

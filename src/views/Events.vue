@@ -22,7 +22,7 @@
         <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-16">
           <div
             v-for="(event, index) in WEEKLY_SCHEDULE"
-            :key="event.dayName"
+            :key="`${event.dayName}-${event.eventName}`"
             class="card text-center event-card group relative"
             :style="{ animationDelay: `${index * 0.1}s` }"
           >
