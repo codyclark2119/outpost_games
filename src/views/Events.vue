@@ -19,10 +19,10 @@
           These events run every week. No signup required.
         </p>
 
-        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-16">
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-16">
           <div
-            v-for="(event, index) in WEEKLY_SCHEDULE"
-            :key="`${event.dayName}-${event.eventName}`"
+            v-for="(group, index) in groupedWeeklySchedule"
+            :key="group.dayName"
             class="card text-center event-card group relative"
             :style="{ animationDelay: `${index * 0.1}s` }"
           >
@@ -47,20 +47,30 @@
             >
               <CalendarDaysIcon class="w-8 h-8 text-outpost-gold" />
             </div>
-            <h3 class="font-cinzel font-semibold text-xl mb-2 text-outpost-navy">
-              {{ event.dayName }}
+            <h3 class="font-cinzel font-semibold text-xl mb-3 text-outpost-navy">
+              {{ group.dayName }}
             </h3>
-            <p class="text-gray-800 font-medium text-lg mb-2">{{ event.eventName }}</p>
-            <p class="text-outpost-gold font-semibold mb-2">{{ event.time }}</p>
-            <p class="text-gray-600 text-sm mt-2">{{ event.description }}</p>
 
-            <!-- Game type badge -->
-            <div class="mt-3 flex justify-center">
-              <span
-                class="inline-block text-xs px-2.5 py-1 rounded-full bg-outpost-navy/10 text-outpost-navy font-medium"
+            <!-- Stacked events for this day -->
+            <div class="divide-y divide-gray-100">
+              <div
+                v-for="(event, eventIndex) in group.events"
+                :key="event.eventName"
+                :class="eventIndex > 0 ? 'pt-4 mt-4' : ''"
               >
-                {{ event.gameType }}
-              </span>
+                <p class="text-gray-800 font-medium text-lg mb-2">{{ event.eventName }}</p>
+                <p class="text-outpost-gold font-semibold mb-2">{{ event.time }}</p>
+                <p class="text-gray-600 text-sm mt-2">{{ event.description }}</p>
+
+                <!-- Game type badge -->
+                <div class="mt-3 flex justify-center">
+                  <span
+                    class="inline-block text-xs px-2.5 py-1 rounded-full bg-outpost-navy/10 text-outpost-navy font-medium"
+                  >
+                    {{ event.gameType }}
+                  </span>
+                </div>
+              </div>
             </div>
 
             <div
@@ -146,7 +156,7 @@ import { computed, onMounted } from 'vue'
 import { useHead } from '@unhead/vue'
 import { CalendarDaysIcon } from '@heroicons/vue/24/outline'
 import { useEventsStore } from '../stores/events'
-import { WEEKLY_SCHEDULE } from '../config/weeklySchedule'
+import { WEEKLY_SCHEDULE, type WeeklyScheduleEntry } from '../config/weeklySchedule'
 import { usePageMeta, SITE_URL } from '../composables/usePageMeta'
 import { STORE_INFO } from '../config/storeInfo'
 
@@ -158,6 +168,27 @@ usePageMeta({
 })
 
 const eventsStore = useEventsStore()
+
+// Groups same-day entries (e.g. Friday's Nexus Night + FNM) into a single
+// stacked card instead of one card per event — preserves WEEKLY_SCHEDULE's
+// own day ordering since that's the order the cards should read in.
+interface WeeklyDayGroup {
+  dayName: string
+  events: WeeklyScheduleEntry[]
+}
+
+const groupedWeeklySchedule = computed((): WeeklyDayGroup[] => {
+  const groups: WeeklyDayGroup[] = []
+  for (const entry of WEEKLY_SCHEDULE) {
+    let group = groups.find(g => g.dayName === entry.dayName)
+    if (!group) {
+      group = { dayName: entry.dayName, events: [] }
+      groups.push(group)
+    }
+    group.events.push(entry)
+  }
+  return groups
+})
 
 onMounted(() => {
   eventsStore.fetchEvents()

@@ -46,20 +46,22 @@
 
     <!-- Featured Event Banner -->
     <transition name="fade-in">
-      <section v-if="displayEvent" class="py-10 bg-outpost-navy relative overflow-hidden">
+      <section v-if="featuredDay" class="py-10 bg-outpost-navy relative overflow-hidden">
         <div
           class="absolute inset-0 bg-gradient-to-r from-outpost-gold/10 via-transparent to-outpost-gold/5 pointer-events-none"
         ></div>
         <div class="container mx-auto px-4 relative z-10">
-          <div class="max-w-4xl mx-auto flex flex-col md:flex-row items-center gap-6">
+          <div
+            class="max-w-4xl mx-auto flex flex-col md:flex-row items-start md:items-center gap-6"
+          >
             <!-- Left: label + details -->
-            <div class="flex-grow">
+            <div class="flex-grow w-full">
               <div class="flex items-center gap-3 mb-2">
                 <p class="text-outpost-gold text-xs font-bold uppercase tracking-widest">
-                  {{ displayEvent.isWeekly ? 'Next Weekly Event' : 'Next Special Event' }}
+                  {{ featuredDay.isWeekly ? 'Next Weekly Events' : 'Next Special Event' }}
                 </p>
                 <span
-                  v-if="displayEvent.isWeekly"
+                  v-if="featuredDay.isWeekly"
                   class="inline-flex items-center gap-1 text-xs text-outpost-gold/60 border border-outpost-gold/30 rounded-full px-2 py-0.5"
                 >
                   <svg class="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
@@ -72,26 +74,35 @@
                   Every week
                 </span>
               </div>
-              <h2 class="font-cinzel text-2xl md:text-3xl font-bold text-white mb-2">
-                {{ displayEvent.title }}
-              </h2>
-              <div class="flex flex-wrap gap-4 text-gray-300 text-sm mb-3">
-                <span>📅 {{ displayEvent.date }}</span>
-                <span>🕐 {{ displayEvent.time }}</span>
-                <span v-if="!displayEvent.isWeekly">💰 ${{ displayEvent.entry }} entry</span>
-                <span
-                  v-if="displayEvent.gameTypeName"
-                  class="inline-block px-2 py-0.5 rounded-full text-xs font-semibold"
-                  :class="
-                    displayEvent.gameTypeId === 'pokemon'
-                      ? 'bg-yellow-400/20 text-yellow-300'
-                      : 'bg-outpost-gold/20 text-outpost-gold'
-                  "
+              <p class="text-gray-300 text-sm mb-3">📅 {{ featuredDay.date }}</p>
+
+              <div class="divide-y divide-white/10">
+                <div
+                  v-for="(event, index) in featuredDay.events"
+                  :key="event.title"
+                  :class="index > 0 ? 'pt-3 mt-3' : ''"
                 >
-                  {{ displayEvent.gameTypeName }}
-                </span>
+                  <h2 class="font-cinzel text-xl md:text-2xl font-bold text-white mb-1">
+                    {{ event.title }}
+                  </h2>
+                  <div class="flex flex-wrap gap-4 text-gray-300 text-sm mb-1">
+                    <span>🕐 {{ event.time }}</span>
+                    <span v-if="!featuredDay.isWeekly">💰 ${{ event.entry }} entry</span>
+                    <span
+                      v-if="event.gameTypeName"
+                      class="inline-block px-2 py-0.5 rounded-full text-xs font-semibold"
+                      :class="
+                        event.gameTypeId === 'pokemon'
+                          ? 'bg-yellow-400/20 text-yellow-300'
+                          : 'bg-outpost-gold/20 text-outpost-gold'
+                      "
+                    >
+                      {{ event.gameTypeName }}
+                    </span>
+                  </div>
+                  <p class="text-gray-400 text-sm line-clamp-2">{{ event.description }}</p>
+                </div>
               </div>
-              <p class="text-gray-400 text-sm line-clamp-2">{{ displayEvent.description }}</p>
             </div>
             <!-- Right: CTA -->
             <div class="flex-shrink-0">
@@ -324,65 +335,84 @@ const parseEventDate = (dateString: string): Date => {
   return isNaN(parsed.getTime()) ? new Date() : parsed
 }
 
-// ── Featured event: next special event from API ───────────────────────────────
-const nextSpecialEvent = computed(() => {
-  const today = new Date()
-  today.setHours(0, 0, 0, 0)
-  return eventsStore.upcomingEvents
-    .filter(e => {
-      const d = parseEventDate(e.date)
-      d.setHours(0, 0, 0, 0)
-      return d >= today
-    })
-    .sort((a, b) => parseEventDate(a.date).getTime() - parseEventDate(b.date).getTime())[0]
-})
-
-// ── Featured event: fallback to next weekly recurring event ───────────────────
-interface DisplayEvent {
+// ── Featured day: the soonest upcoming day with anything happening ────────────
+// Walks forward day-by-day (starting today) and, for the first day that has
+// either a special event or a recurring slot, shows everything for that one
+// day: a special event on that exact date overrides the recurring slot
+// entirely, otherwise every recurring event for that weekday is shown
+// together (e.g. Friday's Nexus Night + FNM both appear, not just one).
+interface FeaturedDayEvent {
   title: string
-  date: string
   time: string
   entry: string
   description: string
   gameTypeId?: string
   gameTypeName?: string
-  isWeekly: boolean
 }
 
-const nextWeeklyEvent = computed((): DisplayEvent | null => {
+interface FeaturedDay {
+  date: string
+  isWeekly: boolean
+  events: FeaturedDayEvent[]
+}
+
+const featuredDay = computed((): FeaturedDay | null => {
   const now = new Date()
-  const todayDay = now.getDay()
   const eventStartedToday = now.getHours() >= 18
 
   for (let daysAhead = 0; daysAhead <= 7; daysAhead++) {
-    const targetDay = (todayDay + daysAhead) % 7
-    // A day can carry more than one entry (e.g. Friday has both Nexus Night
-    // and FNM) — the first one defined for that day is treated as the
-    // featured slot for this fallback card.
-    const def = WEEKLY_SCHEDULE.find(e => e.jsDay === targetDay)
-    if (!def) continue
+    const targetDate = new Date()
+    targetDate.setDate(targetDate.getDate() + daysAhead)
+    targetDate.setHours(0, 0, 0, 0)
+
+    const specialsForDay = eventsStore.upcomingEvents.filter(e => {
+      const d = parseEventDate(e.date)
+      d.setHours(0, 0, 0, 0)
+      return d.getTime() === targetDate.getTime()
+    })
+
+    const dateLabel = targetDate.toLocaleDateString('en-US', {
+      weekday: 'long',
+      month: 'long',
+      day: 'numeric',
+    })
+
+    if (specialsForDay.length > 0) {
+      return {
+        date: dateLabel,
+        isWeekly: false,
+        events: specialsForDay.map(e => ({
+          title: e.title,
+          time: e.time,
+          entry: e.entry,
+          description: e.description,
+          gameTypeId: e.gameTypeId,
+          gameTypeName: e.gameTypeName,
+        })),
+      }
+    }
+
+    // Nothing special today — skip today's recurring slot once it's already
+    // started rather than showing it stale for the rest of the day.
     if (daysAhead === 0 && eventStartedToday) continue
 
-    const date = new Date()
-    date.setDate(date.getDate() + daysAhead)
-    return {
-      title: def.eventName,
-      date: date.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' }),
-      time: def.time,
-      entry: '0.00',
-      description: def.description,
-      gameTypeId: def.gameTypeId,
-      gameTypeName: def.gameType,
-      isWeekly: true,
+    const weeklyForDay = WEEKLY_SCHEDULE.filter(entry => entry.jsDay === targetDate.getDay())
+    if (weeklyForDay.length > 0) {
+      return {
+        date: dateLabel,
+        isWeekly: true,
+        events: weeklyForDay.map(entry => ({
+          title: entry.eventName,
+          time: entry.time,
+          entry: '0.00',
+          description: entry.description,
+          gameTypeId: entry.gameTypeId,
+          gameTypeName: entry.gameType,
+        })),
+      }
     }
   }
   return null
-})
-
-// Prefer a real special event; fall back to the next weekly slot
-const displayEvent = computed((): DisplayEvent | null => {
-  if (nextSpecialEvent.value) return { ...nextSpecialEvent.value, isWeekly: false }
-  return nextWeeklyEvent.value
 })
 
 // ── Marketing posters carousel — auto-populated from public/wpn-assets/posters/,
