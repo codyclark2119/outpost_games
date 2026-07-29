@@ -22,6 +22,25 @@ services:
       context: ../api
       dockerfile: Dockerfile
     container_name: outpost-api
+    # Docker Compose's own file-based env mechanisms (`env_file:`, and its
+    # automatic top-level .env loading) both re-interpolate ${...} patterns
+    # *within* the values they read — which silently corrupts anything
+    # containing a literal `$`, like a bcrypt hash in ADMIN_USERS (confirmed
+    # live: it got truncated to "$$2b$$10"). Bind-mounting the real .env file
+    # and letting server.js's own dotenv call read it directly sidesteps
+    # Compose's env handling entirely, so `$` in secrets survives correctly.
+    # server.js resolves it at path.resolve(__dirname, '..', '.env'), which
+    # with this image's WORKDIR (/app/api) is /app/.env.
+    volumes:
+      - ../.env:/app/.env:ro
+      # Marketing posters, read directly off disk by api/marketingPosters.js —
+      # this container's WORKDIR/repo-root layout differs from the combined
+      # production image, so the default path resolution doesn't apply here.
+      - ../public/wpn-assets/posters:/wpn-assets/posters:ro
+    # dotenv never overrides an already-set process.env value, so these still
+    # win over whatever the mounted .env says — deliberately forcing this
+    # container to always use the local containerized Redis, never whatever
+    # REDIS_URL happens to be in .env (e.g. a real Upstash URL).
     environment:
       - PORT=3001
       - REDIS_URL=redis://redis:6379
@@ -29,11 +48,6 @@ services:
       - MARKETING_POSTERS_DIR=/wpn-assets/posters
     ports:
       - "3001:3001"
-    volumes:
-      # Marketing posters, read directly off disk by api/marketingPosters.js —
-      # this container's WORKDIR/repo-root layout differs from the combined
-      # production image, so the default path resolution doesn't apply here.
-      - ../public/wpn-assets/posters:/wpn-assets/posters:ro
     depends_on:
       redis:
         condition: service_healthy

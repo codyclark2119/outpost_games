@@ -1,6 +1,9 @@
 FROM node:20-alpine
 
-WORKDIR /app
+# /app/api (not /app) so server.js's repo-root-relative .env path resolution
+# (path.resolve(__dirname, '..', '.env') -> /app/.env) matches Dockerfile.combined's
+# layout — lets local-dev/docker-compose.yml mount the real .env at /app/.env.
+WORKDIR /app/api
 
 # Copy package files
 COPY package*.json ./

@@ -57,11 +57,20 @@ import {
   getSquareCatalogItem,
   updateSquareCatalogItem,
   createSquareCategory,
+  renameSquareCategory,
+  reparentSquareCategory,
+  deleteSquareCategory,
+  mergeSquareCategories,
   deleteSquareCatalogItem,
   deleteSquareCatalogVariation,
+  addSquareCatalogVariation,
+  deleteSquareCatalogItemsBatch,
+  setSquareCatalogItemsCategoryBatch,
+  setSquareCatalogItemsVisibilityBatch,
   uploadSquareCatalogImage,
   adjustSquareInventoryCount,
   adjustSquareInventoryCountBatch,
+  applyBoxToPackRestock,
   resolveSquareCredentials,
   SquareVersionMismatchError,
 } from './squarePosClient.js'
@@ -1207,6 +1216,70 @@ app.post('/api/square/categories', requireAdminAuth, async (req, res) => {
   }
 })
 
+app.put('/api/square/categories/:categoryId', requireAdminAuth, async (req, res) => {
+  try {
+    const { name } = req.body || {}
+    if (!name || !name.trim()) {
+      return res.status(400).json({ error: 'Category name is required' })
+    }
+
+    const category = await renameSquareCategory(req.params.categoryId, name.trim(), process.env)
+    invalidatePublicCatalog()
+    res.json({ ok: true, category })
+  } catch (error) {
+    console.error('❌ Square category rename failed:', error.message)
+    res
+      .status(502)
+      .json({ ok: false, error: 'Square category rename failed', message: error.message })
+  }
+})
+
+app.put('/api/square/categories/:categoryId/parent', requireAdminAuth, async (req, res) => {
+  try {
+    const parentCategoryId = req.body?.parentCategoryId ?? null
+    const category = await reparentSquareCategory(req.params.categoryId, parentCategoryId, process.env)
+    invalidatePublicCatalog()
+    res.json({ ok: true, category })
+  } catch (error) {
+    console.error('❌ Square category re-parent failed:', error.message)
+    res
+      .status(502)
+      .json({ ok: false, error: 'Square category re-parent failed', message: error.message })
+  }
+})
+
+app.delete('/api/square/categories/:categoryId', requireAdminAuth, async (req, res) => {
+  try {
+    await deleteSquareCategory(req.params.categoryId, process.env)
+    invalidatePublicCatalog()
+    res.json({ ok: true })
+  } catch (error) {
+    // A refusal (still referenced / has children) is a normal, expected
+    // outcome here — surfaced as 409 with the guard's own message, not a 502.
+    console.error('❌ Square category delete refused/failed:', error.message)
+    res.status(409).json({ ok: false, error: error.message })
+  }
+})
+
+app.post('/api/square/categories/:fromCategoryId/merge', requireAdminAuth, async (req, res) => {
+  try {
+    const { toCategoryId } = req.body || {}
+    if (!toCategoryId) {
+      return res.status(400).json({ error: 'toCategoryId is required' })
+    }
+    if (toCategoryId === req.params.fromCategoryId) {
+      return res.status(400).json({ error: 'Cannot merge a category into itself' })
+    }
+
+    const result = await mergeSquareCategories(req.params.fromCategoryId, toCategoryId, process.env)
+    invalidatePublicCatalog()
+    res.json({ ok: true, mergedItemCount: result.mergedItemCount })
+  } catch (error) {
+    console.error('❌ Square category merge failed:', error.message)
+    res.status(502).json({ ok: false, error: 'Square category merge failed', message: error.message })
+  }
+})
+
 app.get('/api/square/products/:itemId', requireAdminAuth, async (req, res) => {
   try {
     const item = await getSquareCatalogItem(req.params.itemId, process.env)
@@ -1262,6 +1335,64 @@ app.delete('/api/square/products/:itemId', requireAdminAuth, async (req, res) =>
   }
 })
 
+// Bulk actions (admin multi-select). AdminSquareCatalog.vue's list is one row
+// per variation, so selection is keyed by itemId — every route here operates
+// on whole ITEMs, chunked internally via Square's real batch endpoints.
+app.post('/api/square/products/batch-delete', requireAdminAuth, async (req, res) => {
+  try {
+    const itemIds = Array.isArray(req.body?.itemIds) ? req.body.itemIds : []
+    if (!itemIds.length) return res.status(400).json({ error: 'itemIds must be a non-empty array' })
+
+    const result = await deleteSquareCatalogItemsBatch(itemIds, process.env)
+    invalidatePublicCatalog()
+    res.json({ ok: true, deletedIds: result.deletedIds })
+  } catch (error) {
+    console.error('❌ Square bulk delete failed:', error.message)
+    res.status(502).json({ ok: false, error: 'Square bulk delete failed', message: error.message })
+  }
+})
+
+app.post('/api/square/products/batch-category', requireAdminAuth, async (req, res) => {
+  try {
+    const itemIds = Array.isArray(req.body?.itemIds) ? req.body.itemIds : []
+    if (!itemIds.length) return res.status(400).json({ error: 'itemIds must be a non-empty array' })
+    const categoryId = req.body?.categoryId ?? null
+
+    const result = await setSquareCatalogItemsCategoryBatch(itemIds, categoryId, process.env)
+    invalidatePublicCatalog()
+    res.json({ ok: true, updatedCount: result.objects.length })
+  } catch (error) {
+    console.error('❌ Square bulk category update failed:', error.message)
+    res
+      .status(502)
+      .json({ ok: false, error: 'Square bulk category update failed', message: error.message })
+  }
+})
+
+app.post('/api/square/products/batch-visibility', requireAdminAuth, async (req, res) => {
+  try {
+    const itemIds = Array.isArray(req.body?.itemIds) ? req.body.itemIds : []
+    if (!itemIds.length) return res.status(400).json({ error: 'itemIds must be a non-empty array' })
+    const { ecomVisibility, sellable } = req.body || {}
+    if (ecomVisibility === undefined && sellable === undefined) {
+      return res.status(400).json({ error: 'ecomVisibility and/or sellable is required' })
+    }
+
+    const result = await setSquareCatalogItemsVisibilityBatch(
+      itemIds,
+      { ecomVisibility, sellable },
+      process.env
+    )
+    invalidatePublicCatalog()
+    res.json({ ok: true, updatedCount: result.objects.length })
+  } catch (error) {
+    console.error('❌ Square bulk visibility update failed:', error.message)
+    res
+      .status(502)
+      .json({ ok: false, error: 'Square bulk visibility update failed', message: error.message })
+  }
+})
+
 app.delete(
   '/api/square/products/:itemId/variations/:variationId',
   requireAdminAuth,
@@ -1282,6 +1413,32 @@ app.delete(
     }
   }
 )
+
+app.post('/api/square/products/:itemId/variations', requireAdminAuth, async (req, res) => {
+  try {
+    const { name, sku, priceCents, trackInventory, sellable } = req.body || {}
+    if (!name || !name.trim()) {
+      return res.status(400).json({ error: 'Variation name is required' })
+    }
+    if (priceCents !== undefined && priceCents !== null && (!Number.isFinite(priceCents) || priceCents < 0)) {
+      return res.status(400).json({ error: 'priceCents must be a non-negative number' })
+    }
+
+    await addSquareCatalogVariation(
+      req.params.itemId,
+      { name: name.trim(), sku: sku?.trim() || undefined, priceCents: priceCents ?? null, trackInventory, sellable },
+      process.env
+    )
+    const item = await getSquareCatalogItem(req.params.itemId, process.env)
+    invalidatePublicCatalog()
+    res.status(201).json({ ok: true, item })
+  } catch (error) {
+    console.error('❌ Square add variation failed:', error.message)
+    res
+      .status(502)
+      .json({ ok: false, error: 'Square add variation failed', message: error.message })
+  }
+})
 
 const imageUpload = multer({
   storage: multer.memoryStorage(),
@@ -1323,6 +1480,44 @@ app.post('/api/square/products/:itemId/image', requireAdminAuth, (req, res) => {
     }
   })
 })
+
+// A variation's own photo (distinct from the item's shared group photo) —
+// e.g. "Foil Enhanced" needing different art than "Regular". Square's
+// CreateCatalogImage endpoint accepts an ITEM_VARIATION id the same way it
+// does an ITEM id, so this reuses the identical upload/reorder logic.
+app.post(
+  '/api/square/products/:itemId/variations/:variationId/image',
+  requireAdminAuth,
+  (req, res) => {
+    imageUpload.single('image')(req, res, async uploadError => {
+      if (uploadError) {
+        return res.status(400).json({ error: uploadError.message })
+      }
+      if (!req.file) {
+        return res.status(400).json({ error: 'An image file is required' })
+      }
+
+      try {
+        const result = await uploadSquareCatalogImage(
+          req.params.variationId,
+          {
+            buffer: req.file.buffer,
+            filename: req.file.originalname,
+            mimeType: req.file.mimetype,
+          },
+          process.env
+        )
+        invalidatePublicCatalog()
+        res.json({ ok: true, imageUrl: result.imageUrl })
+      } catch (error) {
+        console.error('❌ Square variation image upload failed:', error.message)
+        res
+          .status(502)
+          .json({ ok: false, error: 'Square variation image upload failed', message: error.message })
+      }
+    })
+  }
+)
 
 app.post('/api/square/products/:itemId/inventory', requireAdminAuth, async (req, res) => {
   try {
@@ -1391,6 +1586,132 @@ app.post('/api/square/inventory/batch', requireAdminAuth, async (req, res) => {
         error: 'Square batch inventory correction failed',
         message: error.message,
       })
+  }
+})
+
+// Quick Restock — persisted box-of-sealed-packs -> loose-pack pairings.
+// Square has no native "kit"/bundle concept for this (confirmed via Square's
+// own developer forum), so the relationship itself lives here in Redis, same
+// convention as outpost:tcgplayer:listings — plain flat CRUD, no TTL/
+// orchestration complexity, so no separate init*() module is warranted.
+const RESTOCK_MAPPINGS_KEY = 'outpost:square:restock-mappings'
+let memoryRestockMappings = [] // in-memory fallback; empty array is a valid default
+
+app.get('/api/square/restock-mappings', requireAdminAuth, async (req, res) => {
+  try {
+    if (!redisConnected) return res.json({ ok: true, mappings: memoryRestockMappings })
+    const data = await redisClient.get(RESTOCK_MAPPINGS_KEY)
+    res.json({ ok: true, mappings: data ? JSON.parse(data) : [] })
+  } catch (error) {
+    console.error('❌ Error fetching restock mappings:', error.message)
+    res.status(500).json({ ok: false, error: 'Failed to fetch restock mappings' })
+  }
+})
+
+app.post('/api/square/restock-mappings', requireAdminAuth, async (req, res) => {
+  try {
+    const { boxVariationId, boxName, packsVariationId, packsName, packsPerBox } = req.body || {}
+    if (!boxVariationId || !packsVariationId) {
+      return res.status(400).json({ error: 'boxVariationId and packsVariationId are required' })
+    }
+    if (boxVariationId === packsVariationId) {
+      return res.status(400).json({ error: 'Box and packs must be different variations' })
+    }
+    if (!Number.isInteger(packsPerBox) || packsPerBox <= 0) {
+      return res.status(400).json({ error: 'packsPerBox must be a positive integer' })
+    }
+
+    // Validate both ids are real, current variations rather than trusting
+    // client-supplied ids blindly, matching the existing batch-inventory route.
+    const report = await getSquareInventoryReport(process.env)
+    const knownVariationIds = new Set(report.items.map(item => item.id))
+    if (!knownVariationIds.has(boxVariationId) || !knownVariationIds.has(packsVariationId)) {
+      return res.status(422).json({ error: 'Unknown variation id(s)' })
+    }
+
+    const mapping = {
+      id: crypto.randomUUID(),
+      boxVariationId,
+      boxName: boxName || '',
+      packsVariationId,
+      packsName: packsName || '',
+      packsPerBox,
+    }
+
+    if (!redisConnected) {
+      memoryRestockMappings.push(mapping)
+      return res.status(201).json({ ok: true, mapping })
+    }
+
+    const data = await redisClient.get(RESTOCK_MAPPINGS_KEY)
+    const mappings = data ? JSON.parse(data) : []
+    mappings.push(mapping)
+    await redisClient.set(RESTOCK_MAPPINGS_KEY, JSON.stringify(mappings))
+    res.status(201).json({ ok: true, mapping })
+  } catch (error) {
+    console.error('❌ Error creating restock mapping:', error.message)
+    res.status(500).json({ ok: false, error: 'Failed to create restock mapping' })
+  }
+})
+
+app.delete('/api/square/restock-mappings/:id', requireAdminAuth, async (req, res) => {
+  try {
+    const { id } = req.params
+
+    if (!redisConnected) {
+      const originalLength = memoryRestockMappings.length
+      memoryRestockMappings = memoryRestockMappings.filter(m => m.id !== id)
+      if (memoryRestockMappings.length === originalLength) {
+        return res.status(404).json({ error: 'Restock mapping not found' })
+      }
+      return res.json({ ok: true })
+    }
+
+    const data = await redisClient.get(RESTOCK_MAPPINGS_KEY)
+    const mappings = data ? JSON.parse(data) : []
+    const filtered = mappings.filter(m => m.id !== id)
+    if (filtered.length === mappings.length) {
+      return res.status(404).json({ error: 'Restock mapping not found' })
+    }
+    await redisClient.set(RESTOCK_MAPPINGS_KEY, JSON.stringify(filtered))
+    res.json({ ok: true })
+  } catch (error) {
+    console.error('❌ Error deleting restock mapping:', error.message)
+    res.status(500).json({ ok: false, error: 'Failed to delete restock mapping' })
+  }
+})
+
+app.post('/api/square/restock-mappings/:id/apply', requireAdminAuth, async (req, res) => {
+  try {
+    const boxesOpened = Number(req.body?.boxesOpened)
+    if (!Number.isInteger(boxesOpened) || boxesOpened <= 0) {
+      return res.status(400).json({ error: 'boxesOpened must be a positive integer' })
+    }
+
+    let mappings
+    if (!redisConnected) {
+      mappings = memoryRestockMappings
+    } else {
+      const data = await redisClient.get(RESTOCK_MAPPINGS_KEY)
+      mappings = data ? JSON.parse(data) : []
+    }
+    const mapping = mappings.find(m => m.id === req.params.id)
+    if (!mapping) return res.status(404).json({ error: 'Restock mapping not found' })
+
+    const result = await applyBoxToPackRestock(
+      {
+        boxVariationId: mapping.boxVariationId,
+        packsVariationId: mapping.packsVariationId,
+        packsPerBox: mapping.packsPerBox,
+        boxesOpened,
+      },
+      process.env
+    )
+    invalidatePublicCatalog()
+    res.json({ ok: true, ...result })
+  } catch (error) {
+    console.error('❌ Square restock apply failed:', error.message)
+    res.status(502).json({ ok: false, error: 'Square restock apply failed', message: error.message })
   }
 })
 

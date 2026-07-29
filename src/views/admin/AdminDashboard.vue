@@ -319,6 +319,33 @@
                 <p class="text-gray-500 text-sm">Correct many stock counts in one save</p>
               </div>
             </router-link>
+
+            <router-link
+              to="/x/outpostAdmin/square-restock"
+              class="card hover:shadow-xl transition-all duration-300"
+            >
+              <div class="text-center">
+                <div
+                  class="w-14 h-14 bg-teal-600 rounded-full flex items-center justify-center mx-auto mb-3"
+                >
+                  <svg
+                    class="w-7 h-7 text-white"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                      stroke-width="2"
+                      d="M20 12V8H6a2 2 0 01-2-2c0-1.1.9-2 2-2h12v4M4 6v12a2 2 0 002 2h14v-4M18 12a2 2 0 100 4 2 2 0 000-4z"
+                    />
+                  </svg>
+                </div>
+                <h3 class="font-cinzel font-semibold text-lg mb-1">Quick Restock</h3>
+                <p class="text-gray-500 text-sm">Open a box, restock loose packs in one click</p>
+              </div>
+            </router-link>
           </div>
         </div>
       </div>

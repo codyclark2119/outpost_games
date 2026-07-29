@@ -1,8 +1,9 @@
 <template>
   <div class="min-h-screen bg-gradient-to-br from-gray-50 via-white to-gray-100 py-12">
-    <!-- Sidebar Toggle -->
+    <!-- Sidebar Toggle — mobile/tablet only; the sidebar is always open on
+         desktop (lg:) where there's no need to hide it behind a drawer -->
     <button
-      class="fixed top-20 left-4 z-40 bg-outpost-gold text-outpost-black p-3 rounded-full shadow-lg hover:bg-outpost-gold-light transition-colors"
+      class="fixed top-20 left-4 z-40 bg-outpost-gold text-outpost-black p-3 rounded-full shadow-lg hover:bg-outpost-gold-light transition-colors lg:hidden"
       aria-label="Toggle Navigation"
       @click="sidebarOpen = !sidebarOpen"
     >
@@ -16,9 +17,9 @@
       </svg>
     </button>
 
-    <!-- Sidebar -->
+    <!-- Sidebar — off-canvas drawer on mobile/tablet, always visible on desktop -->
     <aside
-      class="fixed top-20 left-0 h-[calc(100vh-5rem)] bg-white shadow-xl z-30 transition-transform duration-300 w-64 overflow-y-auto"
+      class="fixed top-20 left-0 h-[calc(100vh-5rem)] bg-white shadow-xl z-30 transition-transform duration-300 w-64 overflow-y-auto lg:translate-x-0"
       :class="{ '-translate-x-full': !sidebarOpen, 'translate-x-0': sidebarOpen }"
     >
       <div class="p-6">
@@ -42,15 +43,18 @@
       </div>
     </aside>
 
-    <!-- Overlay -->
+    <!-- Overlay — mobile/tablet only; without lg:hidden this would sit on top
+         of the whole page (including "View All" links) if sidebarOpen were
+         ever true at desktop width, e.g. after resizing from a narrower one -->
     <div
       v-if="sidebarOpen"
-      class="fixed inset-0 bg-black/50 z-20"
+      class="fixed inset-0 bg-black/50 z-20 lg:hidden"
       @click="sidebarOpen = false"
     ></div>
 
-    <!-- Main Content -->
-    <div class="container mx-auto px-4">
+    <!-- Main Content — lg:ml-64 reserves space for the now-permanently-visible
+         desktop sidebar (fixed positioning takes it out of document flow) -->
+    <div class="container mx-auto px-4 lg:ml-64">
       <div class="max-w-6xl mx-auto">
         <div class="text-center mb-12 hero-content">
           <h1

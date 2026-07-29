@@ -91,3 +91,38 @@ test('uploadSquareCatalogImage drops a stale duplicate of the new image id from 
     assert.deepEqual(sentObject.item_data.image_ids, ['NEW_IMAGE', 'OLD_IMAGE'])
   })
 })
+
+// objectId can also be an ITEM_VARIATION id, for a per-variation photo
+// distinct from the item's shared group photo — Square's CreateCatalogImage
+// endpoint accepts either interchangeably (confirmed against official docs).
+test('uploadSquareCatalogImage reorders item_variation_data.image_ids when the target is a variation', async () => {
+  const responses = [
+    { ok: true, body: { image: { id: 'NEW_IMAGE', image_data: { url: 'https://example.com/variation.png' } } } },
+    {
+      ok: true,
+      body: {
+        object: {
+          id: 'VAR123',
+          type: 'ITEM_VARIATION',
+          version: 222,
+          item_variation_data: { name: 'Foil Enhanced', image_ids: ['OLD_VARIATION_IMAGE'] },
+        },
+      },
+    },
+    { ok: true, body: { catalog_object: { id: 'VAR123', version: 223 } } },
+  ]
+
+  await withMockedFetch(responses, async calls => {
+    const result = await uploadSquareCatalogImage(
+      'VAR123',
+      { buffer: Buffer.from('fake'), filename: 'foil.png', mimeType: 'image/png' },
+      FAKE_ENV
+    )
+
+    assert.equal(result.imageUrl, 'https://example.com/variation.png')
+
+    const sentObject = JSON.parse(calls[2].options.body).object
+    assert.deepEqual(sentObject.item_variation_data.image_ids, ['NEW_IMAGE', 'OLD_VARIATION_IMAGE'])
+    assert.equal(sentObject.item_data, undefined) // sanity: variation data key used, not item_data
+  })
+})

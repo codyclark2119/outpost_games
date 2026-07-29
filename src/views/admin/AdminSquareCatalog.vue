@@ -1,5 +1,5 @@
 <template>
-  <div class="min-h-screen bg-gray-50 py-12">
+  <div class="min-h-screen bg-gray-50 py-12 pb-28">
     <div class="container mx-auto px-4">
       <div class="max-w-6xl mx-auto">
         <!-- Header -->
@@ -35,9 +35,18 @@
               placeholder="Search by name or SKU…"
               class="input-field max-w-sm"
             />
-            <p class="text-gray-500 text-sm whitespace-nowrap">
-              {{ filteredRows.length }} of {{ rows.length }} items
-            </p>
+            <div class="flex items-center gap-3">
+              <button
+                type="button"
+                class="btn-secondary px-4 py-2 text-sm whitespace-nowrap"
+                @click="openCategoryPanel"
+              >
+                Manage Categories
+              </button>
+              <p class="text-gray-500 text-sm whitespace-nowrap">
+                {{ filteredRows.length }} of {{ rows.length }} items
+              </p>
+            </div>
           </div>
 
           <div class="space-y-3">
@@ -46,19 +55,28 @@
               :key="group.name"
               class="bg-white rounded-xl shadow border border-gray-200 overflow-hidden"
             >
-              <div
-                class="flex items-center gap-3 px-4 py-3 bg-outpost-navy text-white cursor-pointer select-none"
-                @click="toggleCategory(group.name)"
-              >
-                <span
-                  class="text-lg transition-transform duration-200"
-                  :class="expandedCategories.has(group.name) ? 'rotate-90' : ''"
-                  >▶</span
+              <div class="flex items-center gap-3 px-4 py-3 bg-outpost-navy text-white select-none">
+                <input
+                  type="checkbox"
+                  class="accent-outpost-gold"
+                  :checked="groupSelectionState(group) === 'all'"
+                  :indeterminate.prop="groupSelectionState(group) === 'some'"
+                  @click.stop="toggleGroupSelection(group)"
+                />
+                <div
+                  class="flex items-center gap-3 flex-1 cursor-pointer"
+                  @click="toggleCategory(group.name)"
                 >
-                <span class="font-cinzel font-bold text-lg flex-1">{{ group.name }}</span>
-                <span class="text-xs text-white/60"
-                  >{{ group.rows.length }} item{{ group.rows.length !== 1 ? 's' : '' }}</span
-                >
+                  <span
+                    class="text-lg transition-transform duration-200"
+                    :class="expandedCategories.has(group.name) ? 'rotate-90' : ''"
+                    >▶</span
+                  >
+                  <span class="font-cinzel font-bold text-lg flex-1">{{ group.name }}</span>
+                  <span class="text-xs text-white/60"
+                    >{{ group.rows.length }} item{{ group.rows.length !== 1 ? 's' : '' }}</span
+                  >
+                </div>
               </div>
 
               <div v-if="expandedCategories.has(group.name)" class="overflow-x-auto">
@@ -67,6 +85,7 @@
                     <tr
                       class="border-b border-gray-200 text-left text-xs uppercase tracking-wide text-gray-500"
                     >
+                      <th class="px-4 py-3 w-8"></th>
                       <th class="px-4 py-3">Item</th>
                       <th class="px-4 py-3">SKU</th>
                       <th class="px-4 py-3 text-right">Price</th>
@@ -78,7 +97,15 @@
                       v-for="row in group.rows"
                       :key="row.id"
                       class="border-b border-gray-100 last:border-0 hover:bg-gray-50"
+                      :class="{ 'bg-amber-50': selectedItemIds.has(row.itemId) }"
                     >
+                      <td class="px-4 py-2.5">
+                        <input
+                          type="checkbox"
+                          :checked="selectedItemIds.has(row.itemId)"
+                          @change="toggleItemSelection(row.itemId)"
+                        />
+                      </td>
                       <td class="px-4 py-2.5 font-medium text-gray-800">{{ row.displayName }}</td>
                       <td class="px-4 py-2.5 text-gray-500">{{ row.sku || '—' }}</td>
                       <td class="px-4 py-2.5 text-right text-gray-700">
@@ -101,6 +128,239 @@
         </template>
       </div>
     </div>
+
+    <!-- Sticky bulk-action bar -->
+    <transition name="fade">
+      <div
+        v-if="selectedItemIds.size > 0"
+        class="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 shadow-lg py-4 z-20"
+      >
+        <div class="container mx-auto px-4">
+          <div class="max-w-6xl mx-auto flex flex-wrap items-center justify-between gap-4">
+            <p class="text-sm text-gray-600">{{ selectedItemIds.size }} item(s) selected</p>
+            <div class="flex flex-wrap gap-3 items-center">
+              <select
+                class="input-field !w-auto text-sm"
+                :disabled="bulkAction.running"
+                @change="onBulkCategoryChange($event)"
+              >
+                <option value="">Move to Category…</option>
+                <option value="__none__">Uncategorized</option>
+                <option v-for="cat in categories" :key="cat.id" :value="cat.id">
+                  {{ cat.path || cat.name }}
+                </option>
+              </select>
+              <select
+                class="input-field !w-auto text-sm"
+                :disabled="bulkAction.running"
+                @change="onBulkVisibilityChange($event)"
+              >
+                <option value="">Toggle Visibility…</option>
+                <option value="VISIBLE">Visible</option>
+                <option value="UNINDEXED">Hidden</option>
+              </select>
+              <select
+                class="input-field !w-auto text-sm"
+                :disabled="bulkAction.running"
+                @change="onBulkSellableChange($event)"
+              >
+                <option value="">Toggle Sellable…</option>
+                <option value="true">Sellable</option>
+                <option value="false">Not Sellable</option>
+              </select>
+              <button
+                type="button"
+                class="text-red-600 text-sm font-semibold hover:underline"
+                :disabled="bulkAction.running"
+                @click="bulkDeleteModal.open = true"
+              >
+                Delete Selected
+              </button>
+              <button
+                type="button"
+                class="text-gray-500 text-sm hover:underline"
+                :disabled="bulkAction.running"
+                @click="clearSelection"
+              >
+                Clear
+              </button>
+            </div>
+          </div>
+          <p v-if="bulkAction.error" class="text-red-600 text-sm mt-2">{{ bulkAction.error }}</p>
+        </div>
+      </div>
+    </transition>
+
+    <!-- Bulk delete confirmation -->
+    <teleport to="body">
+      <transition name="modal-fade">
+        <div
+          v-if="bulkDeleteModal.open"
+          class="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4"
+          @click.self="bulkDeleteModal.open = false"
+        >
+          <div class="bg-white rounded-2xl shadow-2xl w-full max-w-lg p-6">
+            <h2 class="font-cinzel text-xl font-bold mb-4 text-gray-800">
+              Delete {{ selectedItemIds.size }} item(s)?
+            </h2>
+            <ul class="text-sm text-gray-700 list-disc pl-5 mb-3 max-h-40 overflow-y-auto">
+              <li v-for="name in bulkDeletePreviewNames" :key="name">{{ name }}</li>
+            </ul>
+            <p v-if="selectedItemIds.size > 10" class="text-sm text-gray-500 mb-4">
+              …and {{ selectedItemIds.size - 10 }} more
+            </p>
+            <label class="flex items-start gap-2 text-sm text-gray-700 mb-4">
+              <input v-model="bulkDeleteModal.confirmed" type="checkbox" class="mt-0.5" />
+              I understand this permanently deletes {{ selectedItemIds.size }} item(s) and all their
+              variations.
+            </label>
+            <span v-if="bulkAction.error" class="text-red-600 text-sm block mb-3">{{
+              bulkAction.error
+            }}</span>
+            <div class="flex justify-end gap-3">
+              <button
+                class="btn-secondary px-4 py-2"
+                :disabled="bulkAction.running"
+                @click="bulkDeleteModal.open = false"
+              >
+                Cancel
+              </button>
+              <button
+                class="bg-red-600 hover:bg-red-700 text-white font-semibold px-4 py-2 rounded-lg disabled:opacity-50"
+                :disabled="!bulkDeleteModal.confirmed || bulkAction.running"
+                @click="confirmBulkDelete"
+              >
+                {{ bulkAction.running ? 'Deleting…' : 'Delete Permanently' }}
+              </button>
+            </div>
+          </div>
+        </div>
+      </transition>
+    </teleport>
+
+    <!-- Manage Categories panel -->
+    <teleport to="body">
+      <transition name="modal-fade">
+        <div
+          v-if="categoryPanel.open"
+          class="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4"
+          @click.self="closeCategoryPanel"
+        >
+          <div
+            class="bg-white rounded-2xl shadow-2xl w-full max-w-3xl max-h-[85vh] overflow-y-auto"
+            @click.stop
+          >
+            <div class="p-6">
+              <div class="flex justify-between items-center mb-4">
+                <h2 class="font-cinzel text-xl font-bold text-gray-800">Manage Categories</h2>
+                <button
+                  type="button"
+                  class="text-gray-400 hover:text-gray-600 text-xl leading-none"
+                  @click="closeCategoryPanel"
+                >
+                  ✕
+                </button>
+              </div>
+
+              <div v-if="categories.length === 0" class="text-gray-500 text-sm py-6 text-center">
+                No categories yet.
+              </div>
+
+              <div v-else class="space-y-2">
+                <div
+                  v-for="cat in categories"
+                  :key="cat.id"
+                  class="border border-gray-200 rounded-lg p-3"
+                >
+                  <div class="flex items-center gap-2 flex-wrap">
+                    <template v-if="categoryRow(cat.id).renaming">
+                      <input
+                        v-model="categoryRow(cat.id).name"
+                        type="text"
+                        class="input-field !w-auto flex-1 min-w-[10rem]"
+                      />
+                      <button
+                        type="button"
+                        class="btn-primary px-3 py-1 text-xs"
+                        :disabled="categoryRow(cat.id).saving"
+                        @click="saveRename(cat)"
+                      >
+                        {{ categoryRow(cat.id).saving ? 'Saving…' : 'Save' }}
+                      </button>
+                      <button
+                        type="button"
+                        class="text-gray-500 text-xs hover:underline"
+                        @click="categoryRow(cat.id).renaming = false"
+                      >
+                        Cancel
+                      </button>
+                    </template>
+                    <template v-else>
+                      <span class="font-medium text-gray-800 flex-1 min-w-[8rem]">{{
+                        cat.path || cat.name
+                      }}</span>
+                      <button
+                        type="button"
+                        class="text-outpost-navy text-xs font-semibold hover:underline"
+                        @click="startRename(cat)"
+                      >
+                        Rename
+                      </button>
+                    </template>
+
+                    <select
+                      class="input-field !w-auto text-xs"
+                      :disabled="categoryRow(cat.id).saving"
+                      @change="onReparentChange(cat, $event)"
+                    >
+                      <option value="" disabled selected>Re-parent to…</option>
+                      <option value="__top__">Top-level (no parent)</option>
+                      <option
+                        v-for="other in categories.filter(o => o.id !== cat.id)"
+                        :key="other.id"
+                        :value="other.id"
+                      >
+                        {{ other.path || other.name }}
+                      </option>
+                    </select>
+
+                    <select
+                      class="input-field !w-auto text-xs"
+                      :disabled="categoryRow(cat.id).saving"
+                      @change="onMergeChange(cat, $event)"
+                    >
+                      <option value="" disabled selected>Merge into…</option>
+                      <option
+                        v-for="other in categories.filter(o => o.id !== cat.id)"
+                        :key="other.id"
+                        :value="other.id"
+                      >
+                        {{ other.path || other.name }}
+                      </option>
+                    </select>
+
+                    <button
+                      type="button"
+                      class="text-red-600 text-xs font-semibold hover:underline"
+                      :disabled="categoryRow(cat.id).saving"
+                      @click="deleteCategory(cat)"
+                    >
+                      Delete
+                    </button>
+                  </div>
+                  <p v-if="categoryRow(cat.id).error" class="text-red-600 text-xs mt-2">
+                    {{ categoryRow(cat.id).error }}
+                  </p>
+                  <p v-if="categoryRow(cat.id).success" class="text-green-600 text-xs mt-2">
+                    {{ categoryRow(cat.id).success }}
+                  </p>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </transition>
+    </teleport>
 
     <!-- Edit modal -->
     <teleport to="body">
@@ -274,6 +534,53 @@
                           </div>
                         </div>
 
+                        <!-- Variation image — falls back to the item's group
+                             photo above until this variation has its own -->
+                        <div>
+                          <label class="block text-xs font-medium text-gray-500 mb-1">
+                            Image
+                            <span v-if="!variation.hasOwnImage" class="text-gray-400 font-normal"
+                              >(using group photo)</span
+                            >
+                          </label>
+                          <div class="flex items-center gap-2">
+                            <img
+                              v-if="variation.imageUrl"
+                              :src="variation.imageUrl"
+                              alt=""
+                              class="h-12 w-12 object-cover rounded-lg border border-gray-200 no-hover"
+                            />
+                            <div
+                              v-else
+                              class="h-12 w-12 rounded-lg border border-dashed border-gray-300 flex items-center justify-center text-gray-300 text-xs"
+                            >
+                              None
+                            </div>
+                            <div class="flex-1">
+                              <input
+                                :ref="el => setVariationImageInput(variation.id, el)"
+                                type="file"
+                                accept="image/jpeg,image/png,image/gif"
+                                class="text-xs"
+                                @change="onVariationImageSelected(variation, $event)"
+                              />
+                              <button
+                                type="button"
+                                class="btn-secondary px-2 py-0.5 text-xs mt-1"
+                                :disabled="!variation.selectedImageFile || variation.uploadingImage"
+                                @click="uploadVariationImage(variation)"
+                              >
+                                {{ variation.uploadingImage ? 'Uploading…' : 'Upload' }}
+                              </button>
+                              <span
+                                v-if="variation.imageError"
+                                class="text-red-600 text-xs block mt-1"
+                                >{{ variation.imageError }}</span
+                              >
+                            </div>
+                          </div>
+                        </div>
+
                         <div class="grid grid-cols-2 gap-3">
                           <div>
                             <label class="block text-xs font-medium text-gray-500 mb-1"
@@ -401,6 +708,88 @@
                         }}</span>
                       </div>
                     </div>
+
+                    <!-- Add Variation -->
+                    <div class="mt-3">
+                      <button
+                        v-if="!addVariationForm.open"
+                        type="button"
+                        class="text-outpost-gold text-xs font-semibold hover:underline"
+                        @click="addVariationForm.open = true"
+                      >
+                        + Add Variation
+                      </button>
+                      <div
+                        v-else
+                        class="border border-dashed border-gray-300 rounded-lg p-3 space-y-2"
+                      >
+                        <div class="grid grid-cols-2 gap-3">
+                          <div>
+                            <label class="block text-xs font-medium text-gray-500 mb-1">Name</label>
+                            <input
+                              v-model="addVariationForm.name"
+                              type="text"
+                              placeholder="e.g. Foil Enhanced"
+                              class="input-field"
+                            />
+                          </div>
+                          <div>
+                            <label class="block text-xs font-medium text-gray-500 mb-1"
+                              >SKU
+                              <span class="text-gray-400 font-normal"
+                                >(optional, locked after save)</span
+                              >
+                            </label>
+                            <input v-model="addVariationForm.sku" type="text" class="input-field" />
+                          </div>
+                        </div>
+                        <div class="grid grid-cols-2 gap-3">
+                          <div>
+                            <label class="block text-xs font-medium text-gray-500 mb-1"
+                              >Price ($)</label
+                            >
+                            <input
+                              v-model="addVariationForm.price"
+                              type="number"
+                              step="0.01"
+                              min="0"
+                              placeholder="Leave blank for variable pricing"
+                              class="input-field"
+                            />
+                          </div>
+                          <div class="flex items-end gap-4 pb-1">
+                            <label class="flex items-center gap-2 text-sm text-gray-700">
+                              <input v-model="addVariationForm.trackInventory" type="checkbox" />
+                              Track inventory
+                            </label>
+                            <label class="flex items-center gap-2 text-sm text-gray-700">
+                              <input v-model="addVariationForm.sellable" type="checkbox" />
+                              Sellable
+                            </label>
+                          </div>
+                        </div>
+                        <span v-if="addVariationForm.error" class="text-red-600 text-xs block">{{
+                          addVariationForm.error
+                        }}</span>
+                        <div class="flex justify-end gap-3 pt-1">
+                          <button
+                            type="button"
+                            class="text-gray-500 text-xs hover:underline"
+                            @click="cancelAddVariation"
+                          >
+                            Cancel
+                          </button>
+                          <button
+                            type="button"
+                            class="btn-secondary px-3 py-1 text-xs"
+                            :disabled="addVariationForm.saving"
+                            @click="addVariation"
+                          >
+                            {{ addVariationForm.saving ? 'Adding…' : 'Add Variation' }}
+                          </button>
+                        </div>
+                      </div>
+                    </div>
                   </div>
 
                   <div v-if="editError" class="text-red-600 text-sm">{{ editError }}</div>
@@ -473,7 +862,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, computed, onMounted } from 'vue'
+import { ref, reactive, computed, onMounted, type ComponentPublicInstance } from 'vue'
 
 interface StockRow {
   id: string
@@ -512,6 +901,11 @@ interface VariationForm {
   deleteConfirming: boolean
   deleting: boolean
   deleteError: string
+  imageUrl: string | null
+  hasOwnImage: boolean
+  selectedImageFile: File | null
+  uploadingImage: boolean
+  imageError: string
 }
 
 const API_URL = `${import.meta.env.VITE_API_URL || '/api'}/square`
@@ -596,6 +990,262 @@ const fetchCategories = async () => {
   }
 }
 
+// ── Bulk selection & actions ──────────────────────────────────────────────────
+// This list is one row per VARIATION (from getSquareInventoryReport), so a
+// multi-variation item shows as multiple rows sharing one itemId — selection
+// is keyed by itemId, not row id, so checking any one variation-row selects
+// the whole item (every sibling row for that item reflects the same checked
+// state automatically, since they all share the same itemId key).
+const selectedItemIds = ref(new Set<string>())
+
+const toggleItemSelection = (itemId: string) => {
+  if (selectedItemIds.value.has(itemId)) selectedItemIds.value.delete(itemId)
+  else selectedItemIds.value.add(itemId)
+}
+
+const clearSelection = () => {
+  selectedItemIds.value.clear()
+}
+
+const groupSelectionState = (group: CategoryGroup): 'all' | 'some' | 'none' => {
+  const itemIds = new Set(group.rows.map(row => row.itemId))
+  const selectedCount = [...itemIds].filter(id => selectedItemIds.value.has(id)).length
+  if (selectedCount === 0) return 'none'
+  if (selectedCount === itemIds.size) return 'all'
+  return 'some'
+}
+
+const toggleGroupSelection = (group: CategoryGroup) => {
+  const itemIds = [...new Set(group.rows.map(row => row.itemId))]
+  const allSelected = groupSelectionState(group) === 'all'
+  for (const id of itemIds) {
+    if (allSelected) selectedItemIds.value.delete(id)
+    else selectedItemIds.value.add(id)
+  }
+}
+
+const bulkAction = reactive({ running: false, error: '' })
+
+const runBulkAction = async (path: string, body: Record<string, unknown>) => {
+  bulkAction.running = true
+  bulkAction.error = ''
+  try {
+    const res = await fetch(`${API_URL}${path}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ itemIds: [...selectedItemIds.value], ...body }),
+    })
+    const data = await res.json().catch(() => ({}))
+    if (!res.ok) throw new Error(data.error || 'Bulk action failed')
+    clearSelection()
+    await fetchRows()
+  } catch (e) {
+    bulkAction.error = e instanceof Error ? e.message : 'Bulk action failed'
+  } finally {
+    bulkAction.running = false
+  }
+}
+
+const onBulkCategoryChange = (event: Event) => {
+  const value = (event.target as HTMLSelectElement).value
+  if (!value) return
+  const categoryId = value === '__none__' ? null : value
+  ;(event.target as HTMLSelectElement).value = ''
+  runBulkAction('/products/batch-category', { categoryId })
+}
+
+const onBulkVisibilityChange = (event: Event) => {
+  const value = (event.target as HTMLSelectElement).value
+  if (!value) return
+  ;(event.target as HTMLSelectElement).value = ''
+  runBulkAction('/products/batch-visibility', { ecomVisibility: value })
+}
+
+const onBulkSellableChange = (event: Event) => {
+  const value = (event.target as HTMLSelectElement).value
+  if (!value) return
+  ;(event.target as HTMLSelectElement).value = ''
+  runBulkAction('/products/batch-visibility', { sellable: value === 'true' })
+}
+
+const bulkDeleteModal = reactive({ open: false, confirmed: false })
+
+// Deduplicated display names for the confirmation modal — the list is
+// per-variation, so the same itemId can appear multiple times.
+const bulkDeletePreviewNames = computed(() => {
+  const seen = new Set<string>()
+  const names: string[] = []
+  for (const row of rows.value) {
+    if (!selectedItemIds.value.has(row.itemId) || seen.has(row.itemId)) continue
+    seen.add(row.itemId)
+    names.push(row.displayName)
+    if (names.length >= 10) break
+  }
+  return names
+})
+
+const confirmBulkDelete = async () => {
+  await runBulkAction('/products/batch-delete', {})
+  bulkDeleteModal.open = false
+  bulkDeleteModal.confirmed = false
+}
+
+// ── Manage Categories panel ───────────────────────────────────────────────────
+interface CategoryRowState {
+  renaming: boolean
+  name: string
+  saving: boolean
+  error: string
+  success: string
+}
+
+const categoryPanel = reactive({ open: false })
+const categoryRowStates = reactive(new Map<string, CategoryRowState>())
+
+// Lazily-created per-category UI state, keyed by category id — most
+// categories never get touched in a given visit to the panel, so there's no
+// need to pre-populate state for every one up front.
+const categoryRow = (categoryId: string): CategoryRowState => {
+  let state = categoryRowStates.get(categoryId)
+  if (!state) {
+    state = { renaming: false, name: '', saving: false, error: '', success: '' }
+    categoryRowStates.set(categoryId, state)
+  }
+  return state
+}
+
+const openCategoryPanel = () => {
+  categoryPanel.open = true
+}
+
+const closeCategoryPanel = () => {
+  categoryPanel.open = false
+}
+
+const startRename = (cat: SquareCategory) => {
+  const state = categoryRow(cat.id)
+  state.renaming = true
+  state.name = cat.name || ''
+  state.error = ''
+  state.success = ''
+}
+
+const saveRename = async (cat: SquareCategory) => {
+  const state = categoryRow(cat.id)
+  if (!state.name.trim()) {
+    state.error = 'Name is required'
+    return
+  }
+  state.saving = true
+  state.error = ''
+  try {
+    const res = await fetch(`${API_URL}/categories/${cat.id}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name: state.name.trim() }),
+    })
+    if (!res.ok) {
+      const data = await res.json().catch(() => ({}))
+      throw new Error(data.error || 'Rename failed')
+    }
+    state.renaming = false
+    await Promise.all([fetchCategories(), fetchRows()])
+  } catch (e) {
+    state.error = e instanceof Error ? e.message : 'Rename failed'
+  } finally {
+    state.saving = false
+  }
+}
+
+const onReparentChange = async (cat: SquareCategory, event: Event) => {
+  const select = event.target as HTMLSelectElement
+  const value = select.value
+  select.value = ''
+  if (!value) return
+
+  const state = categoryRow(cat.id)
+  state.saving = true
+  state.error = ''
+  state.success = ''
+  try {
+    const parentCategoryId = value === '__top__' ? null : value
+    const res = await fetch(`${API_URL}/categories/${cat.id}/parent`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ parentCategoryId }),
+    })
+    if (!res.ok) {
+      const data = await res.json().catch(() => ({}))
+      throw new Error(data.error || 'Re-parent failed')
+    }
+    await Promise.all([fetchCategories(), fetchRows()])
+  } catch (e) {
+    state.error = e instanceof Error ? e.message : 'Re-parent failed'
+  } finally {
+    state.saving = false
+  }
+}
+
+const onMergeChange = async (cat: SquareCategory, event: Event) => {
+  const select = event.target as HTMLSelectElement
+  const toCategoryId = select.value
+  select.value = ''
+  if (!toCategoryId) return
+
+  const target = categories.value.find(c => c.id === toCategoryId)
+  const confirmed = confirm(
+    `Move every item in "${cat.path || cat.name}" into "${target?.path || target?.name}" and delete "${cat.path || cat.name}"?`
+  )
+  if (!confirmed) return
+
+  const state = categoryRow(cat.id)
+  state.saving = true
+  state.error = ''
+  state.success = ''
+  try {
+    const res = await fetch(`${API_URL}/categories/${cat.id}/merge`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ toCategoryId }),
+    })
+    const data = await res.json().catch(() => ({}))
+    if (!res.ok) throw new Error(data.error || 'Merge failed')
+    categoryRowStates.delete(cat.id)
+    await Promise.all([fetchCategories(), fetchRows()])
+  } catch (e) {
+    state.error = e instanceof Error ? e.message : 'Merge failed'
+  } finally {
+    state.saving = false
+  }
+}
+
+const deleteCategory = async (cat: SquareCategory) => {
+  if (
+    !confirm(
+      `Delete category "${cat.path || cat.name}"? This only works if no items or sub-categories still use it.`
+    )
+  ) {
+    return
+  }
+
+  const state = categoryRow(cat.id)
+  state.saving = true
+  state.error = ''
+  state.success = ''
+  try {
+    const res = await fetch(`${API_URL}/categories/${cat.id}`, { method: 'DELETE' })
+    if (!res.ok) {
+      const data = await res.json().catch(() => ({}))
+      throw new Error(data.error || 'Delete failed')
+    }
+    categoryRowStates.delete(cat.id)
+    await Promise.all([fetchCategories(), fetchRows()])
+  } catch (e) {
+    state.error = e instanceof Error ? e.message : 'Delete failed'
+    state.saving = false
+  }
+}
+
 // ── Edit modal ────────────────────────────────────────────────────────────────
 const editModal = reactive({ open: false, itemId: '' })
 const editLoading = ref(false)
@@ -619,6 +1269,8 @@ const toVariationForm = (variation: {
   trackInventory: boolean
   sellable: boolean
   quantity: number | null
+  imageUrl?: string | null
+  hasOwnImage?: boolean
 }): VariationForm => ({
   id: variation.id,
   name: variation.name || '',
@@ -635,6 +1287,11 @@ const toVariationForm = (variation: {
   deleteConfirming: false,
   deleting: false,
   deleteError: '',
+  imageUrl: variation.imageUrl ?? null,
+  hasOwnImage: variation.hasOwnImage ?? false,
+  selectedImageFile: null,
+  uploadingImage: false,
+  imageError: '',
 })
 
 const openEdit = async (row: StockRow) => {
@@ -644,6 +1301,7 @@ const openEdit = async (row: StockRow) => {
   editError.value = ''
   imageError.value = ''
   selectedImageFile.value = null
+  resetAddVariationForm()
   try {
     const res = await fetch(`${API_URL}/products/${row.itemId}`)
     if (!res.ok) throw new Error('Failed to load product details')
@@ -788,6 +1446,115 @@ const uploadImage = async () => {
   }
 }
 
+// ── Per-variation image upload ────────────────────────────────────────────────
+// Each variation gets its own photo (e.g. "Foil Enhanced" needing different
+// art than "Regular") instead of every variation sharing the item's one group
+// photo — falls back to the group photo automatically when a variation has
+// none of its own (see hasOwnImage, resolved server-side).
+const variationImageInputs = new Map<string, HTMLInputElement>()
+const setVariationImageInput = (id: string, el: Element | ComponentPublicInstance | null) => {
+  if (el instanceof HTMLInputElement) variationImageInputs.set(id, el)
+  else variationImageInputs.delete(id)
+}
+
+const onVariationImageSelected = (variation: VariationForm, event: Event) => {
+  const target = event.target as HTMLInputElement
+  variation.selectedImageFile = target.files?.[0] || null
+}
+
+const uploadVariationImage = async (variation: VariationForm) => {
+  if (!variation.selectedImageFile) return
+  variation.uploadingImage = true
+  variation.imageError = ''
+  try {
+    const formData = new FormData()
+    formData.append('image', variation.selectedImageFile)
+    const res = await fetch(
+      `${API_URL}/products/${editModal.itemId}/variations/${variation.id}/image`,
+      { method: 'POST', body: formData }
+    )
+    if (!res.ok) {
+      const data = await res.json().catch(() => ({}))
+      throw new Error(data.error || 'Upload failed')
+    }
+    const data = await res.json()
+    variation.imageUrl = data.imageUrl
+    variation.hasOwnImage = true
+    variation.selectedImageFile = null
+    const inputEl = variationImageInputs.get(variation.id)
+    if (inputEl) inputEl.value = ''
+  } catch (e) {
+    variation.imageError = e instanceof Error ? e.message : 'Upload failed'
+  } finally {
+    variation.uploadingImage = false
+  }
+}
+
+// ── Add Variation ─────────────────────────────────────────────────────────────
+// Only new-variation form allows setting a SKU — the edit path above locks it
+// on existing variations to protect already-scanned in-store barcodes; a
+// brand-new variation has no barcode yet, so there's nothing to protect.
+const addVariationForm = reactive({
+  open: false,
+  name: '',
+  sku: '',
+  price: '' as string,
+  trackInventory: false,
+  sellable: true,
+  saving: false,
+  error: '',
+})
+
+const resetAddVariationForm = () => {
+  addVariationForm.open = false
+  addVariationForm.name = ''
+  addVariationForm.sku = ''
+  addVariationForm.price = ''
+  addVariationForm.trackInventory = false
+  addVariationForm.sellable = true
+  addVariationForm.saving = false
+  addVariationForm.error = ''
+}
+
+const cancelAddVariation = () => resetAddVariationForm()
+
+const addVariation = async () => {
+  if (!addVariationForm.name.trim()) {
+    addVariationForm.error = 'Name is required'
+    return
+  }
+  addVariationForm.saving = true
+  addVariationForm.error = ''
+  try {
+    const price = parseFloat(addVariationForm.price)
+    const res = await fetch(`${API_URL}/products/${editModal.itemId}/variations`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        name: addVariationForm.name.trim(),
+        sku: addVariationForm.sku.trim() || undefined,
+        priceCents:
+          addVariationForm.price.trim() !== '' && !Number.isNaN(price)
+            ? Math.round(price * 100)
+            : null,
+        trackInventory: addVariationForm.trackInventory,
+        sellable: addVariationForm.sellable,
+      }),
+    })
+    if (!res.ok) {
+      const data = await res.json().catch(() => ({}))
+      throw new Error(data.error || 'Failed to add variation')
+    }
+    const { item } = await res.json()
+    editForm.variations = (item.variations || []).map(toVariationForm)
+    resetAddVariationForm()
+  } catch (e) {
+    addVariationForm.error = e instanceof Error ? e.message : 'Failed to add variation'
+  } finally {
+    addVariationForm.saving = false
+  }
+}
+
 // ── Per-variation inventory correction ────────────────────────────────────────
 const correctInventory = async (variation: VariationForm) => {
   variation.correctingCount = true
@@ -897,5 +1664,16 @@ onMounted(() => {
 .modal-fade-enter-from,
 .modal-fade-leave-to {
   opacity: 0;
+}
+.fade-enter-active,
+.fade-leave-active {
+  transition:
+    opacity 0.2s ease,
+    transform 0.2s ease;
+}
+.fade-enter-from,
+.fade-leave-to {
+  opacity: 0;
+  transform: translateY(8px);
 }
 </style>

@@ -8,6 +8,10 @@ const PRODUCTION_BASE_URL = 'https://connect.squareup.com'
 const PLACEHOLDER_VALUES = new Set(['YOUR_LOCATION_ID', 'YOUR_ACCESS_TOKEN', 'YOUR_APPLICATION_ID', 'YOUR_APP_ID', 'YOUR_TOKEN'])
 const CATALOG_PAGE_SAFETY_CAP = 200
 const INVENTORY_BATCH_SIZE = 100
+// Square's confirmed real limits for these three batch endpoints (developer.squareup.com).
+const CATALOG_UPSERT_BATCH_SIZE = 1000 // objects per batch; Square also caps at 10,000 objects/request total
+const CATALOG_DELETE_BATCH_SIZE = 200 // object_ids per /v2/catalog/batch-delete call
+const CATALOG_RETRIEVE_BATCH_SIZE = 1000 // object_ids per /v2/catalog/batch-retrieve call
 
 // Square's Catalog API has no built-in "cost of goods" field on a variation —
 // confirmed against a live account, not just docs (no such field appears on
@@ -249,10 +253,15 @@ export const listSquareCatalogItems = async (env = process.env) => {
       if (!itemData) continue
 
       const categoryIds = (itemData.categories || []).map(category => category.id)
-      const primaryImageId = itemData.image_ids?.[0] || null
+      const itemImageId = itemData.image_ids?.[0] || null
 
       for (const variation of itemData.variations || []) {
         const variationData = variation.item_variation_data || {}
+        // A variation's own image (e.g. "Foil Enhanced" needing its own photo)
+        // takes priority; falling back to the item's shared group photo keeps
+        // every variation showing *something* for the common case where only
+        // one representative photo exists for the whole item.
+        const primaryImageId = variationData.image_ids?.[0] || itemImageId
         variations.push({
           id: variation.id,
           itemId: object.id,
@@ -548,15 +557,23 @@ export const getSquareCatalogItem = async (itemId, env = process.env) => {
     ? new Map((await listSquareCategories(env)).map(category => [category.id, category.name]))
     : new Map()
 
-  const primaryImageId = itemData.image_ids?.[0]
-  let imageUrl = primaryImageId
-    ? (payload.related_objects || []).find(related => related.type === 'IMAGE' && related.id === primaryImageId)
-        ?.image_data?.url || null
-    : null
-  if (primaryImageId && !imageUrl) {
-    const imagePayload = await client.request(`/v2/catalog/object/${primaryImageId}`).catch(() => null)
-    imageUrl = imagePayload?.object?.image_data?.url || null
+  // `related_objects` usually has the IMAGE objects inline, but not always
+  // reliably (see fallback below) — build a lookup for whatever IS there, for
+  // both the item's own image and every variation's, resolved together.
+  const relatedImagesById = new Map(
+    (payload.related_objects || [])
+      .filter(related => related.type === 'IMAGE')
+      .map(related => [related.id, related.image_data?.url || null])
+  )
+  const resolveImageUrl = async imageId => {
+    if (!imageId) return null
+    if (relatedImagesById.has(imageId)) return relatedImagesById.get(imageId)
+    const imagePayload = await client.request(`/v2/catalog/object/${imageId}`).catch(() => null)
+    return imagePayload?.object?.image_data?.url || null
   }
+
+  const itemImageId = itemData.image_ids?.[0] || null
+  const imageUrl = await resolveImageUrl(itemImageId)
 
   const trackedVariationIds = rawVariations
     .filter(variation => variation.item_variation_data?.track_inventory)
@@ -574,21 +591,29 @@ export const getSquareCatalogItem = async (itemId, env = process.env) => {
     }
   }
 
-  const variations = rawVariations.map(variation => {
-    const variationData = variation.item_variation_data || {}
-    return {
-      id: variation.id,
-      name: variationData.name || null,
-      sku: variationData.sku || null,
-      priceCents: variationData.price_money?.amount ?? null,
-      currency: variationData.price_money?.currency || 'USD',
-      trackInventory: Boolean(variationData.track_inventory),
-      sellable: variationData.sellable !== false,
-      stockable: variationData.stockable !== false,
-      quantity: variationData.track_inventory ? (quantityById.get(variation.id) ?? 0) : null,
-      costCents: readCostCents(variation),
-    }
-  })
+  const variations = await Promise.all(
+    rawVariations.map(async variation => {
+      const variationData = variation.item_variation_data || {}
+      const ownImageId = variationData.image_ids?.[0] || null
+      return {
+        id: variation.id,
+        name: variationData.name || null,
+        sku: variationData.sku || null,
+        priceCents: variationData.price_money?.amount ?? null,
+        currency: variationData.price_money?.currency || 'USD',
+        trackInventory: Boolean(variationData.track_inventory),
+        sellable: variationData.sellable !== false,
+        stockable: variationData.stockable !== false,
+        quantity: variationData.track_inventory ? (quantityById.get(variation.id) ?? 0) : null,
+        costCents: readCostCents(variation),
+        // hasOwnImage distinguishes "this variation has its own photo" from
+        // "showing the item's shared group photo as a fallback" — the admin
+        // UI uses this to label which one is currently displayed.
+        imageUrl: await resolveImageUrl(ownImageId || itemImageId),
+        hasOwnImage: Boolean(ownImageId),
+      }
+    })
+  )
 
   return {
     id: object.id,
@@ -776,7 +801,300 @@ export const deleteSquareCatalogVariation = async (itemId, variationId, env = pr
   return client.request(`/v2/catalog/object/${variationId}`, { method: 'DELETE' })
 }
 
-export const uploadSquareCatalogImage = async (itemId, { buffer, filename, mimeType }, env = process.env) => {
+// Appends a new variation to an existing item (temp id '#new-variation',
+// same pattern as createSquareCatalogItem's per-variation temp ids). Unlike
+// updateSquareCatalogItem's PUT path — which locks SKU editing on *existing*
+// variations to protect already-scanned in-store barcodes — an initial `sku`
+// IS accepted here: a brand-new variation has no barcode yet, so there's
+// nothing to protect. Once created, it becomes SKU-locked like every other
+// variation via the existing edit route's guard.
+export const addSquareCatalogVariation = async (
+  itemId,
+  { name, sku, priceCents, trackInventory, sellable, stockable },
+  env = process.env
+) => {
+  const client = clientFromEnv(env)
+
+  const current = await fetchRawCatalogObject(client, itemId)
+  const object = current.object
+  const itemData = object.item_data || {}
+  const variations = itemData.variations || []
+
+  // A new ITEM_VARIATION defaults to "present at all locations" — Square
+  // rejects that outright when the parent ITEM isn't also present at all
+  // locations (confirmed live: "is enabled at all future locations, but the
+  // referenced object... is not"). Copy the parent's own location scoping so
+  // the new variation always matches it instead of Square's default.
+  variations.push({
+    type: 'ITEM_VARIATION',
+    id: '#new-variation',
+    present_at_all_locations: object.present_at_all_locations || false,
+    ...(object.present_at_all_locations
+      ? {}
+      : { present_at_location_ids: object.present_at_location_ids || [] }),
+    item_variation_data: {
+      item_id: itemId,
+      name: name || 'Regular',
+      sku: sku || undefined,
+      pricing_type: priceCents != null ? 'FIXED_PRICING' : 'VARIABLE_PRICING',
+      ...(priceCents != null ? { price_money: { amount: priceCents, currency: 'USD' } } : {}),
+      track_inventory: trackInventory ?? false,
+      sellable: sellable ?? true,
+      stockable: stockable ?? true,
+    },
+  })
+  itemData.variations = variations
+  object.item_data = itemData
+
+  const result = await client.request('/v2/catalog/object', {
+    method: 'POST',
+    body: { idempotency_key: crypto.randomUUID(), object },
+  })
+  return result.catalog_object
+}
+
+// ─── Batch catalog primitives ────────────────────────────────────────────────
+// Every bulk feature (bulk delete/category/visibility, category merge) is
+// built by composing these three — none of them, or their callers, touch the
+// single-object /v2/catalog/object endpoint. Proven against this exact Square
+// account already by api/scripts/sync-sandbox-catalog.js (which calls the
+// same two Square endpoints directly); these are the same primitives wired
+// properly into squarePosClient.js so the admin app can use them too.
+
+// Returns a Map<id, rawObject> for every requested id, chunked at Square's
+// 1000-id limit per call. `relatedObjectsById` is only populated when
+// includeRelatedObjects is true (costs an extra round of data per chunk).
+export const batchRetrieveSquareCatalogObjects = async (
+  objectIds,
+  { includeRelatedObjects = false } = {},
+  env = process.env
+) => {
+  const client = clientFromEnv(env)
+  const objectsById = new Map()
+  const relatedObjectsById = new Map()
+
+  for (let i = 0; i < objectIds.length; i += CATALOG_RETRIEVE_BATCH_SIZE) {
+    const chunk = objectIds.slice(i, i + CATALOG_RETRIEVE_BATCH_SIZE)
+    const payload = await client.request('/v2/catalog/batch-retrieve', {
+      method: 'POST',
+      body: { object_ids: chunk, include_related_objects: includeRelatedObjects },
+    })
+    for (const object of payload.objects || []) objectsById.set(object.id, object)
+    for (const related of payload.related_objects || []) relatedObjectsById.set(related.id, related)
+  }
+
+  return { objectsById, relatedObjectsById }
+}
+
+// Upserts already-mutated raw catalog objects (as returned by
+// batchRetrieveSquareCatalogObjects and then modified in place), chunked at
+// Square's 1000-objects-per-batch / 10000-per-request limits. One
+// idempotency_key per chunk. id_mappings (temp id -> real id, relevant if a
+// chunk creates brand-new sub-objects) are merged across chunks.
+export const batchUpsertSquareCatalogObjects = async (objects, env = process.env) => {
+  const client = clientFromEnv(env)
+  const resultObjects = []
+  const idMappings = new Map()
+
+  for (let i = 0; i < objects.length; i += CATALOG_UPSERT_BATCH_SIZE) {
+    const chunk = objects.slice(i, i + CATALOG_UPSERT_BATCH_SIZE)
+    const payload = await client.request('/v2/catalog/batch-upsert', {
+      method: 'POST',
+      body: {
+        idempotency_key: crypto.randomUUID(),
+        batches: [{ objects: chunk }],
+      },
+    })
+    resultObjects.push(...(payload.objects || []))
+    for (const mapping of payload.id_mappings || []) {
+      idMappings.set(mapping.client_object_id, mapping.object_id)
+    }
+  }
+
+  return { objects: resultObjects, idMappings }
+}
+
+// Deletes many catalog objects (chunked at Square's 200-ids-per-call limit).
+// Square allows partial success per call — accumulates whatever actually got
+// deleted across every chunk rather than throwing on the first partial miss.
+export const batchDeleteSquareCatalogObjects = async (objectIds, env = process.env) => {
+  const client = clientFromEnv(env)
+  const deletedIds = []
+
+  for (let i = 0; i < objectIds.length; i += CATALOG_DELETE_BATCH_SIZE) {
+    const chunk = objectIds.slice(i, i + CATALOG_DELETE_BATCH_SIZE)
+    const payload = await client.request('/v2/catalog/batch-delete', {
+      method: 'POST',
+      body: { object_ids: chunk },
+    })
+    deletedIds.push(...(payload.deleted_object_ids || []))
+  }
+
+  return { deletedIds }
+}
+
+// ─── Bulk item actions (admin multi-select) ──────────────────────────────────
+// AdminSquareCatalog.vue's list is one row per VARIATION (from
+// getSquareInventoryReport), so a multi-variation item shows as multiple rows
+// sharing one itemId — selection there is keyed by itemId, meaning these
+// three functions always operate on whole ITEMs, never individual variations.
+
+export const deleteSquareCatalogItemsBatch = async (itemIds, env = process.env) =>
+  batchDeleteSquareCatalogObjects(itemIds, env)
+
+// categoryId: null clears categorization entirely (removes categories +
+// reporting_category). Otherwise replaces whatever categories each item had
+// with just this one — distinct from mergeSquareCategories, which moves
+// *everything* out of one category; this moves an admin-picked subset into
+// exactly one target category.
+export const setSquareCatalogItemsCategoryBatch = async (itemIds, categoryId, env = process.env) => {
+  const { objectsById } = await batchRetrieveSquareCatalogObjects(itemIds, {}, env)
+  const mutated = [...objectsById.values()].map(object => {
+    const itemData = object.item_data || {}
+    itemData.categories = categoryId ? [{ id: categoryId }] : []
+    if (categoryId) itemData.reporting_category = { id: categoryId }
+    else delete itemData.reporting_category
+    object.item_data = itemData
+    return object
+  })
+  return batchUpsertSquareCatalogObjects(mutated, env)
+}
+
+// ecomVisibility is item-level; sellable is per-variation, so setting it here
+// cascades to EVERY variation within each fetched item. Either field can be
+// set independently of the other.
+export const setSquareCatalogItemsVisibilityBatch = async (
+  itemIds,
+  { ecomVisibility, sellable },
+  env = process.env
+) => {
+  const { objectsById } = await batchRetrieveSquareCatalogObjects(itemIds, {}, env)
+  const mutated = [...objectsById.values()].map(object => {
+    const itemData = object.item_data || {}
+    if (ecomVisibility !== undefined) itemData.ecom_visibility = ecomVisibility
+    if (sellable !== undefined) {
+      itemData.variations = (itemData.variations || []).map(variation => {
+        variation.item_variation_data = { ...(variation.item_variation_data || {}), sellable }
+        return variation
+      })
+    }
+    object.item_data = itemData
+    return object
+  })
+  return batchUpsertSquareCatalogObjects(mutated, env)
+}
+
+// ─── Category tree management ────────────────────────────────────────────────
+// Rename/reparent are simple single-object upserts; delete refuses outright
+// (no Square call at all) if anything still references the category, forcing
+// an explicit merge/reassign first rather than silently orphaning items or
+// leaving child categories under a deleted parent.
+
+export const renameSquareCategory = async (categoryId, name, env = process.env) => {
+  const client = clientFromEnv(env)
+  const current = await fetchRawCatalogObject(client, categoryId)
+  const object = current.object
+  object.category_data = { ...(object.category_data || {}), name }
+
+  const result = await client.request('/v2/catalog/object', {
+    method: 'POST',
+    body: { idempotency_key: crypto.randomUUID(), object },
+  })
+  return result.catalog_object
+}
+
+// parentCategoryId: null promotes the category to top-level (removes parent_category).
+export const reparentSquareCategory = async (categoryId, parentCategoryId, env = process.env) => {
+  const client = clientFromEnv(env)
+  const current = await fetchRawCatalogObject(client, categoryId)
+  const object = current.object
+  const categoryData = { ...(object.category_data || {}) }
+  if (parentCategoryId) {
+    categoryData.parent_category = { type: 'CATEGORY', id: parentCategoryId }
+  } else {
+    delete categoryData.parent_category
+  }
+  object.category_data = categoryData
+
+  const result = await client.request('/v2/catalog/object', {
+    method: 'POST',
+    body: { idempotency_key: crypto.randomUUID(), object },
+  })
+  return result.catalog_object
+}
+
+// Refuses outright (throws before making any Square call) if the category is
+// still referenced by any item, or still has child categories under it —
+// same defensive style as deleteSquareCatalogVariation's "keep >=1 variation"
+// guard. Callers must merge/reassign items and reparent children first.
+export const deleteSquareCategory = async (categoryId, env = process.env) => {
+  const client = clientFromEnv(env)
+  const [variations, allCategories] = await Promise.all([
+    listSquareCatalogItems(env),
+    fetchAllCategoryObjects(client),
+  ])
+
+  const referencingItemCount = new Set(
+    variations.filter(variation => variation.categoryIds.includes(categoryId)).map(variation => variation.itemId)
+  ).size
+  if (referencingItemCount > 0) {
+    throw new Error(`Cannot delete — ${referencingItemCount} item(s) still use this category. Merge it into another category first.`)
+  }
+
+  const childCategoryCount = allCategories.filter(
+    category => category.category_data?.parent_category?.id === categoryId
+  ).length
+  if (childCategoryCount > 0) {
+    throw new Error(`Cannot delete — ${childCategoryCount} sub-category(ies) still live under this category. Re-parent or delete them first.`)
+  }
+
+  return client.request(`/v2/catalog/object/${categoryId}`, { method: 'DELETE' })
+}
+
+// Reassigns every item currently referencing fromCategoryId over to
+// toCategoryId (batch-retrieve -> mutate categories/reporting_category,
+// reusing the same sync rule as updateSquareCatalogItem -> batch-upsert),
+// then deletes the now-empty fromCategoryId. If fromCategoryId still has
+// child categories underneath it, the trailing delete call throws the same
+// guard error as deleteSquareCategory — merge only reassigns items, it
+// doesn't restructure the category tree itself.
+export const mergeSquareCategories = async (fromCategoryId, toCategoryId, env = process.env) => {
+  if (fromCategoryId === toCategoryId) {
+    throw new Error('Cannot merge a category into itself')
+  }
+
+  const variations = await listSquareCatalogItems(env)
+  const affectedItemIds = [
+    ...new Set(
+      variations.filter(variation => variation.categoryIds.includes(fromCategoryId)).map(variation => variation.itemId)
+    ),
+  ]
+
+  if (affectedItemIds.length > 0) {
+    const { objectsById } = await batchRetrieveSquareCatalogObjects(affectedItemIds, {}, env)
+    const mutated = [...objectsById.values()].map(object => {
+      const itemData = object.item_data || {}
+      const existingIds = (itemData.categories || []).map(category => category.id)
+      const nextIds = [...new Set(existingIds.map(id => (id === fromCategoryId ? toCategoryId : id)))]
+      itemData.categories = nextIds.map(id => ({ id }))
+      if (itemData.reporting_category?.id === fromCategoryId) {
+        itemData.reporting_category = { id: toCategoryId }
+      }
+      object.item_data = itemData
+      return object
+    })
+    await batchUpsertSquareCatalogObjects(mutated, env)
+  }
+
+  await deleteSquareCategory(fromCategoryId, env)
+  return { mergedItemCount: affectedItemIds.length }
+}
+
+// objectId can be either an ITEM id (sets the item's shared/group photo) or
+// an ITEM_VARIATION id (sets that one variation's own photo) — Square's
+// CreateCatalogImage endpoint accepts either interchangeably, confirmed
+// against the official docs (developer.squareup.com/docs/catalog-api/upload-and-attach-images).
+export const uploadSquareCatalogImage = async (objectId, { buffer, filename, mimeType }, env = process.env) => {
   loadSquareEnvironment()
   const credentials = resolveSquareCredentials(env)
   if (!credentials.accessToken) {
@@ -786,7 +1104,7 @@ export const uploadSquareCatalogImage = async (itemId, { buffer, filename, mimeT
   const formData = new FormData()
   formData.append('request', JSON.stringify({
     idempotency_key: crypto.randomUUID(),
-    object_id: itemId,
+    object_id: objectId,
     image: { id: '#new-image', type: 'IMAGE', image_data: {} },
   }))
   formData.append('file', new Blob([buffer], { type: mimeType }), filename)
@@ -808,19 +1126,22 @@ export const uploadSquareCatalogImage = async (itemId, { buffer, filename, mimeT
   const newImageId = payload.image?.id
   const imageUrl = payload.image?.image_data?.url || null
 
-  // Square's CreateCatalogImage APPENDS to item_data.image_ids rather than
+  // Square's CreateCatalogImage APPENDS to the target's image_ids rather than
   // replacing/prepending it (confirmed live) — every other read path here
   // treats image_ids[0] as "the" image, so a newly uploaded image silently
-  // never displays unless it's moved to the front ourselves.
+  // never displays unless it's moved to the front ourselves. Works the same
+  // way whether objectId is an ITEM (item_data) or ITEM_VARIATION
+  // (item_variation_data) — pick the matching nested data key.
   if (newImageId) {
     const client = clientFromEnv(env)
-    const current = await fetchRawCatalogObject(client, itemId)
+    const current = await fetchRawCatalogObject(client, objectId)
     const object = current.object
-    const itemData = object.item_data || {}
-    const existingIds = itemData.image_ids || []
+    const dataKey = object.type === 'ITEM_VARIATION' ? 'item_variation_data' : 'item_data'
+    const data = object[dataKey] || {}
+    const existingIds = data.image_ids || []
 
-    itemData.image_ids = [newImageId, ...existingIds.filter(id => id !== newImageId)]
-    object.item_data = itemData
+    data.image_ids = [newImageId, ...existingIds.filter(id => id !== newImageId)]
+    object[dataKey] = data
 
     await client.request('/v2/catalog/object', {
       method: 'POST',
@@ -897,4 +1218,56 @@ export const adjustSquareInventoryCountBatch = async (changes, env = process.env
   }
 
   return { updatedCount: changes.length, results }
+}
+
+// ─── Quick Restock (box -> loose packs) ──────────────────────────────────────
+// Square has no native "kit"/bundle concept for "opening a sealed box yields
+// N loose packs" (confirmed via Square's own developer forum: this has to be
+// modeled entirely in application logic) — the box<->packs pairing itself is
+// stored in Redis (see RESTOCK_MAPPINGS_KEY in server.js), this function just
+// applies one already-configured pairing. Deliberately reuses the existing,
+// proven adjustSquareInventoryCountBatch rather than a new inventory-write
+// path, and reads current quantities fresh immediately before writing (not
+// from a stale cached report) to minimize the race window against a
+// concurrent sale — the same read-then-write pattern every other
+// inventory-correction flow in this app already uses.
+export const applyBoxToPackRestock = async (
+  { boxVariationId, packsVariationId, packsPerBox, boxesOpened },
+  env = process.env
+) => {
+  if (!Number.isInteger(boxesOpened) || boxesOpened <= 0) {
+    throw new Error('boxesOpened must be a positive integer')
+  }
+
+  const locationId = clientFromEnv(env).locationId
+  if (!locationId) {
+    throw new Error('A Square location id is required to apply a restock')
+  }
+
+  const counts = await listSquareInventory(env, {
+    catalogObjectIds: [boxVariationId, packsVariationId],
+    locationIds: [locationId],
+  })
+  const countByVariationId = new Map(
+    counts.map(count => [count.catalog_object_id, Number(count.quantity)])
+  )
+  const previousBoxQty = countByVariationId.get(boxVariationId) ?? 0
+  const previousPacksQty = countByVariationId.get(packsVariationId) ?? 0
+
+  if (boxesOpened > previousBoxQty) {
+    throw new Error(`Cannot open ${boxesOpened} box(es) — only ${previousBoxQty} in stock`)
+  }
+
+  const newBoxQty = previousBoxQty - boxesOpened
+  const newPacksQty = previousPacksQty + boxesOpened * packsPerBox
+
+  await adjustSquareInventoryCountBatch(
+    [
+      { variationId: boxVariationId, quantity: newBoxQty },
+      { variationId: packsVariationId, quantity: newPacksQty },
+    ],
+    env
+  )
+
+  return { previousBoxQty, newBoxQty, previousPacksQty, newPacksQty }
 }

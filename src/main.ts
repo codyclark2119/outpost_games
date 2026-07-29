@@ -116,6 +116,11 @@ const routes = [
     name: 'AdminSquareMassInventory',
     component: () => import('./views/admin/AdminSquareMassInventory.vue'),
   },
+  {
+    path: '/x/outpostAdmin/square-restock',
+    name: 'AdminSquareRestock',
+    component: () => import('./views/admin/AdminSquareRestock.vue'),
+  },
 ]
 
 // Create router instance
