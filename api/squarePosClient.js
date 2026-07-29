@@ -373,17 +373,18 @@ export const getSquareInventoryReport = async (env = process.env) => {
 
 // Categories the public site never shows even if they're sellable in Square —
 // e.g. snacks/concessions sold in-store but out of scope for the TCG-only
-// public catalog. Matched case-insensitively against the item's top-level
-// category name, so tagging a new item under one of these just works with no
-// code change; anything not listed here shows up on the public site by default.
-const PUBLIC_CATALOG_EXCLUDED_CATEGORIES = ['snacks', 'food', 'drinks', 'concessions']
+// public catalog, and accessories (sold in-store only, not part of the
+// online card-shop catalog). Matched case-insensitively against the item's
+// top-level category name, so tagging a new item under one of these just
+// works with no code change; anything not listed here shows up on the public
+// site by default.
+const PUBLIC_CATALOG_EXCLUDED_CATEGORIES = ['snacks', 'food', 'drinks', 'concessions', 'accessories']
 
 // Display order for the public catalog's category sections: these three
-// always lead, in this exact sequence, when present; Accessories always
-// trails everything else; every other category falls in between, ranked by
-// how much is actually on hand (busiest categories first).
+// always lead, in this exact sequence, when present; every other category
+// falls in after, ranked by how much is actually on hand (busiest categories
+// first).
 const PINNED_CATEGORY_ORDER = ['magic', 'pokemon', 'bandai']
-const CATEGORY_ALWAYS_LAST = 'accessories'
 
 // Public-facing catalog: sellable items only, grouped by top-level category,
 // with non-TCG categories (snacks, etc.) filtered out entirely. Internal
@@ -396,7 +397,7 @@ export const getPublicSquareCatalog = async (env = process.env) => {
   const sellableVariations = variations.filter(variation => variation.sellable)
   const trackedVariations = sellableVariations.filter(variation => variation.trackInventory)
 
-  const [counts, { topOf }] = await Promise.all([
+  const [counts, { topOf, nameOf }] = await Promise.all([
     locationId && trackedVariations.length
       ? listSquareInventory(env, {
           catalogObjectIds: trackedVariations.map(variation => variation.id),
@@ -428,9 +429,18 @@ export const getPublicSquareCatalog = async (env = process.env) => {
   for (const variation of sellableVariations) {
     if (!isInStock(variation)) continue
 
-    const topCategory = variation.categoryIds?.[0] ? topOf(variation.categoryIds[0]) : null
+    const leafId = variation.categoryIds?.[0] || null
+    const topCategory = leafId ? topOf(leafId) : null
     const categoryName = topCategory?.name || 'Uncategorized'
     if (PUBLIC_CATALOG_EXCLUDED_CATEGORIES.includes(categoryName.toLowerCase())) continue
+
+    // "Set" is the item's immediate/leaf category (e.g. "Bloomburrow" under
+    // Magic > Pre-cons > Bloomburrow) — distinct from the top-level game-type
+    // category used for grouping above. An item assigned directly to the
+    // top-level category (no real subcategory) has no set of its own.
+    const hasSet = Boolean(leafId && leafId !== topCategory?.id)
+    const setId = hasSet ? leafId : null
+    const setName = hasSet ? nameOf(leafId) : null
 
     const count = countByVariationId.get(variation.id)
     const quantity = variation.trackInventory ? Number(count?.quantity ?? 0) : 0
@@ -447,6 +457,8 @@ export const getPublicSquareCatalog = async (env = process.env) => {
       imageUrl: variation.imageUrl,
       categoryId: topCategory?.id || null,
       categoryName,
+      setId,
+      setName,
     })
   }
 
@@ -454,12 +466,11 @@ export const getPublicSquareCatalog = async (env = process.env) => {
   const pinned = PINNED_CATEGORY_ORDER.map(lower =>
     categoryNames.find(name => name.toLowerCase() === lower)
   ).filter(Boolean)
-  const last = categoryNames.filter(name => name.toLowerCase() === CATEGORY_ALWAYS_LAST)
   const middle = categoryNames
-    .filter(name => !pinned.includes(name) && !last.includes(name))
+    .filter(name => !pinned.includes(name))
     .sort((a, b) => (stockByCategory.get(b) || 0) - (stockByCategory.get(a) || 0))
 
-  const categoryRank = new Map([...pinned, ...middle, ...last].map((name, index) => [name, index]))
+  const categoryRank = new Map([...pinned, ...middle].map((name, index) => [name, index]))
   // Array#sort is stable (guaranteed since ES2019), so items keep their
   // original relative order within a category — only category order changes.
   const items = rawItems.sort((a, b) => categoryRank.get(a.categoryName) - categoryRank.get(b.categoryName))
@@ -518,6 +529,9 @@ export const listSquareCategories = async (env = process.env) => {
 // items into broad sections (game type on the public catalog; category
 // groups on the admin stock/mass-inventory/catalog-editor pages) regardless
 // of how deep the item's own assigned category sits in a sub-category chain.
+// Also exposes a plain id->name lookup (nameOf) for the category itself
+// (not its ancestor) — used by getPublicSquareCatalog to label an item's
+// immediate/leaf category (its "set") separately from its top-level game type.
 export const resolveTopLevelCategoryMap = async (env = process.env) => {
   const client = clientFromEnv(env)
   const categories = await fetchAllCategoryObjects(client)
@@ -536,7 +550,9 @@ export const resolveTopLevelCategoryMap = async (env = process.env) => {
     return top ? { id: top.id, name: top.category_data?.name || null } : null
   }
 
-  return { topOf }
+  const nameOf = id => byId.get(id)?.category_data?.name || null
+
+  return { topOf, nameOf }
 }
 
 const fetchRawCatalogObject = (client, itemId) =>

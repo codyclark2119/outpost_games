@@ -98,8 +98,27 @@
                     </div>
                   </div>
 
+                  <!-- Set (sub-category) filter — only shown when this game
+                       type actually has sets, e.g. Magic's Bloomburrow,
+                       Pre-cons, etc. -->
+                  <div v-if="currentSection.sets.length > 0" class="mb-5">
+                    <label
+                      class="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2"
+                      >Set</label
+                    >
+                    <select
+                      v-model="selectedSet"
+                      class="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-outpost-navy"
+                    >
+                      <option :value="null">All Sets</option>
+                      <option v-for="set in currentSection.sets" :key="set.id" :value="set.id">
+                        {{ set.name }}
+                      </option>
+                    </select>
+                  </div>
+
                   <button
-                    v-if="minPrice !== null || maxPrice !== null"
+                    v-if="minPrice !== null || maxPrice !== null || selectedSet !== null"
                     class="text-xs text-gray-400 hover:text-red-500 mt-4 transition-colors"
                     @click="clearFilters"
                   >
@@ -196,8 +215,8 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted } from 'vue'
-import { useRoute } from 'vue-router'
+import { ref, computed, watch, onMounted } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
 import { useHead } from '@unhead/vue'
 import { useSquareCatalogStore, type SquarePublicItem } from '../stores/squareCatalog'
 import { SITE_URL } from '../composables/usePageMeta'
@@ -205,6 +224,7 @@ import { PRODUCTS_CATALOG_LIVE } from '../config/featureFlags'
 import ComingSoonPanel from '../components/ComingSoonPanel.vue'
 
 const route = useRoute()
+const router = useRouter()
 const catalogStore = useSquareCatalogStore()
 
 const typeId = computed(() => route.params.typeId as string)
@@ -229,6 +249,17 @@ useHead(() => ({
 const minPrice = ref<number | null>(null)
 const maxPrice = ref<number | null>(null)
 const sortBy = ref('name-asc')
+const selectedSet = ref<string | null>((route.query.set as string) || null)
+
+// Deep-link support: reading route.query.set on mount (above) seeds the
+// filter for a direct/shared link; this keeps the URL in sync afterward so
+// the current filter is itself shareable/refreshable.
+watch(selectedSet, value => {
+  const query = { ...route.query }
+  if (value) query.set = value
+  else delete query.set
+  router.replace({ query })
+})
 
 const formatPrice = (item: SquarePublicItem) =>
   item.priceCents != null ? `$${(item.priceCents / 100).toFixed(2)}` : 'See in store'
@@ -237,6 +268,7 @@ const clearFilters = () => {
   minPrice.value = null
   maxPrice.value = null
   sortBy.value = 'name-asc'
+  selectedSet.value = null
 }
 
 const filteredItems = computed((): SquarePublicItem[] => {
@@ -251,6 +283,9 @@ const filteredItems = computed((): SquarePublicItem[] => {
     items = items.filter(
       item => item.priceCents !== null && item.priceCents / 100 <= (maxPrice.value ?? Infinity)
     )
+  }
+  if (selectedSet.value !== null) {
+    items = items.filter(item => item.setId === selectedSet.value)
   }
 
   return [...items].sort((a, b) => {

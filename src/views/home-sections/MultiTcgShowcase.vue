@@ -12,7 +12,7 @@
         <router-link
           v-for="game in games"
           :key="game.id"
-          to="/events"
+          :to="game.link"
           class="card text-center group"
         >
           <div
@@ -31,14 +31,35 @@
 <script setup lang="ts">
 import { Squares2X2Icon } from '@heroicons/vue/24/outline'
 
-// Placeholder tiles — swap `imageUrl` in for each game's logo once official
-// promotional assets are sourced (see README for the retailer asset links
-// tracked down for Pokémon/One Piece/Gundam/Riftbound).
+// `link` targets the live Square-backed /products/:typeId page for each
+// game's real top-level category. One Piece and Gundam are both stocked
+// under a single combined "Bandai" category in Square (there's no separate
+// category for either) so both tiles point at the same /products/bandai
+// page even though they stay visually distinct tiles here.
+//
+// Swap `imageUrl` in for each game's logo once official promotional assets
+// are sourced (see README for the retailer asset links tracked down for
+// Pokémon/One Piece/Gundam/Riftbound).
 const games = [
-  { id: 'magic', name: 'Magic: The Gathering', color: 'var(--color-game-magic)' },
-  { id: 'pokemon', name: 'Pokémon', color: 'var(--color-game-pokemon)' },
-  { id: 'onepiece', name: 'One Piece', color: 'var(--color-game-onepiece)' },
-  { id: 'gundam', name: 'Gundam', color: 'var(--color-game-gundam)' },
-  { id: 'riftbound', name: 'Riftbound', color: 'var(--color-game-riftbound)' },
+  {
+    id: 'magic',
+    name: 'Magic: The Gathering',
+    color: 'var(--color-game-magic)',
+    link: '/products/magic',
+  },
+  { id: 'pokemon', name: 'Pokémon', color: 'var(--color-game-pokemon)', link: '/products/pokemon' },
+  {
+    id: 'onepiece',
+    name: 'One Piece',
+    color: 'var(--color-game-onepiece)',
+    link: '/products/bandai',
+  },
+  { id: 'gundam', name: 'Gundam', color: 'var(--color-game-gundam)', link: '/products/bandai' },
+  {
+    id: 'riftbound',
+    name: 'Riftbound',
+    color: 'var(--color-game-riftbound)',
+    link: '/products/riftbound',
+  },
 ]
 </script>

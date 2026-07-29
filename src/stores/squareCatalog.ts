@@ -13,12 +13,20 @@ export interface SquarePublicItem {
   imageUrl: string | null
   categoryId: string | null
   categoryName: string
+  setId: string | null
+  setName: string | null
+}
+
+export interface CatalogSet {
+  id: string
+  name: string
 }
 
 export interface CatalogSection {
   slug: string
   name: string
   items: SquarePublicItem[]
+  sets: CatalogSet[]
 }
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || '/api'
@@ -64,15 +72,28 @@ export const useSquareCatalogStore = defineStore('squareCatalog', () => {
   // order, so just grouping in encounter order carries that through.
   const sections = computed<CatalogSection[]>(() => {
     const bySlug = new Map<string, CatalogSection>()
+    const seenSetIdsBySlug = new Map<string, Set<string>>()
     for (const item of items.value) {
       const name = item.categoryName || 'Uncategorized'
       const slug = slugify(name)
       let section = bySlug.get(slug)
       if (!section) {
-        section = { slug, name, items: [] }
+        section = { slug, name, items: [], sets: [] }
         bySlug.set(slug, section)
+        seenSetIdsBySlug.set(slug, new Set())
       }
       section.items.push(item)
+
+      // Distinct sets present in this section, first-seen order — powers the
+      // "filter by set" dropdown on ProductsGameType.vue. Items with no set
+      // (setId null) just don't contribute an option here.
+      if (item.setId && item.setName) {
+        const seenSetIds = seenSetIdsBySlug.get(slug)!
+        if (!seenSetIds.has(item.setId)) {
+          seenSetIds.add(item.setId)
+          section.sets.push({ id: item.setId, name: item.setName })
+        }
+      }
     }
     return [...bySlug.values()]
   })
