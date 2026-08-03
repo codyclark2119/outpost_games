@@ -89,6 +89,8 @@
                       <th class="px-4 py-3">Item</th>
                       <th class="px-4 py-3">SKU</th>
                       <th class="px-4 py-3 text-right">Price</th>
+                      <th class="px-4 py-3 text-right">Qty</th>
+                      <th class="px-4 py-3">Status</th>
                       <th class="px-4 py-3"></th>
                     </tr>
                   </thead>
@@ -110,6 +112,17 @@
                       <td class="px-4 py-2.5 text-gray-500">{{ row.sku || '—' }}</td>
                       <td class="px-4 py-2.5 text-right text-gray-700">
                         {{ formatPrice(row.priceCents) }}
+                      </td>
+                      <td class="px-4 py-2.5 text-right text-gray-700">
+                        {{ row.quantity ?? '—' }}
+                      </td>
+                      <td class="px-4 py-2.5">
+                        <span
+                          class="text-xs px-2 py-0.5 rounded-full font-semibold"
+                          :class="stockStatusClass(row)"
+                        >
+                          {{ stockStatusLabel(row) }}
+                        </span>
                       </td>
                       <td class="px-4 py-2.5 text-right">
                         <button
@@ -872,6 +885,9 @@ interface StockRow {
   priceCents: number | null
   categoryId: string | null
   categoryName: string
+  trackInventory: boolean
+  quantity: number | null
+  inStock: boolean
 }
 
 interface CategoryGroup {
@@ -952,6 +968,18 @@ const toggleCategory = (name: string) => {
 }
 
 const formatPrice = (cents: number | null) => (cents == null ? '—' : `$${(cents / 100).toFixed(2)}`)
+
+// Same status convention as AdminSquareStock.vue's read-only report, so the
+// two pages read consistently.
+const stockStatusLabel = (row: StockRow) => {
+  if (!row.trackInventory) return 'Not Tracked'
+  return row.inStock ? 'In Stock' : 'Out of Stock'
+}
+
+const stockStatusClass = (row: StockRow) => {
+  if (!row.trackInventory) return 'bg-gray-100 text-gray-500'
+  return row.inStock ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'
+}
 
 // Live margin preview while editing — blank until both price and cost are
 // filled in, so an admin isn't shown a misleading 100% margin before they've
