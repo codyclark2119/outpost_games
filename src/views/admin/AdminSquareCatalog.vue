@@ -169,8 +169,8 @@
                 @change="onBulkVisibilityChange($event)"
               >
                 <option value="">Toggle Visibility…</option>
-                <option value="VISIBLE">Visible</option>
-                <option value="UNINDEXED">Hidden</option>
+                <option value="false">Visible</option>
+                <option value="true">Hidden</option>
               </select>
               <select
                 class="input-field !w-auto text-sm"
@@ -461,18 +461,16 @@
                   </div>
 
                   <div>
-                    <label class="block text-sm font-medium text-gray-700 mb-1"
-                      >Online store visibility</label
-                    >
-                    <select v-model="editForm.ecomVisibility" class="input-field">
-                      <option value="VISIBLE">Visible</option>
-                      <option value="UNINDEXED">Hidden</option>
-                      <option
-                        v-if="!['VISIBLE', 'UNINDEXED'].includes(editForm.ecomVisibility)"
-                        :value="editForm.ecomVisibility"
+                    <label class="block text-sm font-medium text-gray-700 mb-1">
+                      Website visibility
+                      <span class="text-gray-400 font-normal"
+                        >— hides it from outpostgamesrgv.com regardless of stock; doesn't affect
+                        in-store sales</span
                       >
-                        {{ editForm.ecomVisibility }} (current, unchanged)
-                      </option>
+                    </label>
+                    <select v-model="editForm.hiddenFromWeb" class="input-field">
+                      <option :value="false">Visible</option>
+                      <option :value="true">Hidden</option>
                     </select>
                   </div>
 
@@ -1086,7 +1084,7 @@ const onBulkVisibilityChange = (event: Event) => {
   const value = (event.target as HTMLSelectElement).value
   if (!value) return
   ;(event.target as HTMLSelectElement).value = ''
-  runBulkAction('/products/batch-visibility', { ecomVisibility: value })
+  runBulkAction('/products/batch-visibility', { hiddenFromWeb: value === 'true' })
 }
 
 const onBulkSellableChange = (event: Event) => {
@@ -1283,7 +1281,7 @@ const editForm = reactive({
   name: '',
   description: '',
   categoryId: '',
-  ecomVisibility: 'VISIBLE',
+  hiddenFromWeb: false,
   imageUrl: '' as string | null,
   variations: [] as VariationForm[],
 })
@@ -1337,7 +1335,7 @@ const openEdit = async (row: StockRow) => {
     editForm.name = item.name || ''
     editForm.description = item.description || ''
     editForm.categoryId = item.categories?.[0]?.id || ''
-    editForm.ecomVisibility = item.ecomVisibility || 'VISIBLE'
+    editForm.hiddenFromWeb = item.hiddenFromWeb ?? false
     editForm.imageUrl = item.imageUrl || null
     editForm.variations = (item.variations || []).map(toVariationForm)
   } catch (e) {
@@ -1367,7 +1365,7 @@ const saveEdit = async () => {
         name: editForm.name,
         description: editForm.description,
         categoryIds: editForm.categoryId ? [editForm.categoryId] : [],
-        ecomVisibility: editForm.ecomVisibility,
+        hiddenFromWeb: editForm.hiddenFromWeb,
         variations: editForm.variations.map(v => ({
           id: v.id,
           name: v.name,

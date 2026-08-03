@@ -1373,14 +1373,14 @@ app.post('/api/square/products/batch-visibility', requireAdminAuth, async (req, 
   try {
     const itemIds = Array.isArray(req.body?.itemIds) ? req.body.itemIds : []
     if (!itemIds.length) return res.status(400).json({ error: 'itemIds must be a non-empty array' })
-    const { ecomVisibility, sellable } = req.body || {}
-    if (ecomVisibility === undefined && sellable === undefined) {
-      return res.status(400).json({ error: 'ecomVisibility and/or sellable is required' })
+    const { hiddenFromWeb, sellable } = req.body || {}
+    if (hiddenFromWeb === undefined && sellable === undefined) {
+      return res.status(400).json({ error: 'hiddenFromWeb and/or sellable is required' })
     }
 
     const result = await setSquareCatalogItemsVisibilityBatch(
       itemIds,
-      { ecomVisibility, sellable },
+      { hiddenFromWeb, sellable },
       process.env
     )
     invalidatePublicCatalog()

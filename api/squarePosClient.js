@@ -51,6 +51,41 @@ const buildCostAttributeValues = (existing, costCents) => {
   return next
 }
 
+// Square's own `ecom_visibility` field has no effect on this site or the
+// physical POS (confirmed live — this account has no online-store channel
+// configured, so Square silently normalizes whatever is written back to
+// UNAVAILABLE on read) — it can't be used to hide an item from the public
+// catalog. `sellable` DOES affect the public catalog, but it also blocks the
+// item from being rung up at the in-store register, which is a much bigger
+// hammer than "just hide it from the website." This is a second
+// CatalogCustomAttributeDefinition (type BOOLEAN, scoped to ITEM, key
+// `outpost_hide_from_web`) created once the same way `outpost_unit_cost` was
+// (see README's "Square POS Catalog Admin" section) — a durable, independent
+// flag purely for this site's own public-catalog filtering.
+const HIDE_FROM_WEB_ATTRIBUTE_KEY = 'outpost_hide_from_web'
+
+// Reads the flag off a raw ITEM catalog object (item-level, not per-variation
+// — hiding an item from the site is an all-or-nothing decision for the whole
+// item, matching how the admin UI's Visibility control already worked).
+const readHiddenFromWeb = rawItemObject =>
+  rawItemObject.custom_attribute_values?.[HIDE_FROM_WEB_ATTRIBUTE_KEY]?.boolean_value === true
+
+// hidden: false removes the attribute value entirely rather than writing an
+// explicit `false` — same "omitting means not set" convention as cost above.
+const buildHiddenFromWebAttributeValues = (existing, hidden) => {
+  const next = { ...(existing || {}) }
+  if (!hidden) {
+    delete next[HIDE_FROM_WEB_ATTRIBUTE_KEY]
+  } else {
+    next[HIDE_FROM_WEB_ATTRIBUTE_KEY] = {
+      key: HIDE_FROM_WEB_ATTRIBUTE_KEY,
+      type: 'BOOLEAN',
+      boolean_value: true,
+    }
+  }
+  return next
+}
+
 const normalizeEnvValue = value => {
   if (typeof value !== 'string') return ''
   const trimmed = value.trim()
@@ -254,6 +289,7 @@ export const listSquareCatalogItems = async (env = process.env) => {
 
       const categoryIds = (itemData.categories || []).map(category => category.id)
       const itemImageId = itemData.image_ids?.[0] || null
+      const hiddenFromWeb = readHiddenFromWeb(object)
 
       for (const variation of itemData.variations || []) {
         const variationData = variation.item_variation_data || {}
@@ -276,6 +312,7 @@ export const listSquareCatalogItems = async (env = process.env) => {
           categoryIds,
           primaryImageId,
           costCents: readCostCents(variation),
+          hiddenFromWeb,
           itemCreatedAt: object.created_at || null,
         })
       }
@@ -394,7 +431,13 @@ export const getPublicSquareCatalog = async (env = process.env) => {
   loadSquareEnvironment()
   const variations = await listSquareCatalogItems(env)
   const locationId = resolveSquareCredentials(env).locationId
-  const sellableVariations = variations.filter(variation => variation.sellable)
+  // hiddenFromWeb is an explicit admin decision to keep this item off the
+  // public site regardless of current stock — checked here (not just via the
+  // in-stock filter below) so a hidden item never reappears just because it
+  // has quantity on hand.
+  const sellableVariations = variations.filter(
+    variation => variation.sellable && !variation.hiddenFromWeb
+  )
   const trackedVariations = sellableVariations.filter(variation => variation.trackInventory)
 
   const [counts, { topOf, nameOf }] = await Promise.all([
@@ -636,7 +679,7 @@ export const getSquareCatalogItem = async (itemId, env = process.env) => {
     version: object.version,
     name: itemData.name || null,
     description: itemData.description || '',
-    ecomVisibility: itemData.ecom_visibility || null,
+    hiddenFromWeb: readHiddenFromWeb(object),
     imageUrl,
     categories: (itemData.categories || []).map(category => ({
       id: category.id,
@@ -669,7 +712,12 @@ export const updateSquareCatalogItem = async (itemId, changes, env = process.env
     itemData.description_html = changes.description
     itemData.description_plaintext = changes.description
   }
-  if (changes.ecomVisibility !== undefined) itemData.ecom_visibility = changes.ecomVisibility
+  if (changes.hiddenFromWeb !== undefined) {
+    object.custom_attribute_values = buildHiddenFromWebAttributeValues(
+      object.custom_attribute_values,
+      changes.hiddenFromWeb
+    )
+  }
   if (changes.categoryIds !== undefined) {
     itemData.categories = changes.categoryIds.map(id => ({ id }))
     // Square's Dashboard/POS/reports read `reporting_category` (a separate,
@@ -976,18 +1024,24 @@ export const setSquareCatalogItemsCategoryBatch = async (itemIds, categoryId, en
   return batchUpsertSquareCatalogObjects(mutated, env)
 }
 
-// ecomVisibility is item-level; sellable is per-variation, so setting it here
-// cascades to EVERY variation within each fetched item. Either field can be
-// set independently of the other.
+// hiddenFromWeb is item-level (this site's own outpost_hide_from_web custom
+// attribute — see the comment above HIDE_FROM_WEB_ATTRIBUTE_KEY); sellable is
+// per-variation, so setting it here cascades to EVERY variation within each
+// fetched item. Either field can be set independently of the other.
 export const setSquareCatalogItemsVisibilityBatch = async (
   itemIds,
-  { ecomVisibility, sellable },
+  { hiddenFromWeb, sellable },
   env = process.env
 ) => {
   const { objectsById } = await batchRetrieveSquareCatalogObjects(itemIds, {}, env)
   const mutated = [...objectsById.values()].map(object => {
+    if (hiddenFromWeb !== undefined) {
+      object.custom_attribute_values = buildHiddenFromWebAttributeValues(
+        object.custom_attribute_values,
+        hiddenFromWeb
+      )
+    }
     const itemData = object.item_data || {}
-    if (ecomVisibility !== undefined) itemData.ecom_visibility = ecomVisibility
     if (sellable !== undefined) {
       itemData.variations = (itemData.variations || []).map(variation => {
         variation.item_variation_data = { ...(variation.item_variation_data || {}), sellable }

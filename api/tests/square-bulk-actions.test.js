@@ -115,19 +115,45 @@ test('setSquareCatalogItemsVisibilityBatch cascades sellable to every variation 
   })
 })
 
-test('setSquareCatalogItemsVisibilityBatch sets ecom_visibility independently without touching variations', async () => {
+test('setSquareCatalogItemsVisibilityBatch sets hiddenFromWeb (outpost_hide_from_web) independently without touching variations', async () => {
   const responses = [
     { ok: true, body: { objects: [itemObject('ITEM1')] } },
     { ok: true, body: { objects: [], id_mappings: [] } },
   ]
 
   await withMockedFetch(responses, async calls => {
-    await setSquareCatalogItemsVisibilityBatch(['ITEM1'], { ecomVisibility: 'UNINDEXED' }, FAKE_ENV)
+    await setSquareCatalogItemsVisibilityBatch(['ITEM1'], { hiddenFromWeb: true }, FAKE_ENV)
 
     const sentObject = JSON.parse(calls[1].options.body).batches[0].objects[0]
-    assert.equal(sentObject.item_data.ecom_visibility, 'UNINDEXED')
+    assert.equal(sentObject.custom_attribute_values.outpost_hide_from_web.boolean_value, true)
     // sellable values from the fixture (true, false) survive untouched since sellable wasn't passed.
     assert.equal(sentObject.item_data.variations[0].item_variation_data.sellable, true)
     assert.equal(sentObject.item_data.variations[1].item_variation_data.sellable, false)
+  })
+})
+
+test('setSquareCatalogItemsVisibilityBatch clears hiddenFromWeb when set back to false', async () => {
+  const responses = [
+    {
+      ok: true,
+      body: {
+        objects: [
+          {
+            ...itemObject('ITEM1'),
+            custom_attribute_values: {
+              outpost_hide_from_web: { key: 'outpost_hide_from_web', type: 'BOOLEAN', boolean_value: true },
+            },
+          },
+        ],
+      },
+    },
+    { ok: true, body: { objects: [], id_mappings: [] } },
+  ]
+
+  await withMockedFetch(responses, async calls => {
+    await setSquareCatalogItemsVisibilityBatch(['ITEM1'], { hiddenFromWeb: false }, FAKE_ENV)
+
+    const sentObject = JSON.parse(calls[1].options.body).batches[0].objects[0]
+    assert.equal('outpost_hide_from_web' in (sentObject.custom_attribute_values || {}), false)
   })
 })

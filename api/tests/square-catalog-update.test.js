@@ -14,6 +14,10 @@ const singleVariationObject = () => ({
     catalog_v1_ids: [{ catalog_v1_id: 'V1', location_id: 'LOC1' }],
     present_at_all_locations: false,
     present_at_location_ids: ['LOC1'],
+    // custom_attribute_values is a top-level CatalogObject field (matching
+    // how the cost-tracking code already reads it off `variation.custom_attribute_values`
+    // directly, not nested under item_variation_data) — not part of item_data.
+    custom_attribute_values: { foo: { string_value: 'bar' } },
     item_data: {
       name: 'Old Name',
       description: 'Old description',
@@ -22,7 +26,6 @@ const singleVariationObject = () => ({
       categories: [{ id: 'CAT_OLD', ordinal: 1 }],
       reporting_category: { id: 'CAT_OLD', ordinal: 1 },
       ecom_visibility: 'VISIBLE',
-      custom_attribute_values: { foo: { string_value: 'bar' } },
       variations: [
         {
           type: 'ITEM_VARIATION',
@@ -99,7 +102,47 @@ test('updateSquareCatalogItem changes only the allow-listed fields, leaving sku/
     assert.deepEqual(sentObject.item_data.image_ids, ['IMG1'])
     assert.deepEqual(sentObject.item_data.reporting_category, { id: 'CAT_OLD', ordinal: 1 })
     assert.equal(sentObject.item_data.description, 'Old description')
-    assert.deepEqual(sentObject.item_data.custom_attribute_values, { foo: { string_value: 'bar' } })
+    assert.deepEqual(sentObject.custom_attribute_values, { foo: { string_value: 'bar' } })
+  })
+})
+
+test('updateSquareCatalogItem writes hiddenFromWeb as the outpost_hide_from_web custom attribute without disturbing other custom attributes', async () => {
+  const responses = [
+    { ok: true, body: singleVariationObject() },
+    { ok: true, body: { catalog_object: { id: 'ITEM123', version: 112 } } },
+  ]
+
+  await withMockedFetch(responses, async calls => {
+    await updateSquareCatalogItem('ITEM123', { hiddenFromWeb: true }, FAKE_ENV)
+
+    const sentObject = JSON.parse(calls[1].options.body).object
+    assert.deepEqual(sentObject.custom_attribute_values.outpost_hide_from_web, {
+      key: 'outpost_hide_from_web',
+      type: 'BOOLEAN',
+      boolean_value: true,
+    })
+    // The pre-existing unrelated custom attribute survives untouched.
+    assert.deepEqual(sentObject.custom_attribute_values.foo, { string_value: 'bar' })
+  })
+})
+
+test('updateSquareCatalogItem clears the outpost_hide_from_web attribute when hiddenFromWeb is set back to false', async () => {
+  const withAttributeSet = singleVariationObject()
+  withAttributeSet.object.custom_attribute_values = {
+    foo: { string_value: 'bar' },
+    outpost_hide_from_web: { key: 'outpost_hide_from_web', type: 'BOOLEAN', boolean_value: true },
+  }
+  const responses = [
+    { ok: true, body: withAttributeSet },
+    { ok: true, body: { catalog_object: { id: 'ITEM123', version: 112 } } },
+  ]
+
+  await withMockedFetch(responses, async calls => {
+    await updateSquareCatalogItem('ITEM123', { hiddenFromWeb: false }, FAKE_ENV)
+
+    const sentObject = JSON.parse(calls[1].options.body).object
+    assert.equal('outpost_hide_from_web' in sentObject.custom_attribute_values, false)
+    assert.deepEqual(sentObject.custom_attribute_values.foo, { string_value: 'bar' })
   })
 })
 

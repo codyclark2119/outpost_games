@@ -33,7 +33,7 @@ const categoryObject = (id, { name, parentCategoryId } = {}) => ({
   },
 })
 
-const itemObject = (id, { name, categoryId, priceCents = 500 }) => ({
+const itemObject = (id, { name, categoryId, priceCents = 500, hiddenFromWeb = false }) => ({
   id,
   type: 'ITEM',
   item_data: {
@@ -51,6 +51,9 @@ const itemObject = (id, { name, categoryId, priceCents = 500 }) => ({
       },
     ],
   },
+  ...(hiddenFromWeb
+    ? { custom_attribute_values: { outpost_hide_from_web: { boolean_value: true } } }
+    : {}),
 })
 
 test('getPublicSquareCatalog exposes setId/setName for an item in a real subcategory ("set")', async () => {
@@ -120,5 +123,26 @@ test('getPublicSquareCatalog excludes items in the Accessories category, same as
     const { items } = await getPublicSquareCatalog(FAKE_ENV)
     assert.equal(items.length, 1)
     assert.equal(items[0].name, 'Booster Pack')
+  })
+})
+
+test('getPublicSquareCatalog excludes items flagged outpost_hide_from_web even when in stock and sellable', async () => {
+  const responses = [
+    {
+      ok: true,
+      body: {
+        objects: [
+          itemObject('ITEM1', { name: 'Hidden Precon', categoryId: 'CAT_MAGIC', hiddenFromWeb: true }),
+          itemObject('ITEM2', { name: 'Regular Precon', categoryId: 'CAT_MAGIC' }),
+        ],
+      },
+    },
+    { ok: true, body: { objects: [categoryObject('CAT_MAGIC', { name: 'Magic' })] } },
+  ]
+
+  await withMockedFetch(responses, async () => {
+    const { items } = await getPublicSquareCatalog(FAKE_ENV)
+    assert.equal(items.length, 1)
+    assert.equal(items[0].name, 'Regular Precon')
   })
 })
