@@ -40,6 +40,7 @@
 import { ref } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { useAuthStore } from '../../stores/auth'
+import { ADMIN_BASE_PATH } from '../../config/adminPath'
 
 const router = useRouter()
 const route = useRoute()
@@ -56,7 +57,7 @@ const handleSubmit = async () => {
   try {
     await auth.login(username.value, password.value)
     const redirect =
-      typeof route.query.redirect === 'string' ? route.query.redirect : '/x/outpostAdmin'
+      typeof route.query.redirect === 'string' ? route.query.redirect : ADMIN_BASE_PATH
     router.push(redirect)
   } catch (e) {
     error.value = e instanceof Error ? e.message : 'Login failed'

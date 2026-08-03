@@ -10,7 +10,7 @@
               Sales analytics pulled from Square POS ({{ report?.environment || '…' }})
             </p>
           </div>
-          <router-link to="/x/outpostAdmin" class="btn-secondary px-4 py-2">
+          <router-link :to="{ name: 'AdminDashboard' }" class="btn-secondary px-4 py-2">
             ← Dashboard
           </router-link>
         </div>
@@ -122,7 +122,7 @@
               the picture.
             </p>
             <router-link
-              to="/x/outpostAdmin/square-catalog"
+              :to="{ name: 'AdminSquareCatalog' }"
               class="text-amber-800 font-semibold text-sm hover:underline whitespace-nowrap"
             >
               Open Catalog Editor →

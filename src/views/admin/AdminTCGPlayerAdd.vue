@@ -8,7 +8,7 @@
             <h1 class="font-cinzel text-4xl font-bold text-gray-800">Add Listing</h1>
             <p class="text-gray-600 mt-1">Add a new single card to the featured listings</p>
           </div>
-          <router-link to="/x/outpostAdmin/tcgplayer" class="btn-secondary px-4 py-2">
+          <router-link :to="{ name: 'AdminTCGPlayer' }" class="btn-secondary px-4 py-2">
             ← Manage Listings
           </router-link>
         </div>

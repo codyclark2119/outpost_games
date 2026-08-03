@@ -5,7 +5,11 @@
 User-agent: *
 Allow: /
 
-# Disallow admin pages from being indexed for security and privacy
+# Disallow admin pages from being indexed for security and privacy.
+# This is a static file (not templated at build time) — if VITE_ADMIN_BASE_PATH
+# is customized away from the default below, update this line to match. This
+# is advisory only for well-behaved crawlers, not a real access boundary —
+# the actual protection is the login wall in api/auth.js.
 Disallow: /admin
 Disallow: /x/outpostAdmin
 

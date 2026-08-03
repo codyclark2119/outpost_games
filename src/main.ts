@@ -5,6 +5,7 @@ import { createHead } from '@unhead/vue/client'
 import './style.css'
 import App from './App.vue'
 import { useAuthStore } from './stores/auth'
+import { ADMIN_BASE_PATH } from './config/adminPath'
 
 // Lazy load views for better performance and code splitting
 // Only Home is eagerly loaded since it's the landing page
@@ -57,67 +58,67 @@ const routes = [
   //   component: () => import('./views/Cart.vue'),
   // },
   {
-    path: '/x/outpostAdmin/login',
+    path: `${ADMIN_BASE_PATH}/login`,
     name: 'AdminLogin',
     component: () => import('./views/admin/AdminLogin.vue'),
   },
   {
-    path: '/x/outpostAdmin',
+    path: ADMIN_BASE_PATH,
     name: 'AdminDashboard',
     component: () => import('./views/admin/AdminDashboard.vue'),
   },
   {
-    path: '/x/outpostAdmin/events',
+    path: `${ADMIN_BASE_PATH}/events`,
     name: 'AdminEvents',
     component: () => import('./views/admin/AdminEvents.vue'),
   },
   {
-    path: '/x/outpostAdmin/events/add',
+    path: `${ADMIN_BASE_PATH}/events/add`,
     name: 'AdminEventsAdd',
     component: () => import('./views/admin/AdminEventsAdd.vue'),
   },
   {
-    path: '/x/outpostAdmin/products',
+    path: `${ADMIN_BASE_PATH}/products`,
     name: 'AdminProducts',
     component: () => import('./views/admin/AdminProducts.vue'),
   },
   {
-    path: '/x/outpostAdmin/products/add',
+    path: `${ADMIN_BASE_PATH}/products/add`,
     name: 'AdminProductsAdd',
     component: () => import('./views/admin/AdminProductsAdd.vue'),
   },
   {
-    path: '/x/outpostAdmin/tcgplayer',
+    path: `${ADMIN_BASE_PATH}/tcgplayer`,
     name: 'AdminTCGPlayer',
     component: () => import('./views/admin/AdminTCGPlayerPage.vue'),
   },
   {
-    path: '/x/outpostAdmin/tcgplayer/add',
+    path: `${ADMIN_BASE_PATH}/tcgplayer/add`,
     name: 'AdminTCGPlayerAdd',
     component: () => import('./views/admin/AdminTCGPlayerAdd.vue'),
   },
   {
-    path: '/x/outpostAdmin/square-stock',
+    path: `${ADMIN_BASE_PATH}/square-stock`,
     name: 'AdminSquareStock',
     component: () => import('./views/admin/AdminSquareStock.vue'),
   },
   {
-    path: '/x/outpostAdmin/square-catalog',
+    path: `${ADMIN_BASE_PATH}/square-catalog`,
     name: 'AdminSquareCatalog',
     component: () => import('./views/admin/AdminSquareCatalog.vue'),
   },
   {
-    path: '/x/outpostAdmin/square-sales',
+    path: `${ADMIN_BASE_PATH}/square-sales`,
     name: 'AdminSquareSales',
     component: () => import('./views/admin/AdminSquareSales.vue'),
   },
   {
-    path: '/x/outpostAdmin/square-mass-inventory',
+    path: `${ADMIN_BASE_PATH}/square-mass-inventory`,
     name: 'AdminSquareMassInventory',
     component: () => import('./views/admin/AdminSquareMassInventory.vue'),
   },
   {
-    path: '/x/outpostAdmin/square-restock',
+    path: `${ADMIN_BASE_PATH}/square-restock`,
     name: 'AdminSquareRestock',
     component: () => import('./views/admin/AdminSquareRestock.vue'),
   },
@@ -141,7 +142,7 @@ const pinia = createPinia()
 
 // Gate every admin route behind a login check (except the login page itself)
 router.beforeEach(async to => {
-  if (!to.path.startsWith('/x/outpostAdmin') || to.name === 'AdminLogin') return true
+  if (!to.path.startsWith(ADMIN_BASE_PATH) || to.name === 'AdminLogin') return true
 
   const auth = useAuthStore(pinia)
   if (!auth.checked) await auth.initAuth()

@@ -21,7 +21,7 @@
           </h2>
           <div class="grid grid-cols-1 sm:grid-cols-2 gap-5">
             <router-link
-              to="/x/outpostAdmin/events"
+              :to="{ name: 'AdminEvents' }"
               class="card hover:shadow-xl transition-all duration-300"
             >
               <div class="text-center">
@@ -48,7 +48,7 @@
             </router-link>
 
             <router-link
-              to="/x/outpostAdmin/events/add"
+              :to="{ name: 'AdminEventsAdd' }"
               class="card hover:shadow-xl transition-all duration-300"
             >
               <div class="text-center">
@@ -85,7 +85,7 @@
           </h2>
           <div class="grid grid-cols-1 sm:grid-cols-2 gap-5">
             <router-link
-              to="/x/outpostAdmin/products"
+              :to="{ name: 'AdminProducts' }"
               class="card hover:shadow-xl transition-all duration-300"
             >
               <div class="text-center">
@@ -112,7 +112,7 @@
             </router-link>
 
             <router-link
-              to="/x/outpostAdmin/products/add"
+              :to="{ name: 'AdminProductsAdd' }"
               class="card hover:shadow-xl transition-all duration-300"
             >
               <div class="text-center">
@@ -149,7 +149,7 @@
           </h2>
           <div class="grid grid-cols-1 sm:grid-cols-2 gap-5">
             <router-link
-              to="/x/outpostAdmin/tcgplayer"
+              :to="{ name: 'AdminTCGPlayer' }"
               class="card hover:shadow-xl transition-all duration-300"
             >
               <div class="text-center">
@@ -176,7 +176,7 @@
             </router-link>
 
             <router-link
-              to="/x/outpostAdmin/tcgplayer/add"
+              :to="{ name: 'AdminTCGPlayerAdd' }"
               class="card hover:shadow-xl transition-all duration-300"
             >
               <div class="text-center">
@@ -213,7 +213,7 @@
           </h2>
           <div class="grid grid-cols-1 sm:grid-cols-2 gap-5">
             <router-link
-              to="/x/outpostAdmin/square-stock"
+              :to="{ name: 'AdminSquareStock' }"
               class="card hover:shadow-xl transition-all duration-300"
             >
               <div class="text-center">
@@ -240,7 +240,7 @@
             </router-link>
 
             <router-link
-              to="/x/outpostAdmin/square-catalog"
+              :to="{ name: 'AdminSquareCatalog' }"
               class="card hover:shadow-xl transition-all duration-300"
             >
               <div class="text-center">
@@ -267,7 +267,7 @@
             </router-link>
 
             <router-link
-              to="/x/outpostAdmin/square-sales"
+              :to="{ name: 'AdminSquareSales' }"
               class="card hover:shadow-xl transition-all duration-300"
             >
               <div class="text-center">
@@ -294,7 +294,7 @@
             </router-link>
 
             <router-link
-              to="/x/outpostAdmin/square-mass-inventory"
+              :to="{ name: 'AdminSquareMassInventory' }"
               class="card hover:shadow-xl transition-all duration-300"
             >
               <div class="text-center">
@@ -321,7 +321,7 @@
             </router-link>
 
             <router-link
-              to="/x/outpostAdmin/square-restock"
+              :to="{ name: 'AdminSquareRestock' }"
               class="card hover:shadow-xl transition-all duration-300"
             >
               <div class="text-center">
@@ -362,6 +362,6 @@ const auth = useAuthStore()
 
 const handleLogout = async () => {
   await auth.logout()
-  router.push('/x/outpostAdmin/login')
+  router.push({ name: 'AdminLogin' })
 }
 </script>

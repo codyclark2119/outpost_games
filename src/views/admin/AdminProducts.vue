@@ -11,10 +11,10 @@
             </p>
           </div>
           <div class="flex gap-3">
-            <router-link to="/x/outpostAdmin/products/add" class="btn-primary px-4 py-2">
+            <router-link :to="{ name: 'AdminProductsAdd' }" class="btn-primary px-4 py-2">
               + Add Items
             </router-link>
-            <router-link to="/x/outpostAdmin" class="btn-secondary px-4 py-2">
+            <router-link :to="{ name: 'AdminDashboard' }" class="btn-secondary px-4 py-2">
               ← Dashboard
             </router-link>
           </div>
@@ -149,7 +149,10 @@
                   >
                     No products yet —
                     <router-link
-                      :to="`/x/outpostAdmin/products/add?setId=${set.id}&typeId=${type.id}`"
+                      :to="{
+                        name: 'AdminProductsAdd',
+                        query: { setId: set.id, typeId: type.id },
+                      }"
                       class="text-outpost-gold underline"
                       >add one</router-link
                     >
@@ -232,7 +235,10 @@
                   </table>
                   <div class="px-16 py-2 border-t border-gray-50">
                     <router-link
-                      :to="`/x/outpostAdmin/products/add?setId=${set.id}&typeId=${type.id}`"
+                      :to="{
+                        name: 'AdminProductsAdd',
+                        query: { setId: set.id, typeId: type.id },
+                      }"
                       class="text-xs text-outpost-gold hover:underline"
                     >
                       + Add product to this set
@@ -244,7 +250,7 @@
               <!-- Add set link -->
               <div class="px-6 py-2 bg-gray-50">
                 <router-link
-                  :to="`/x/outpostAdmin/products/add?typeId=${type.id}`"
+                  :to="{ name: 'AdminProductsAdd', query: { typeId: type.id } }"
                   class="text-sm text-outpost-gold hover:underline"
                 >
                   + Add set to {{ type.name }}
@@ -256,7 +262,7 @@
           <!-- Empty state -->
           <div v-if="store.catalog.types.length === 0" class="card text-center py-12">
             <p class="text-gray-500 mb-4">No product types yet.</p>
-            <router-link to="/x/outpostAdmin/products/add" class="btn-primary px-6 py-2"
+            <router-link :to="{ name: 'AdminProductsAdd' }" class="btn-primary px-6 py-2"
               >Add First Type</router-link
             >
           </div>

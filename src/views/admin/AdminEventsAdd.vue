@@ -8,7 +8,7 @@
             <h1 class="font-cinzel text-4xl font-bold text-gray-800">Add Event</h1>
             <p class="text-gray-600 mt-1">Create a new tournament or special event</p>
           </div>
-          <router-link to="/x/outpostAdmin/events" class="btn-secondary px-4 py-2">
+          <router-link :to="{ name: 'AdminEvents' }" class="btn-secondary px-4 py-2">
             ← Manage Events
           </router-link>
         </div>

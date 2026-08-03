@@ -18,7 +18,7 @@
             >
               Export CSV
             </button>
-            <router-link to="/x/outpostAdmin" class="btn-secondary px-4 py-2">
+            <router-link :to="{ name: 'AdminDashboard' }" class="btn-secondary px-4 py-2">
               ← Dashboard
             </router-link>
           </div>

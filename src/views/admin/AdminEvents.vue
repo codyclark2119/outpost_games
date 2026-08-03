@@ -9,10 +9,10 @@
             <p class="text-gray-600 mt-1">Edit, delete, and review upcoming events</p>
           </div>
           <div class="flex gap-3">
-            <router-link to="/x/outpostAdmin/events/add" class="btn-primary px-4 py-2">
+            <router-link :to="{ name: 'AdminEventsAdd' }" class="btn-primary px-4 py-2">
               + Add Event
             </router-link>
-            <router-link to="/x/outpostAdmin" class="btn-secondary px-4 py-2">
+            <router-link :to="{ name: 'AdminDashboard' }" class="btn-secondary px-4 py-2">
               ← Dashboard
             </router-link>
           </div>
@@ -54,7 +54,7 @@
           <!-- Empty state -->
           <div v-if="upcomingEventsFiltered.length === 0" class="card text-center py-12">
             <p class="text-gray-500 mb-4">No upcoming events.</p>
-            <router-link to="/x/outpostAdmin/events/add" class="btn-primary px-6 py-2">
+            <router-link :to="{ name: 'AdminEventsAdd' }" class="btn-primary px-6 py-2">
               Add First Event
             </router-link>
           </div>

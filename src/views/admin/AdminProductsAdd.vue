@@ -8,7 +8,7 @@
             <h1 class="font-cinzel text-4xl font-bold text-gray-800">Add Products</h1>
             <p class="text-gray-600 mt-1">Add a new game type, set, or product to the catalog</p>
           </div>
-          <router-link to="/x/outpostAdmin/products" class="btn-secondary px-4 py-2">
+          <router-link :to="{ name: 'AdminProducts' }" class="btn-secondary px-4 py-2">
             ← Manage Products
           </router-link>
         </div>

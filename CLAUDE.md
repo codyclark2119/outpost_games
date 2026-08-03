@@ -81,7 +81,8 @@ The public site is a single page (`Home.vue`) plus two standalone routes. `/abou
 | `/terms` | `Terms.vue` |
 | `/privacy` | `Privacy.vue` |
 
-### Admin routes (hidden — access via `/x/outpostAdmin`)
+### Admin routes (hidden — base path configurable via `VITE_ADMIN_BASE_PATH`, defaults to `/x/outpostAdmin`)
+Every route below is built from `ADMIN_BASE_PATH` (`src/config/adminPath.ts`) in `src/main.ts`, and every internal link/redirect to an admin route uses Vue Router's named-route navigation (`:to="{ name: '...' }"`, never a hardcoded path string) — so changing the env var is the only step needed to move the whole section to a different path. Paths below show the default.
 | Path | View | Purpose |
 |---|---|---|
 | `/x/outpostAdmin` | `AdminDashboard.vue` | Dashboard with links to every section |
@@ -95,6 +96,7 @@ The public site is a single page (`Home.vue`) plus two standalone routes. `/abou
 | `/x/outpostAdmin/square-stock` | `AdminSquareStock.vue` | Read-only Square inventory report, CSV export |
 | `/x/outpostAdmin/square-sales` | `AdminSquareSales.vue` | Revenue/order/AOV trend charts, top-products table |
 | `/x/outpostAdmin/square-mass-inventory` | `AdminSquareMassInventory.vue` | Bulk on-hand count corrections |
+| `/x/outpostAdmin/square-restock` | `AdminSquareRestock.vue` | Persisted box→packs restock pairs, one-click apply |
 
 All admin chunks are code-split into a separate `admin` bundle via `vite.config.ts`.
 

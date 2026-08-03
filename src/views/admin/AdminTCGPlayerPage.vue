@@ -9,10 +9,10 @@
             <p class="text-gray-600 mt-1">Edit and delete featured single card listings</p>
           </div>
           <div class="flex gap-3">
-            <router-link to="/x/outpostAdmin/tcgplayer/add" class="btn-primary px-4 py-2">
+            <router-link :to="{ name: 'AdminTCGPlayerAdd' }" class="btn-primary px-4 py-2">
               + Add Listing
             </router-link>
-            <router-link to="/x/outpostAdmin" class="btn-secondary px-4 py-2">
+            <router-link :to="{ name: 'AdminDashboard' }" class="btn-secondary px-4 py-2">
               ← Dashboard
             </router-link>
           </div>
@@ -50,7 +50,7 @@
           <!-- Empty state -->
           <div v-if="listings.length === 0" class="card text-center py-12">
             <p class="text-gray-500 mb-4">No listings yet.</p>
-            <router-link to="/x/outpostAdmin/tcgplayer/add" class="btn-primary px-6 py-2">
+            <router-link :to="{ name: 'AdminTCGPlayerAdd' }" class="btn-primary px-6 py-2">
               Add First Listing
             </router-link>
           </div>
