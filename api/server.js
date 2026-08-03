@@ -119,8 +119,10 @@ console.log('🌐 Port configured:', PORT)
 const DEFAULT_ALLOWED_ORIGINS = [
   'https://outpostgamesrgv.com',
   'https://www.outpostgamesrgv.com',
-  'http://localhost:5173',
-  'http://localhost:3001',
+  'http://localhost:5173', // Vite dev server
+  'http://localhost:3001', // direct API access (e.g. Postman/curl during dev)
+  'http://localhost', // local-dev docker-compose's web container (nginx on port 80 — no port in the Origin header since 80 is HTTP's default)
+  'http://127.0.0.1', // same as above, when accessed by IP instead of hostname
 ]
 const allowedOrigins = (process.env.CORS_ALLOWED_ORIGINS || '')
   .split(',')
