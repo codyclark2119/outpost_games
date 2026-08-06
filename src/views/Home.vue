@@ -105,10 +105,10 @@
               </div>
             </div>
             <!-- Right: CTA -->
-            <div class="flex-shrink-0">
+            <div class="flex-shrink-0 flex flex-col items-stretch gap-2">
               <router-link
                 to="/events"
-                class="inline-flex items-center gap-2 bg-outpost-gold hover:bg-outpost-gold-light text-outpost-black font-semibold px-6 py-3 rounded-lg transition-all duration-300 shadow-lg hover:shadow-outpost-gold/30 whitespace-nowrap"
+                class="inline-flex items-center justify-center gap-2 bg-outpost-gold hover:bg-outpost-gold-light text-outpost-black font-semibold px-6 py-3 rounded-lg transition-all duration-300 shadow-lg hover:shadow-outpost-gold/30 whitespace-nowrap"
               >
                 View All Events
                 <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -120,6 +120,22 @@
                   />
                 </svg>
               </router-link>
+              <a
+                :href="STORE_INFO.social.discord"
+                target="_blank"
+                rel="noopener noreferrer"
+                class="inline-flex items-center justify-center gap-1 text-outpost-gold/80 hover:text-outpost-gold text-sm font-semibold whitespace-nowrap transition-colors"
+              >
+                Join us on Discord
+                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                    stroke-width="2"
+                    d="M13 7l5 5m0 0l-5 5m5-5H6"
+                  />
+                </svg>
+              </a>
             </div>
           </div>
         </div>
@@ -311,8 +327,10 @@ import { ref, computed, onMounted, onUnmounted, nextTick, defineAsyncComponent }
 import { useRoute } from 'vue-router'
 import { MapPinIcon, ClockIcon, EnvelopeIcon } from '@heroicons/vue/24/outline'
 import { useEventsStore } from '../stores/events'
+import { useWeeklyOverridesStore } from '../stores/weeklyOverrides'
 import { STORE_INFO } from '../config/storeInfo'
 import { WEEKLY_SCHEDULE } from '../config/weeklySchedule'
+import { toISODate } from '../utils/weeklySchedule'
 import { usePageMeta } from '../composables/usePageMeta'
 
 const MultiTcgShowcase = defineAsyncComponent(() => import('./home-sections/MultiTcgShowcase.vue'))
@@ -327,6 +345,7 @@ usePageMeta({
 
 const route = useRoute()
 const eventsStore = useEventsStore()
+const weeklyOverridesStore = useWeeklyOverridesStore()
 
 // ── Date helper ───────────────────────────────────────────────────────────────
 const parseEventDate = (dateString: string): Date => {
@@ -366,6 +385,7 @@ const featuredDay = computed((): FeaturedDay | null => {
     targetDate.setHours(0, 0, 0, 0)
 
     const specialsForDay = eventsStore.upcomingEvents.filter(e => {
+      if (e.isVisible === false) return false
       const d = parseEventDate(e.date)
       d.setHours(0, 0, 0, 0)
       return d.getTime() === targetDate.getTime()
@@ -396,7 +416,14 @@ const featuredDay = computed((): FeaturedDay | null => {
     // started rather than showing it stale for the rest of the day.
     if (daysAhead === 0 && eventStartedToday) continue
 
-    const weeklyForDay = WEEKLY_SCHEDULE.filter(entry => entry.jsDay === targetDate.getDay())
+    const targetDateISO = toISODate(targetDate)
+    const weeklyForDay = WEEKLY_SCHEDULE.filter(
+      entry =>
+        entry.jsDay === targetDate.getDay() &&
+        !weeklyOverridesStore.overrides.some(
+          o => o.weeklyEventId === entry.id && o.date === targetDateISO
+        )
+    )
     if (weeklyForDay.length > 0) {
       return {
         date: dateLabel,
@@ -457,6 +484,7 @@ const fetchMarketingPosters = async () => {
 
 onMounted(async () => {
   eventsStore.fetchEvents()
+  weeklyOverridesStore.fetchOverrides()
 
   await fetchMarketingPosters()
   startFeaturedInterval()

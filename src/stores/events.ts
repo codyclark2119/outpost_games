@@ -10,6 +10,9 @@ export interface SpecialEvent {
   description: string
   gameTypeId?: string
   gameTypeName?: string
+  // Optional/undefined means visible — existing Redis records predate this
+  // field, so treat anything other than an explicit `false` as visible.
+  isVisible?: boolean
 }
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || '/api'

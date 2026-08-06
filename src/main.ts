@@ -78,6 +78,11 @@ const routes = [
     component: () => import('./views/admin/AdminEventsAdd.vue'),
   },
   {
+    path: `${ADMIN_BASE_PATH}/weekly-schedule`,
+    name: 'AdminWeeklySchedule',
+    component: () => import('./views/admin/AdminWeeklySchedule.vue'),
+  },
+  {
     path: `${ADMIN_BASE_PATH}/products`,
     name: 'AdminProducts',
     component: () => import('./views/admin/AdminProducts.vue'),

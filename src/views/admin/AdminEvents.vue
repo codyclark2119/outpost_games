@@ -65,6 +65,7 @@
               v-for="event in upcomingEventsFiltered"
               :key="event.id"
               class="bg-white rounded-xl shadow border border-gray-200 p-5 flex flex-col sm:flex-row sm:items-start gap-4 hover:border-outpost-gold transition-colors"
+              :class="{ 'opacity-60': event.isVisible === false }"
             >
               <!-- Date badge -->
               <div
@@ -81,7 +82,15 @@
 
               <!-- Details -->
               <div class="flex-grow min-w-0">
-                <h3 class="font-cinzel font-bold text-lg text-gray-800">{{ event.title }}</h3>
+                <div class="flex flex-wrap items-center gap-2">
+                  <h3 class="font-cinzel font-bold text-lg text-gray-800">{{ event.title }}</h3>
+                  <span
+                    v-if="event.isVisible === false"
+                    class="inline-block text-xs px-2 py-0.5 rounded-full font-medium bg-gray-200 text-gray-600"
+                  >
+                    Hidden
+                  </span>
+                </div>
                 <p class="text-gray-600 text-sm mt-0.5">
                   {{ event.time }} · Entry: ${{ event.entry }}
                 </p>
@@ -90,6 +99,21 @@
 
               <!-- Actions -->
               <div class="flex gap-2 flex-shrink-0 sm:flex-col">
+                <button
+                  class="p-1.5 rounded transition-colors self-center sm:self-start"
+                  :class="
+                    event.isVisible === false
+                      ? 'text-white/40 hover:text-outpost-gold bg-outpost-navy'
+                      : 'text-outpost-gold hover:text-outpost-gold-light bg-outpost-navy'
+                  "
+                  :title="
+                    event.isVisible === false ? 'Hidden — click to show' : 'Visible — click to hide'
+                  "
+                  @click="toggleEventVisibility(event)"
+                >
+                  <EyeIcon v-if="event.isVisible !== false" class="w-5 h-5" />
+                  <EyeSlashIcon v-else class="w-5 h-5" />
+                </button>
                 <button
                   class="px-4 py-1.5 bg-outpost-navy text-white rounded-lg hover:bg-outpost-navy-light text-sm font-medium transition-colors"
                   @click="openEdit(event)"
@@ -237,6 +261,7 @@
 
 <script setup lang="ts">
 import { ref, reactive, computed, onMounted } from 'vue'
+import { EyeIcon, EyeSlashIcon } from '@heroicons/vue/24/outline'
 import { useEventsStore, type SpecialEvent } from '../../stores/events'
 import { useProductsStore } from '../../stores/products'
 
@@ -385,6 +410,11 @@ const saveEdit = async () => {
   } finally {
     saving.value = false
   }
+}
+
+// ── Visibility toggle ─────────────────────────────────────────────────────────
+const toggleEventVisibility = async (event: SpecialEvent) => {
+  await eventsStore.updateEvent(event.id, { isVisible: event.isVisible === false }).catch(() => {})
 }
 
 // ── Delete modal ──────────────────────────────────────────────────────────────

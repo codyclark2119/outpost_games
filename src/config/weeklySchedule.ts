@@ -4,6 +4,7 @@
 // A day can carry more than one entry (e.g. Friday has both Nexus Night and
 // FNM) — every consumer must key/group on more than just dayName.
 export interface WeeklyScheduleEntry {
+  id: string // stable, manually-assigned — foreign key for per-date hide overrides, never derive from eventName/dayName
   jsDay: number // JS Date.getDay() — 0 = Sunday
   dayName: string
   eventName: string
@@ -15,6 +16,7 @@ export interface WeeklyScheduleEntry {
 
 export const WEEKLY_SCHEDULE: WeeklyScheduleEntry[] = [
   {
+    id: 'wed-dnd',
     jsDay: 3,
     dayName: 'Wednesday',
     eventName: 'D&D',
@@ -24,6 +26,7 @@ export const WEEKLY_SCHEDULE: WeeklyScheduleEntry[] = [
     gameTypeId: 'dnd',
   },
   {
+    id: 'wed-pokemon-league',
     jsDay: 3,
     dayName: 'Wednesday',
     eventName: 'Pokémon League',
@@ -33,6 +36,7 @@ export const WEEKLY_SCHEDULE: WeeklyScheduleEntry[] = [
     gameTypeId: 'pokemon',
   },
   {
+    id: 'thu-free-play',
     jsDay: 4,
     dayName: 'Thursday',
     eventName: 'Free Play',
@@ -42,6 +46,7 @@ export const WEEKLY_SCHEDULE: WeeklyScheduleEntry[] = [
     gameTypeId: 'other',
   },
   {
+    id: 'thu-on-demand-tournament',
     jsDay: 4,
     dayName: 'Thursday',
     eventName: 'On-Demand Tournament',
@@ -51,6 +56,7 @@ export const WEEKLY_SCHEDULE: WeeklyScheduleEntry[] = [
     gameTypeId: 'other',
   },
   {
+    id: 'fri-nexus-night',
     jsDay: 5,
     dayName: 'Friday',
     eventName: 'Nexus Night',
@@ -60,6 +66,7 @@ export const WEEKLY_SCHEDULE: WeeklyScheduleEntry[] = [
     gameTypeId: 'riftbound',
   },
   {
+    id: 'fri-fnm',
     jsDay: 5,
     dayName: 'Friday',
     eventName: 'FNM',
@@ -69,6 +76,7 @@ export const WEEKLY_SCHEDULE: WeeklyScheduleEntry[] = [
     gameTypeId: 'magic',
   },
   {
+    id: 'sat-modern',
     jsDay: 6,
     dayName: 'Saturday',
     eventName: 'Modern',
@@ -78,6 +86,7 @@ export const WEEKLY_SCHEDULE: WeeklyScheduleEntry[] = [
     gameTypeId: 'magic',
   },
   {
+    id: 'sat-on-demand-tournament',
     jsDay: 6,
     dayName: 'Saturday',
     eventName: 'On-Demand Tournament',
@@ -87,6 +96,7 @@ export const WEEKLY_SCHEDULE: WeeklyScheduleEntry[] = [
     gameTypeId: 'other',
   },
   {
+    id: 'sun-league-day',
     jsDay: 0,
     dayName: 'Sunday',
     eventName: 'League Day',

@@ -34,7 +34,7 @@
             </div>
 
             <div
-              v-else-if="eventsStore.upcomingEvents.length === 0"
+              v-else-if="visibleSpecialEvents.length === 0"
               class="text-center py-8 text-gray-500"
             >
               No upcoming special events right now. Check back soon!
@@ -42,7 +42,7 @@
 
             <div v-else class="space-y-4">
               <div
-                v-for="(event, index) in eventsStore.upcomingEvents"
+                v-for="(event, index) in visibleSpecialEvents"
                 :key="event.id"
                 class="flex items-start space-x-4 p-4 bg-gradient-to-r from-gray-50 to-white rounded-lg shadow-sm hover:shadow-md transition-all duration-300 border border-transparent hover:border-outpost-gold/30 special-event-item"
                 :style="{ animationDelay: `${index * 0.1}s` }"
@@ -69,7 +69,23 @@
                   <p class="text-outpost-gold font-medium mb-1">
                     {{ event.date }} at {{ event.time }}
                   </p>
-                  <p class="text-gray-600 text-sm">{{ event.description }}</p>
+                  <p class="text-gray-600 text-sm mb-2">{{ event.description }}</p>
+                  <a
+                    :href="STORE_INFO.social.discord"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    class="inline-flex items-center gap-1 text-xs font-semibold text-outpost-gold-dark hover:text-outpost-gold transition-colors"
+                  >
+                    Join us on Discord
+                    <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path
+                        stroke-linecap="round"
+                        stroke-linejoin="round"
+                        stroke-width="2"
+                        d="M13 7l5 5m0 0l-5 5m5-5H6"
+                      />
+                    </svg>
+                  </a>
                 </div>
 
                 <div class="text-right flex-shrink-0">
@@ -149,6 +165,23 @@
               </div>
             </div>
 
+            <a
+              :href="STORE_INFO.social.discord"
+              target="_blank"
+              rel="noopener noreferrer"
+              class="relative z-10 mt-4 inline-flex items-center gap-1 text-xs font-semibold text-outpost-gold-dark hover:text-outpost-gold transition-colors"
+            >
+              Join us on Discord
+              <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  stroke-width="2"
+                  d="M13 7l5 5m0 0l-5 5m5-5H6"
+                />
+              </svg>
+            </a>
+
             <div
               class="absolute inset-0 bg-gradient-to-br from-outpost-gold/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300 rounded-xl pointer-events-none"
             ></div>
@@ -164,7 +197,9 @@ import { computed, onMounted } from 'vue'
 import { useHead } from '@unhead/vue'
 import { CalendarDaysIcon } from '@heroicons/vue/24/outline'
 import { useEventsStore } from '../stores/events'
+import { useWeeklyOverridesStore } from '../stores/weeklyOverrides'
 import { WEEKLY_SCHEDULE, type WeeklyScheduleEntry } from '../config/weeklySchedule'
+import { nextOccurrenceOf, toISODate } from '../utils/weeklySchedule'
 import { usePageMeta, SITE_URL } from '../composables/usePageMeta'
 import { STORE_INFO } from '../config/storeInfo'
 
@@ -176,6 +211,24 @@ usePageMeta({
 })
 
 const eventsStore = useEventsStore()
+const weeklyOverridesStore = useWeeklyOverridesStore()
+
+const visibleSpecialEvents = computed(() =>
+  eventsStore.upcomingEvents.filter(e => e.isVisible !== false)
+)
+
+// A weekly slot's "date" for override purposes is the next upcoming occurrence
+// of that weekday — matches Home.vue's day-walk so a hidden occurrence
+// disappears for exactly the week it was hidden and reappears automatically
+// once that date has passed.
+const visibleWeeklySchedule = computed(() =>
+  WEEKLY_SCHEDULE.filter(entry => {
+    const nextDateISO = toISODate(nextOccurrenceOf(entry.jsDay))
+    return !weeklyOverridesStore.overrides.some(
+      o => o.weeklyEventId === entry.id && o.date === nextDateISO
+    )
+  })
+)
 
 // Groups same-day entries (e.g. Friday's Nexus Night + FNM) into a single
 // stacked card instead of one card per event — preserves WEEKLY_SCHEDULE's
@@ -187,7 +240,7 @@ interface WeeklyDayGroup {
 
 const groupedWeeklySchedule = computed((): WeeklyDayGroup[] => {
   const groups: WeeklyDayGroup[] = []
-  for (const entry of WEEKLY_SCHEDULE) {
+  for (const entry of visibleWeeklySchedule.value) {
     let group = groups.find(g => g.dayName === entry.dayName)
     if (!group) {
       group = { dayName: entry.dayName, events: [] }
@@ -200,6 +253,7 @@ const groupedWeeklySchedule = computed((): WeeklyDayGroup[] => {
 
 onMounted(() => {
   eventsStore.fetchEvents()
+  weeklyOverridesStore.fetchOverrides()
 })
 
 // Dynamic Event structured data — unlike the site-wide static LocalBusiness
@@ -210,7 +264,7 @@ const parseEventDateTime = (dateStr: string, timeStr: string): string | null => 
 }
 
 const eventsJsonLd = computed(() =>
-  eventsStore.upcomingEvents.map(event => ({
+  visibleSpecialEvents.value.map(event => ({
     '@context': 'https://schema.org',
     '@type': 'Event',
     name: event.title,

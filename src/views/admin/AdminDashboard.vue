@@ -73,6 +73,33 @@
                 <p class="text-gray-500 text-sm">Create a new tournament or special event</p>
               </div>
             </router-link>
+
+            <router-link
+              :to="{ name: 'AdminWeeklySchedule' }"
+              class="card hover:shadow-xl transition-all duration-300"
+            >
+              <div class="text-center">
+                <div
+                  class="w-14 h-14 bg-teal-700 rounded-full flex items-center justify-center mx-auto mb-3"
+                >
+                  <svg
+                    class="w-7 h-7 text-white"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                      stroke-width="2"
+                      d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"
+                    />
+                  </svg>
+                </div>
+                <h3 class="font-cinzel font-semibold text-lg mb-1">Weekly Schedule</h3>
+                <p class="text-gray-500 text-sm">Hide a recurring event for one specific date</p>
+              </div>
+            </router-link>
           </div>
         </div>
 

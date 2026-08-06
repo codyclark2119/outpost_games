@@ -458,6 +458,95 @@ app.post('/api/events/reset', requireAdminAuth, async (req, res) => {
   }
 })
 
+// ─── Weekly recurring event overrides ────────────────────────────────────────
+// Hides one specific occurrence of a WEEKLY_SCHEDULE entry (src/config/weeklySchedule.ts)
+// without touching the recurring definition itself — e.g. a holiday cancellation,
+// or a special event overriding that day. Hiding = create a record here;
+// un-hiding = delete it. No seed data — an empty list is the valid default.
+let memoryWeeklyOverrides = []
+
+const WEEKLY_OVERRIDES_KEY = 'outpost:weeklyOverrides'
+
+// Get all weekly overrides
+app.get('/api/weekly-overrides', async (req, res) => {
+  try {
+    if (!redisConnected) {
+      return res.json(memoryWeeklyOverrides)
+    }
+
+    const data = await redisClient.get(WEEKLY_OVERRIDES_KEY)
+    const overrides = data ? JSON.parse(data) : []
+    res.json(overrides)
+  } catch (error) {
+    console.error('Error fetching weekly overrides:', error)
+    res.json(memoryWeeklyOverrides)
+  }
+})
+
+// Hide one occurrence of a recurring weekly event
+app.post('/api/weekly-overrides', requireAdminAuth, async (req, res) => {
+  try {
+    const { weeklyEventId, date, reason } = req.body
+
+    if (!weeklyEventId || !date) {
+      return res.status(400).json({ error: 'weeklyEventId and date are required' })
+    }
+
+    const newOverride = {
+      id: Date.now().toString(),
+      weeklyEventId,
+      date,
+      ...(reason && { reason }),
+    }
+
+    if (!redisConnected) {
+      memoryWeeklyOverrides.push(newOverride)
+      return res.status(201).json(newOverride)
+    }
+
+    const data = await redisClient.get(WEEKLY_OVERRIDES_KEY)
+    const overrides = data ? JSON.parse(data) : []
+
+    overrides.push(newOverride)
+    await redisClient.set(WEEKLY_OVERRIDES_KEY, JSON.stringify(overrides))
+
+    res.status(201).json(newOverride)
+  } catch (error) {
+    console.error('Error adding weekly override:', error)
+    res.status(500).json({ error: 'Failed to add weekly override' })
+  }
+})
+
+// Un-hide — delete the override record
+app.delete('/api/weekly-overrides/:id', requireAdminAuth, async (req, res) => {
+  try {
+    const { id } = req.params
+
+    if (!redisConnected) {
+      const originalLength = memoryWeeklyOverrides.length
+      memoryWeeklyOverrides = memoryWeeklyOverrides.filter(o => o.id !== id)
+      if (memoryWeeklyOverrides.length === originalLength) {
+        return res.status(404).json({ error: 'Weekly override not found' })
+      }
+      return res.json({ message: 'Weekly override deleted successfully' })
+    }
+
+    const data = await redisClient.get(WEEKLY_OVERRIDES_KEY)
+    const overrides = data ? JSON.parse(data) : []
+
+    const filtered = overrides.filter(o => o.id !== id)
+    if (filtered.length === overrides.length) {
+      return res.status(404).json({ error: 'Weekly override not found' })
+    }
+
+    await redisClient.set(WEEKLY_OVERRIDES_KEY, JSON.stringify(filtered))
+    res.json({ message: 'Weekly override deleted successfully' })
+  } catch (error) {
+    console.error('Error deleting weekly override:', error)
+    res.status(500).json({ error: 'Failed to delete weekly override' })
+  }
+})
+
 // TCGPlayer listings endpoint - Manual Management
 const TCGPLAYER_LISTINGS_KEY = 'outpost:tcgplayer:listings'
 const SHOP_SELLER_ID = '61af7a3a'
