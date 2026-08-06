@@ -286,7 +286,11 @@ const yearOf = (date: string) =>
   parseEventDate(date).toLocaleDateString('en-US', { year: 'numeric' })
 
 const formatDateToReadable = (isoDate: string): string =>
-  new Date(isoDate).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })
+  new Date(isoDate + 'T12:00:00').toLocaleDateString('en-US', {
+    year: 'numeric',
+    month: 'long',
+    day: 'numeric',
+  })
 
 const parseReadableDateToISO = (readableDate: string): string => {
   const d = new Date(readableDate)
