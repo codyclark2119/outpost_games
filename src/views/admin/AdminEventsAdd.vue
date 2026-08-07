@@ -114,10 +114,10 @@
 <script setup lang="ts">
 import { ref, reactive, computed, onMounted } from 'vue'
 import { useEventsStore } from '../../stores/events'
-import { useProductsStore } from '../../stores/products'
+import { useSquareCatalogStore } from '../../stores/squareCatalog'
 
 const eventsStore = useEventsStore()
-const productsStore = useProductsStore()
+const catalogStore = useSquareCatalogStore()
 
 const submitting = ref(false)
 const formError = ref('')
@@ -134,8 +134,12 @@ const form = reactive({
   customGameType: '',
 })
 
+// Same game types shown on the public Products page — sourced from Square's
+// live top-level categories (via squareCatalog.ts), not the retired manual
+// catalog. A category with zero in-stock items today won't appear here
+// either, matching Products.vue's own behavior exactly.
 const catalogTypes = computed(() =>
-  productsStore.catalog.types.filter(t => t.isVisible).sort((a, b) => a.sortOrder - b.sortOrder)
+  catalogStore.sections.map(section => ({ id: section.slug, name: section.name }))
 )
 
 const resetForm = () => {
@@ -216,7 +220,7 @@ const handleSubmit = async () => {
 }
 
 onMounted(async () => {
-  if (productsStore.catalog.types.length === 0) await productsStore.fetchCatalog()
+  if (catalogStore.items.length === 0) await catalogStore.fetchCatalog()
 })
 </script>
 

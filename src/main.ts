@@ -83,16 +83,6 @@ const routes = [
     component: () => import('./views/admin/AdminWeeklySchedule.vue'),
   },
   {
-    path: `${ADMIN_BASE_PATH}/products`,
-    name: 'AdminProducts',
-    component: () => import('./views/admin/AdminProducts.vue'),
-  },
-  {
-    path: `${ADMIN_BASE_PATH}/products/add`,
-    name: 'AdminProductsAdd',
-    component: () => import('./views/admin/AdminProductsAdd.vue'),
-  },
-  {
     path: `${ADMIN_BASE_PATH}/tcgplayer`,
     name: 'AdminTCGPlayer',
     component: () => import('./views/admin/AdminTCGPlayerPage.vue'),

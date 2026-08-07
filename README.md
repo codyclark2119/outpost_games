@@ -114,18 +114,18 @@ See `local-dev/README.md` for details.
 │   │       ├── AdminDashboard.vue
 │   │       ├── AdminEvents.vue         # Manage special events
 │   │       ├── AdminEventsAdd.vue      # Add event
-│   │       ├── AdminProducts.vue       # Manage product catalog (tree view)
-│   │       ├── AdminProductsAdd.vue    # Add game types / sets / products
+│   │       ├── AdminWeeklySchedule.vue # Hide one occurrence of a recurring weekly event
 │   │       ├── AdminTCGPlayerPage.vue  # Manage single card listings
 │   │       ├── AdminTCGPlayerAdd.vue   # Add card listing
 │   │       ├── AdminSquareCatalog.vue      # Square catalog editor (items/variations/categories/images)
 │   │       ├── AdminSquareStock.vue        # Square stock report (CSV export)
 │   │       ├── AdminSquareSales.vue        # Square sales-over-time charts
-│   │       └── AdminSquareMassInventory.vue # Bulk inventory count corrections
+│   │       ├── AdminSquareMassInventory.vue # Bulk inventory count corrections
+│   │       └── AdminSquareRestock.vue      # Persisted box→packs restock pairs, one-click apply
 │   ├── stores/
 │   │   ├── events.ts         # Special events CRUD (Pinia)
-│   │   ├── products.ts       # Product catalog CRUD (Pinia)
-│   │   ├── squareCatalog.ts  # Live Square inventory for the public /products page (Pinia)
+│   │   ├── weeklyOverrides.ts # Per-date hide overrides for recurring weekly events (Pinia)
+│   │   ├── squareCatalog.ts  # Live Square inventory for the public /products page — the shop's only product catalog (Pinia)
 │   │   └── cart.ts           # Cart state (reserved for future e-commerce)
 │   ├── components/
 │   │   ├── AppHeader.vue     # Nav — real routes (Products/Events) + in-page anchors (About/Contact)
@@ -140,7 +140,7 @@ See `local-dev/README.md` for details.
 │   ├── App.vue
 │   └── style.css          # Tailwind + brand theme variables
 ├── api/
-│   ├── server.js             # Express API (events, products, TCGPlayer listings, Square routes)
+│   ├── server.js             # Express API (events, TCGPlayer listings, Square routes)
 │   ├── auth.js                # Redis-backed admin session auth
 │   ├── squarePosClient.js     # Square Catalog/Inventory API client
 │   ├── squareOrdersClient.js  # Square Orders API client (sales reporting)
@@ -175,8 +175,7 @@ The admin is intentionally not linked from the public navigation. Access it at:
 | Dashboard             | `/x/outpostAdmin`                       | Overview with links to all sections                                                                                                                            |
 | Manage Events         | `/x/outpostAdmin/events`                | Edit/delete special tournament events                                                                                                                          |
 | Add Event             | `/x/outpostAdmin/events/add`            | Create event with game type association                                                                                                                        |
-| Manage Products       | `/x/outpostAdmin/products`              | Tree view: Types → Sets → Products with visibility toggles                                                                                                     |
-| Add Products          | `/x/outpostAdmin/products/add`          | Add game types, sets, or individual products                                                                                                                   |
+| Weekly Schedule       | `/x/outpostAdmin/weekly-schedule`       | Hide one occurrence of a recurring weekly event for a specific date                                                                                            |
 | Manage Listings       | `/x/outpostAdmin/tcgplayer`             | Edit/delete featured single card listings                                                                                                                      |
 | Add Listing           | `/x/outpostAdmin/tcgplayer/add`         | Add a TCGPlayer card listing                                                                                                                                   |
 | Square Catalog        | `/x/outpostAdmin/square-catalog`        | Edit Square items/variations, categories, images, deletion                                                                                                     |
@@ -200,18 +199,6 @@ DELETE /api/events/:id
 
 # Homepage marketing posters carousel — auto-populated from public/wpn-assets/posters/
 GET    /api/marketing-posters
-
-# Product catalog
-GET    /api/products
-POST   /api/products/types
-PUT    /api/products/types/:typeId
-DELETE /api/products/types/:typeId
-POST   /api/products/types/:typeId/sets
-PUT    /api/products/sets/:setId
-DELETE /api/products/sets/:setId
-POST   /api/products/sets/:setId/products
-PUT    /api/products/items/:itemId
-DELETE /api/products/items/:itemId
 
 # TCGPlayer card listings
 GET    /api/tcgplayer-listings
@@ -250,26 +237,9 @@ curl -X POST http://localhost:3001/api/tcgplayer-listings \
 
 ---
 
-## Product Catalog Data Model
-
-Stored in Redis as `outpost:products`:
-
-```
-ProductType  (e.g., "Magic: The Gathering", "Pokémon")
-  └── ProductSet  (e.g., "Tarkir: Dragonstorm", "Scarlet & Violet")
-       └── SetProduct  (e.g., "Booster Box", "Elite Trainer Box")
-            - name, description, price, imageUrl, isVisible, sortOrder
-```
-
-Each level has `isVisible` — toggling this hides items from the public site without deleting them. Use this for out-of-stock products instead of deleting.
-
-Seeded on first run with all current Magic sets (see `api/server.js` `DEFAULT_CATALOG`).
-
----
-
 ## Square POS Catalog Admin
 
-A separate system from the manual product catalog above — this talks directly to the shop's real Square point-of-sale account (catalog + inventory + sales), not the site's own Redis-backed `outpost:products` tree. Admin editing happens via the four `/x/outpostAdmin/square-*` routes in the table above — each groups its item list into collapsible sections by top-level Square category for faster navigation on a large catalog — but the integration isn't wired into any public page yet.
+Talks directly to the shop's real Square point-of-sale account (catalog + inventory + sales) — this is the shop's only product catalog now; the old manually-managed Redis catalog was retired once Square management proved more intuitive for day-to-day use. Admin editing happens via the five `/x/outpostAdmin/square-*` routes in the table above — each groups its item list into collapsible sections by top-level Square category for faster navigation on a large catalog — and the public `/products` page (`Products.vue`/`ProductsGameType.vue`) renders straight from this same live inventory.
 
 **Sandbox vs. production**: every Square call is routed by `SQUARE_ENV` (`sandbox` or `production`) through `api/squarePosClient.js`'s `resolveSquareCredentials()`, which picks the matching pair of access token / application ID / location ID env vars below. Always test destructive changes against `SQUARE_ENV=sandbox` first.
 
@@ -309,19 +279,19 @@ Drop downloaded WotC set xlsx files into `api/data/wotc-imports/` (gitignored) b
 
 ## Squarespace Integration (Legacy)
 
-A read-only product source backed by the shop's Squarespace store, built before the Square POS integration above and now superseded by it — `api/server.js` itself marks these routes as "left in place only as documentation" and safe to remove once Square is fully validated. It never touched the manual `outpost:products` catalog and isn't wired into any public page.
+A read-only product source backed by the shop's Squarespace store, built before the Square POS integration above and now superseded by it — `api/server.js` itself marks these routes as "left in place only as documentation" and safe to remove once Square is fully validated. It isn't wired into any public page.
 
 - `api/squarespaceClient.js` — HTTP layer (products = API `v2`, inventory = API `1.0`); auth via `SQUARESPACE_API_KEY` or OAuth.
 - `api/squarespaceCache.js` — merges inventory into products by `variantId → sku`, Redis-cached with a TTL-based background refresh (default 15 min).
 - `api/squarespaceOAuth.js` — OAuth 2.0 flow for plans without a Developer API Key; only needed if `SQUARESPACE_API_KEY` isn't set.
 
-| Route                                                      | Purpose                                                        |
-| ---------------------------------------------------------- | -------------------------------------------------------------- |
-| `GET /api/squarespace/products`                            | Merged catalog with each product's `assignment`                |
-| `POST /api/squarespace/refresh`                            | Force sync                                                     |
-| `GET /api/squarespace/status`                              | Cache + OAuth status                                           |
-| `PUT /api/squarespace/products/:productId/assignment`      | Tag a product with `{ typeId, setId }` into the manual catalog |
-| `GET /api/squarespace/oauth/authorize` / `/oauth/callback` | One-time OAuth consent flow                                    |
+| Route                                                      | Purpose                                                                           |
+| ---------------------------------------------------------- | --------------------------------------------------------------------------------- |
+| `GET /api/squarespace/products`                            | Merged catalog with each product's `assignment`                                   |
+| `POST /api/squarespace/refresh`                            | Force sync                                                                        |
+| `GET /api/squarespace/status`                              | Cache + OAuth status                                                              |
+| `PUT /api/squarespace/products/:productId/assignment`      | Tag a product with an opaque `{ typeId, setId }` (no catalog to validate against) |
+| `GET /api/squarespace/oauth/authorize` / `/oauth/callback` | One-time OAuth consent flow                                                       |
 
 ---
 
@@ -377,6 +347,6 @@ See `docs/deployment/` for full deployment guides.
 
 The homepage carousel is **fully filesystem-driven** — drop an image into `public/wpn-assets/posters/` and it appears automatically, no admin step required. `GET /api/marketing-posters` (`api/marketingPosters.js`) lists whatever's in that folder and titles each slide from its filename (e.g. `tmnt.jpg` → "Tmnt"); removing a file removes its slide. This replaced the old admin-managed Featured Items CRUD, which existed solely to power this carousel.
 
-This is for **promotional/marketing posters**, not product photography — phase one of the product page rollout uses Square's own hosted product photos instead, so the manual product catalog's `imageUrl` fields are left blank until that's wired up. See `WPN_ASSET_ACCESS_GUIDE.md` for where to source official WPN marketing materials. Once the shop carries a wider selection of stock, set-based product imagery may return under a separate convention.
+This is for **promotional/marketing posters**, not product photography — the product page uses Square's own hosted product photos for that instead (see "Square POS Catalog Admin" below). See `WPN_ASSET_ACCESS_GUIDE.md` for where to source official WPN marketing materials.
 
 **Deployment note**: the API reads this folder directly off disk (not proxied through nginx), and its path resolution differs by environment — see `MARKETING_POSTERS_DIR` in Environment Variables and the comments in `Dockerfile.combined`/`local-dev/docker-compose.yml` if adding a new deployment target.
