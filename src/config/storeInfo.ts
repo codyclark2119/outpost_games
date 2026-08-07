@@ -11,7 +11,8 @@ export const STORE_INFO = {
   },
   email: 'theoutpostgamingrgv@gmail.com',
   hours: {
-    'Mon-Wed': 'Closed',
+    'Mon-Tues': 'Closed',
+    Wednesday: '5:00 PM - 9:00 PM',
     Thursday: '5:00 PM - 10:00 PM',
     Friday: '5:00 PM - 10:00 PM',
     Saturday: '5:00 PM - 10:00 PM',
