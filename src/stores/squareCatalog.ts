@@ -15,6 +15,8 @@ export interface SquarePublicItem {
   categoryName: string
   setId: string | null
   setName: string | null
+  releasedAt: string | null
+  itemCreatedAt: string | null
 }
 
 export interface CatalogSet {

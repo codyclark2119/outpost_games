@@ -21,16 +21,16 @@ The public site is a single page (`src/views/Home.vue`) plus two standalone rout
 
 ## Tech Stack
 
-| Layer | Technology |
-|---|---|
-| Frontend | Vue 3 + TypeScript, Vite, Tailwind CSS v4 |
-| State | Pinia (composition-API stores) |
-| Routing | Vue Router 4 |
-| Backend | Node.js + Express (no TypeScript) |
-| Persistence | Redis (Upstash in prod, Docker locally) |
-| Reverse proxy | Nginx |
-| Hosting | Fly.io (Dallas region) |
-| CDN | Cloudflare |
+| Layer         | Technology                                |
+| ------------- | ----------------------------------------- |
+| Frontend      | Vue 3 + TypeScript, Vite, Tailwind CSS v4 |
+| State         | Pinia (composition-API stores)            |
+| Routing       | Vue Router 4                              |
+| Backend       | Node.js + Express (no TypeScript)         |
+| Persistence   | Redis (Upstash in prod, Docker locally)   |
+| Reverse proxy | Nginx                                     |
+| Hosting       | Fly.io (Dallas region)                    |
+| CDN           | Cloudflare                                |
 
 ---
 
@@ -170,19 +170,19 @@ The admin is intentionally not linked from the public navigation. Access it at:
 
 ### What the admin manages
 
-| Section | Route | Description |
-|---|---|---|
-| Dashboard | `/x/outpostAdmin` | Overview with links to all sections |
-| Manage Events | `/x/outpostAdmin/events` | Edit/delete special tournament events |
-| Add Event | `/x/outpostAdmin/events/add` | Create event with game type association |
-| Manage Products | `/x/outpostAdmin/products` | Tree view: Types → Sets → Products with visibility toggles |
-| Add Products | `/x/outpostAdmin/products/add` | Add game types, sets, or individual products |
-| Manage Listings | `/x/outpostAdmin/tcgplayer` | Edit/delete featured single card listings |
-| Add Listing | `/x/outpostAdmin/tcgplayer/add` | Add a TCGPlayer card listing |
-| Square Catalog | `/x/outpostAdmin/square-catalog` | Edit Square items/variations, categories, images, deletion |
-| Square Stock Report | `/x/outpostAdmin/square-stock` | Read-only inventory report, CSV export |
-| Square Sales | `/x/outpostAdmin/square-sales` | Revenue/order/AOV trends, category + payment-method + day-of-week/hour-of-day breakdowns, and a sortable/filterable top-products table with per-product profit |
-| Square Mass Inventory | `/x/outpostAdmin/square-mass-inventory` | Bulk on-hand count corrections in one save |
+| Section               | Route                                   | Description                                                                                                                                                    |
+| --------------------- | --------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Dashboard             | `/x/outpostAdmin`                       | Overview with links to all sections                                                                                                                            |
+| Manage Events         | `/x/outpostAdmin/events`                | Edit/delete special tournament events                                                                                                                          |
+| Add Event             | `/x/outpostAdmin/events/add`            | Create event with game type association                                                                                                                        |
+| Manage Products       | `/x/outpostAdmin/products`              | Tree view: Types → Sets → Products with visibility toggles                                                                                                     |
+| Add Products          | `/x/outpostAdmin/products/add`          | Add game types, sets, or individual products                                                                                                                   |
+| Manage Listings       | `/x/outpostAdmin/tcgplayer`             | Edit/delete featured single card listings                                                                                                                      |
+| Add Listing           | `/x/outpostAdmin/tcgplayer/add`         | Add a TCGPlayer card listing                                                                                                                                   |
+| Square Catalog        | `/x/outpostAdmin/square-catalog`        | Edit Square items/variations, categories, images, deletion                                                                                                     |
+| Square Stock Report   | `/x/outpostAdmin/square-stock`          | Read-only inventory report, CSV export                                                                                                                         |
+| Square Sales          | `/x/outpostAdmin/square-sales`          | Revenue/order/AOV trends, category + payment-method + day-of-week/hour-of-day breakdowns, and a sortable/filterable top-products table with per-product profit |
+| Square Mass Inventory | `/x/outpostAdmin/square-mass-inventory` | Bulk on-hand count corrections in one save                                                                                                                     |
 
 ---
 
@@ -274,6 +274,7 @@ A separate system from the manual product catalog above — this talks directly 
 **Sandbox vs. production**: every Square call is routed by `SQUARE_ENV` (`sandbox` or `production`) through `api/squarePosClient.js`'s `resolveSquareCredentials()`, which picks the matching pair of access token / application ID / location ID env vars below. Always test destructive changes against `SQUARE_ENV=sandbox` first.
 
 **What the item-level fields actually do** (confirmed against a live Square account, not just docs):
+
 - `track_inventory` — whether Square keeps an on-hand count for a variation at all. Off means "always in stock, no count."
 - `sellable` — whether the variation can be rung up at the register. Used to mark draft/not-yet-released items (see WotC import script below) as visible-but-unpurchasable.
 - `ecom_visibility` — **has no effect on this website or the physical POS.** It only controls visibility on Square's own optional online store, which this shop doesn't use. Safe to leave alone.
@@ -282,11 +283,13 @@ A separate system from the manual product catalog above — this talks directly 
 
 **Hiding an item from the website without affecting in-store sales**: since `ecom_visibility` is inert on this account (see above) and `sellable` also blocks the item at the physical register, neither one can be used to just declutter the public products page. A second `CatalogCustomAttributeDefinition` (type `BOOLEAN`, scoped to `ITEM`, key `outpost_hide_from_web`) was created the same way as `outpost_unit_cost` to fill that gap — read/written via `readHiddenFromWeb()`/`buildHiddenFromWebAttributeValues()` in `api/squarePosClient.js`, and checked directly in `getPublicSquareCatalog()` so a hidden item stays off the site regardless of current stock. It's the "Website visibility" control (per-item edit form) and "Toggle Visibility" bulk action in the Square Catalog Editor — both act only on this flag, leaving `sellable`/in-store availability completely untouched.
 
-**Categories vs. reporting category**: an item's `categories` (array) and `reporting_category` (single value) are independent fields on Square's side — the Dashboard, POS, and reports all read `reporting_category` as *the* category, but it doesn't follow `categories` automatically. `updateSquareCatalogItem()` keeps both in sync on every category change; if you're debugging a category edit that "didn't stick," check whether these two have drifted apart on the raw catalog object.
+**"Newest First" sort on the public Products page**: Square's own `created_at` on an ITEM reflects whenever that catalog entry was last created/touched in Square, not when the product actually became available — bulk imports and catalog cleanups bump it without the product being new, which made a straight `created_at` sort unreliable (confirmed against this account's live data: several dozen unrelated items shared the same date from a bulk cleanup pass). A third `CatalogCustomAttributeDefinition` (type `STRING` — Square has no native `DATE` type, confirmed against the live `CatalogCustomAttributeDefinitionType` enum — scoped to `ITEM`, key `outpost_released_at`, storing an ISO `YYYY-MM-DD`) was created the same way to let staff set the real release/added date per item. Read/written via `readReleasedAt()`/`buildReleasedAtAttributeValues()` in `api/squarePosClient.js`; `getPublicSquareCatalog()`'s default ordering and the public site's "Newest First" sort option both use it when set, falling back to `itemCreatedAt` when it isn't. It's the "Released / Added Date" field (per-item edit form) and "Set Released Date" bulk action in the Square Catalog Editor.
+
+**Categories vs. reporting category**: an item's `categories` (array) and `reporting_category` (single value) are independent fields on Square's side — the Dashboard, POS, and reports all read `reporting_category` as _the_ category, but it doesn't follow `categories` automatically. `updateSquareCatalogItem()` keeps both in sync on every category change; if you're debugging a category edit that "didn't stick," check whether these two have drifted apart on the raw catalog object.
 
 **Monthly inventory export**: on the 1st of each month (store-local time), `api/inventoryExport.js` builds an `.xlsx` snapshot of the Square inventory report — non-snack items, sorted by stock status → category → quantity (lowest stock first, to surface aging stock) — and emails it via Gmail SMTP (`api/mailClient.js`) to `theoutpostgamingrgv@gmail.com`. Requires `GMAIL_USER`/`GMAIL_APP_PASSWORD` (see Environment Variables); idle with a log warning until set. Manual trigger for testing: `POST /api/admin/inventory-export/run` (admin auth).
 
-**Uploading a product image**: Square's `CreateCatalogImage` endpoint *appends* the new image to the target's `image_ids` rather than replacing or prepending it (confirmed live) — but every read path here treats `image_ids[0]` as "the" image. `uploadSquareCatalogImage()` does a follow-up write to move the new image to the front of that array; without it, a freshly uploaded image would never actually display anywhere (admin or public page) even though the upload itself "succeeded."
+**Uploading a product image**: Square's `CreateCatalogImage` endpoint _appends_ the new image to the target's `image_ids` rather than replacing or prepending it (confirmed live) — but every read path here treats `image_ids[0]` as "the" image. `uploadSquareCatalogImage()` does a follow-up write to move the new image to the front of that array; without it, a freshly uploaded image would never actually display anywhere (admin or public page) even though the upload itself "succeeded."
 
 **Per-variation images**: variations can have their own photo distinct from the item's shared group photo (e.g. a "Foil Enhanced" printing needing different art than "Regular") — pass an ITEM_VARIATION id instead of an ITEM id to `uploadSquareCatalogImage()`; Square's API treats both the same way. Each variation falls back to the item's group photo automatically when it has no photo of its own (`hasOwnImage: false`), so nothing shows a broken/missing image just because that particular variation was never given its own shot. Admin route: `POST /api/square/products/:itemId/variations/:variationId/image`.
 
@@ -294,11 +297,11 @@ A separate system from the manual product catalog above — this talks directly 
 
 All follow the same convention: **preview by default, `--apply` to actually write.** Run from `api/`.
 
-| Script | Command | Purpose |
-|---|---|---|
-| Sandbox sync | `npm run sync:sandbox -- --apply [--with-inventory]` | Wipes and recreates the sandbox catalog from a snapshot of production, for safe testing. `--with-inventory` also copies production on-hand counts into sandbox (otherwise every synced item starts at 0) — use it to validate inventory-display changes against realistic numbers before running scripts/routes against production |
+| Script                   | Command                                                                                                                | Purpose                                                                                                                                                                                                                                                                                                                                                                                                   |
+| ------------------------ | ---------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Sandbox sync             | `npm run sync:sandbox -- --apply [--with-inventory]`                                                                   | Wipes and recreates the sandbox catalog from a snapshot of production, for safe testing. `--with-inventory` also copies production on-hand counts into sandbox (otherwise every synced item starts at 0) — use it to validate inventory-display changes against realistic numbers before running scripts/routes against production                                                                        |
 | WotC SKU cross-reference | `npm run wotc:cross-reference -- <file.xlsx> [--create-drafts [--sellable]] [--update-existing] [--category "<Name>"]` | Cross-references a WPN/WotC set SKU sheet against the Square catalog: reports exact/possible matches and anything new; `--create-drafts` creates missing items as hidden, non-sellable drafts (add `--sellable` for a set that's already available to sell in-store, so new items go live instead); `--update-existing` corrects matched items' title/description/category to the sheet's official values |
-| Reset negative inventory | `npm run inventory:reset-negative [-- --apply]` | Finds every variation with a negative on-hand count and sets it to 0 |
+| Reset negative inventory | `npm run inventory:reset-negative [-- --apply]`                                                                        | Finds every variation with a negative on-hand count and sets it to 0                                                                                                                                                                                                                                                                                                                                      |
 
 Drop downloaded WotC set xlsx files into `api/data/wotc-imports/` (gitignored) before running the cross-reference script — that folder exists specifically so these working files don't get committed.
 
@@ -312,13 +315,13 @@ A read-only product source backed by the shop's Squarespace store, built before 
 - `api/squarespaceCache.js` — merges inventory into products by `variantId → sku`, Redis-cached with a TTL-based background refresh (default 15 min).
 - `api/squarespaceOAuth.js` — OAuth 2.0 flow for plans without a Developer API Key; only needed if `SQUARESPACE_API_KEY` isn't set.
 
-| Route | Purpose |
-|---|---|
-| `GET /api/squarespace/products` | Merged catalog with each product's `assignment` |
-| `POST /api/squarespace/refresh` | Force sync |
-| `GET /api/squarespace/status` | Cache + OAuth status |
-| `PUT /api/squarespace/products/:productId/assignment` | Tag a product with `{ typeId, setId }` into the manual catalog |
-| `GET /api/squarespace/oauth/authorize` / `/oauth/callback` | One-time OAuth consent flow |
+| Route                                                      | Purpose                                                        |
+| ---------------------------------------------------------- | -------------------------------------------------------------- |
+| `GET /api/squarespace/products`                            | Merged catalog with each product's `assignment`                |
+| `POST /api/squarespace/refresh`                            | Force sync                                                     |
+| `GET /api/squarespace/status`                              | Cache + OAuth status                                           |
+| `PUT /api/squarespace/products/:productId/assignment`      | Tag a product with `{ typeId, setId }` into the manual catalog |
+| `GET /api/squarespace/oauth/authorize` / `/oauth/callback` | One-time OAuth consent flow                                    |
 
 ---
 
@@ -326,29 +329,29 @@ A read-only product source backed by the shop's Squarespace store, built before 
 
 Copy `.env.example` to `.env` and fill in values:
 
-| Variable | Description | Default |
-|---|---|---|
-| `VITE_API_URL` | Frontend API base path | `/api` |
-| `VITE_PRODUCTS_PAGE_LIVE` | Build-time flag — show the live Square-backed `/products` page instead of "Coming Soon" | `false` |
-| `REDIS_URL` | Redis connection string | `redis://redis:6379` |
-| `PORT` | API server port | `3001` |
-| `NODE_ENV` | Environment | `production` |
-| `SQUARE_ENV` | Which Square credential pair to use: `sandbox` or `production` | `sandbox` |
-| `SQUARE_ACCESS_TOKEN` | Production Square access token | — |
-| `SQUARE_APPLICATION_ID` | Production Square application ID | — |
-| `SQUARE_LOCATION_ID` | Production Square location ID | — |
-| `SQUARE_SANDBOX_ACCESS_TOKEN` | Sandbox Square access token | — |
-| `SQUARE_SANDBOX_APPLICATION_ID` | Sandbox Square application ID | — |
-| `SQUARE_SANDBOX_LOCATION_ID` | Sandbox Square location ID (falls back to `SQUARE_LOCATION_ID` if unset) | — |
-| `ADMIN_USERS` | JSON array of `{ username, passwordHash }` for admin login (bcrypt hashes) | — |
-| `GMAIL_USER` | Gmail account sending the monthly inventory export (requires 2FA + an App Password); export idle if unset | — |
-| `GMAIL_APP_PASSWORD` | App Password for `GMAIL_USER` (Google Account > Security > App Passwords) | — |
-| `MAIL_TO` | Destination address for the monthly inventory export | `theoutpostgamingrgv@gmail.com` |
-| `MARKETING_POSTERS_DIR` | Where the API reads homepage carousel posters from; only needed if the default repo-root-relative path doesn't apply | `<repo>/public/wpn-assets/posters` |
-| `SQUARESPACE_API_KEY` | Read-only Squarespace key (legacy integration); idle if unset | — |
-| `SQUARESPACE_USER_AGENT` | Descriptive User-Agent for Commerce API calls | `TheOutpostGames-Website/1.0` |
-| `SQUARESPACE_CACHE_TTL_MS` | Cache TTL before background refresh | `900000` (15 min) |
-| `SQUARESPACE_CLIENT_ID` / `SQUARESPACE_CLIENT_SECRET` / `SQUARESPACE_REDIRECT_URI` | OAuth credentials (only needed without `SQUARESPACE_API_KEY`) | — |
+| Variable                                                                           | Description                                                                                                          | Default                            |
+| ---------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------- | ---------------------------------- |
+| `VITE_API_URL`                                                                     | Frontend API base path                                                                                               | `/api`                             |
+| `VITE_PRODUCTS_PAGE_LIVE`                                                          | Build-time flag — show the live Square-backed `/products` page instead of "Coming Soon"                              | `false`                            |
+| `REDIS_URL`                                                                        | Redis connection string                                                                                              | `redis://redis:6379`               |
+| `PORT`                                                                             | API server port                                                                                                      | `3001`                             |
+| `NODE_ENV`                                                                         | Environment                                                                                                          | `production`                       |
+| `SQUARE_ENV`                                                                       | Which Square credential pair to use: `sandbox` or `production`                                                       | `sandbox`                          |
+| `SQUARE_ACCESS_TOKEN`                                                              | Production Square access token                                                                                       | —                                  |
+| `SQUARE_APPLICATION_ID`                                                            | Production Square application ID                                                                                     | —                                  |
+| `SQUARE_LOCATION_ID`                                                               | Production Square location ID                                                                                        | —                                  |
+| `SQUARE_SANDBOX_ACCESS_TOKEN`                                                      | Sandbox Square access token                                                                                          | —                                  |
+| `SQUARE_SANDBOX_APPLICATION_ID`                                                    | Sandbox Square application ID                                                                                        | —                                  |
+| `SQUARE_SANDBOX_LOCATION_ID`                                                       | Sandbox Square location ID (falls back to `SQUARE_LOCATION_ID` if unset)                                             | —                                  |
+| `ADMIN_USERS`                                                                      | JSON array of `{ username, passwordHash }` for admin login (bcrypt hashes)                                           | —                                  |
+| `GMAIL_USER`                                                                       | Gmail account sending the monthly inventory export (requires 2FA + an App Password); export idle if unset            | —                                  |
+| `GMAIL_APP_PASSWORD`                                                               | App Password for `GMAIL_USER` (Google Account > Security > App Passwords)                                            | —                                  |
+| `MAIL_TO`                                                                          | Destination address for the monthly inventory export                                                                 | `theoutpostgamingrgv@gmail.com`    |
+| `MARKETING_POSTERS_DIR`                                                            | Where the API reads homepage carousel posters from; only needed if the default repo-root-relative path doesn't apply | `<repo>/public/wpn-assets/posters` |
+| `SQUARESPACE_API_KEY`                                                              | Read-only Squarespace key (legacy integration); idle if unset                                                        | —                                  |
+| `SQUARESPACE_USER_AGENT`                                                           | Descriptive User-Agent for Commerce API calls                                                                        | `TheOutpostGames-Website/1.0`      |
+| `SQUARESPACE_CACHE_TTL_MS`                                                         | Cache TTL before background refresh                                                                                  | `900000` (15 min)                  |
+| `SQUARESPACE_CLIENT_ID` / `SQUARESPACE_CLIENT_SECRET` / `SQUARESPACE_REDIRECT_URI` | OAuth credentials (only needed without `SQUARESPACE_API_KEY`)                                                        | —                                  |
 
 For production on Upstash, use a `rediss://` URL (TLS is auto-detected from `upstash.io` in the hostname).
 

@@ -66,6 +66,7 @@
                       v-model="sortBy"
                       class="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-outpost-navy"
                     >
+                      <option value="newest">Newest First</option>
                       <option value="name-asc">Name A–Z</option>
                       <option value="name-desc">Name Z–A</option>
                       <option value="price-asc">Price Low–High</option>
@@ -248,7 +249,7 @@ useHead(() => ({
 // Filter state
 const minPrice = ref<number | null>(null)
 const maxPrice = ref<number | null>(null)
-const sortBy = ref('name-asc')
+const sortBy = ref('newest')
 const selectedSet = ref<string | null>((route.query.set as string) || null)
 
 // Deep-link support: reading route.query.set on mount (above) seeds the
@@ -267,8 +268,16 @@ const formatPrice = (item: SquarePublicItem) =>
 const clearFilters = () => {
   minPrice.value = null
   maxPrice.value = null
-  sortBy.value = 'name-asc'
+  sortBy.value = 'newest'
   selectedSet.value = null
+}
+
+// Prefers the admin-set releasedAt over Square's own itemCreatedAt — matches
+// the backend's default ordering exactly (see getPublicSquareCatalog). Items
+// with neither sort last rather than falsely claiming to be newest.
+const createdAtMs = (item: SquarePublicItem) => {
+  const raw = item.releasedAt || item.itemCreatedAt
+  return raw ? new Date(raw).getTime() : -Infinity
 }
 
 const filteredItems = computed((): SquarePublicItem[] => {
@@ -292,12 +301,14 @@ const filteredItems = computed((): SquarePublicItem[] => {
     switch (sortBy.value) {
       case 'name-desc':
         return b.name.localeCompare(a.name)
+      case 'name-asc':
+        return a.name.localeCompare(b.name)
       case 'price-asc':
         return (a.priceCents ?? Infinity) - (b.priceCents ?? Infinity)
       case 'price-desc':
         return (b.priceCents ?? -Infinity) - (a.priceCents ?? -Infinity)
       default:
-        return a.name.localeCompare(b.name)
+        return createdAtMs(b) - createdAtMs(a)
     }
   })
 })

@@ -67,6 +67,7 @@ import {
   deleteSquareCatalogItemsBatch,
   setSquareCatalogItemsCategoryBatch,
   setSquareCatalogItemsVisibilityBatch,
+  setSquareCatalogItemsReleasedAtBatch,
   uploadSquareCatalogImage,
   adjustSquareInventoryCount,
   adjustSquareInventoryCountBatch,
@@ -1398,6 +1399,9 @@ app.put('/api/square/products/:itemId', requireAdminAuth, async (req, res) => {
           error: 'SKU cannot be edited here — it is locked to protect in-store barcode scanning',
         })
     }
+    if (body.releasedAt != null && !/^\d{4}-\d{2}-\d{2}$/.test(body.releasedAt)) {
+      return res.status(400).json({ error: 'releasedAt must be an ISO date (YYYY-MM-DD)' })
+    }
 
     const updated = await updateSquareCatalogItem(req.params.itemId, body, process.env)
     invalidatePublicCatalog()
@@ -1481,6 +1485,26 @@ app.post('/api/square/products/batch-visibility', requireAdminAuth, async (req, 
     res
       .status(502)
       .json({ ok: false, error: 'Square bulk visibility update failed', message: error.message })
+  }
+})
+
+app.post('/api/square/products/batch-released-at', requireAdminAuth, async (req, res) => {
+  try {
+    const itemIds = Array.isArray(req.body?.itemIds) ? req.body.itemIds : []
+    if (!itemIds.length) return res.status(400).json({ error: 'itemIds must be a non-empty array' })
+    const releasedAt = req.body?.releasedAt ?? null
+    if (releasedAt !== null && !/^\d{4}-\d{2}-\d{2}$/.test(releasedAt)) {
+      return res.status(400).json({ error: 'releasedAt must be an ISO date (YYYY-MM-DD) or null' })
+    }
+
+    const result = await setSquareCatalogItemsReleasedAtBatch(itemIds, releasedAt, process.env)
+    invalidatePublicCatalog()
+    res.json({ ok: true, updatedCount: result.objects.length })
+  } catch (error) {
+    console.error('❌ Square bulk released-at update failed:', error.message)
+    res
+      .status(502)
+      .json({ ok: false, error: 'Square bulk released-at update failed', message: error.message })
   }
 })
 

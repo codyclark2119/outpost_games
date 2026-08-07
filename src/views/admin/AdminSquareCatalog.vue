@@ -181,6 +181,22 @@
                 <option value="true">Sellable</option>
                 <option value="false">Not Sellable</option>
               </select>
+              <div class="flex items-center gap-1.5">
+                <input
+                  v-model="bulkReleasedAt"
+                  type="date"
+                  class="input-field !w-auto text-sm"
+                  :disabled="bulkAction.running"
+                />
+                <button
+                  type="button"
+                  class="btn-secondary px-3 py-1.5 text-sm whitespace-nowrap"
+                  :disabled="!bulkReleasedAt || bulkAction.running"
+                  @click="applyBulkReleasedAt"
+                >
+                  Set Released Date
+                </button>
+              </div>
               <button
                 type="button"
                 class="text-red-600 text-sm font-semibold hover:underline"
@@ -472,6 +488,19 @@
                       <option :value="false">Visible</option>
                       <option :value="true">Hidden</option>
                     </select>
+                  </div>
+
+                  <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">
+                      Released / Added Date
+                      <span class="text-gray-400 font-normal"
+                        >— controls "Newest First" order on the public Products page; leave blank to
+                        fall back to when this entry was created in Square ({{
+                          formatDate(editForm.itemCreatedAt) || 'unknown'
+                        }})</span
+                      >
+                    </label>
+                    <input v-model="editForm.releasedAt" type="date" class="input-field" />
                   </div>
 
                   <!-- Image -->
@@ -967,6 +996,9 @@ const toggleCategory = (name: string) => {
 
 const formatPrice = (cents: number | null) => (cents == null ? '—' : `$${(cents / 100).toFixed(2)}`)
 
+const formatDate = (isoDateTime: string | null) =>
+  isoDateTime ? new Date(isoDateTime).toLocaleDateString('en-US', { dateStyle: 'medium' }) : ''
+
 // Same status convention as AdminSquareStock.vue's read-only report, so the
 // two pages read consistently.
 const stockStatusLabel = (row: StockRow) => {
@@ -1092,6 +1124,15 @@ const onBulkSellableChange = (event: Event) => {
   if (!value) return
   ;(event.target as HTMLSelectElement).value = ''
   runBulkAction('/products/batch-visibility', { sellable: value === 'true' })
+}
+
+const bulkReleasedAt = ref('')
+
+const applyBulkReleasedAt = () => {
+  if (!bulkReleasedAt.value) return
+  const releasedAt = bulkReleasedAt.value
+  bulkReleasedAt.value = ''
+  runBulkAction('/products/batch-released-at', { releasedAt })
 }
 
 const bulkDeleteModal = reactive({ open: false, confirmed: false })
@@ -1282,6 +1323,8 @@ const editForm = reactive({
   description: '',
   categoryId: '',
   hiddenFromWeb: false,
+  releasedAt: '',
+  itemCreatedAt: null as string | null,
   imageUrl: '' as string | null,
   variations: [] as VariationForm[],
 })
@@ -1336,6 +1379,8 @@ const openEdit = async (row: StockRow) => {
     editForm.description = item.description || ''
     editForm.categoryId = item.categories?.[0]?.id || ''
     editForm.hiddenFromWeb = item.hiddenFromWeb ?? false
+    editForm.releasedAt = item.releasedAt || ''
+    editForm.itemCreatedAt = item.itemCreatedAt || null
     editForm.imageUrl = item.imageUrl || null
     editForm.variations = (item.variations || []).map(toVariationForm)
   } catch (e) {
@@ -1366,6 +1411,7 @@ const saveEdit = async () => {
         description: editForm.description,
         categoryIds: editForm.categoryId ? [editForm.categoryId] : [],
         hiddenFromWeb: editForm.hiddenFromWeb,
+        releasedAt: editForm.releasedAt || null,
         variations: editForm.variations.map(v => ({
           id: v.id,
           name: v.name,

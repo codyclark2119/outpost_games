@@ -33,9 +33,13 @@ const categoryObject = (id, { name, parentCategoryId } = {}) => ({
   },
 })
 
-const itemObject = (id, { name, categoryId, priceCents = 500, hiddenFromWeb = false }) => ({
+const itemObject = (
+  id,
+  { name, categoryId, priceCents = 500, hiddenFromWeb = false, createdAt, releasedAt }
+) => ({
   id,
   type: 'ITEM',
+  ...(createdAt ? { created_at: createdAt } : {}),
   item_data: {
     name,
     categories: [{ id: categoryId }],
@@ -51,9 +55,14 @@ const itemObject = (id, { name, categoryId, priceCents = 500, hiddenFromWeb = fa
       },
     ],
   },
-  ...(hiddenFromWeb
-    ? { custom_attribute_values: { outpost_hide_from_web: { boolean_value: true } } }
-    : {}),
+  ...((hiddenFromWeb || releasedAt) && {
+    custom_attribute_values: {
+      ...(hiddenFromWeb ? { outpost_hide_from_web: { boolean_value: true } } : {}),
+      ...(releasedAt
+        ? { outpost_released_at: { key: 'outpost_released_at', type: 'STRING', string_value: releasedAt } }
+        : {}),
+    },
+  }),
 })
 
 test('getPublicSquareCatalog exposes setId/setName for an item in a real subcategory ("set")', async () => {
@@ -144,5 +153,76 @@ test('getPublicSquareCatalog excludes items flagged outpost_hide_from_web even w
     const { items } = await getPublicSquareCatalog(FAKE_ENV)
     assert.equal(items.length, 1)
     assert.equal(items[0].name, 'Regular Precon')
+  })
+})
+
+test('getPublicSquareCatalog orders items within a category newest-first, with missing created_at sorted last', async () => {
+  const responses = [
+    {
+      ok: true,
+      body: {
+        objects: [
+          itemObject('ITEM1', { name: 'Oldest', categoryId: 'CAT_MAGIC', createdAt: '2026-01-01T00:00:00.000Z' }),
+          itemObject('ITEM2', { name: 'No Date', categoryId: 'CAT_MAGIC' }),
+          itemObject('ITEM3', { name: 'Newest', categoryId: 'CAT_MAGIC', createdAt: '2026-06-01T00:00:00.000Z' }),
+          itemObject('ITEM4', { name: 'Middle', categoryId: 'CAT_MAGIC', createdAt: '2026-03-01T00:00:00.000Z' }),
+        ],
+      },
+    },
+    { ok: true, body: { objects: [categoryObject('CAT_MAGIC', { name: 'Magic' })] } },
+  ]
+
+  await withMockedFetch(responses, async () => {
+    const { items } = await getPublicSquareCatalog(FAKE_ENV)
+    assert.deepEqual(
+      items.map(i => i.name),
+      ['Newest', 'Middle', 'Oldest', 'No Date']
+    )
+    assert.equal(items[0].itemCreatedAt, '2026-06-01T00:00:00.000Z')
+  })
+})
+
+test('getPublicSquareCatalog prefers the admin-set releasedAt over Square\'s own created_at when ranking', async () => {
+  const responses = [
+    {
+      ok: true,
+      body: {
+        objects: [
+          // Created recently in Square (e.g. a bulk cleanup), but staff marked
+          // its real release date as long ago — should NOT rank as newest.
+          itemObject('ITEM1', {
+            name: 'Old Product, Recently Touched In Square',
+            categoryId: 'CAT_MAGIC',
+            createdAt: '2026-07-24T00:00:00.000Z',
+            releasedAt: '2025-01-01',
+          }),
+          // Created long ago in Square, but staff marked it as just released —
+          // should rank as newest despite the old created_at.
+          itemObject('ITEM2', {
+            name: 'Genuinely New Arrival',
+            categoryId: 'CAT_MAGIC',
+            createdAt: '2025-09-18T00:00:00.000Z',
+            releasedAt: '2026-08-01',
+          }),
+          // No releasedAt set at all — falls back to created_at.
+          itemObject('ITEM3', {
+            name: 'No Manual Override',
+            categoryId: 'CAT_MAGIC',
+            createdAt: '2026-06-01T00:00:00.000Z',
+          }),
+        ],
+      },
+    },
+    { ok: true, body: { objects: [categoryObject('CAT_MAGIC', { name: 'Magic' })] } },
+  ]
+
+  await withMockedFetch(responses, async () => {
+    const { items } = await getPublicSquareCatalog(FAKE_ENV)
+    assert.deepEqual(
+      items.map(i => i.name),
+      ['Genuinely New Arrival', 'No Manual Override', 'Old Product, Recently Touched In Square']
+    )
+    assert.equal(items[0].releasedAt, '2026-08-01')
+    assert.equal(items[2].releasedAt, '2025-01-01')
   })
 })

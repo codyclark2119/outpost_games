@@ -5,6 +5,7 @@ import {
   deleteSquareCatalogItemsBatch,
   setSquareCatalogItemsCategoryBatch,
   setSquareCatalogItemsVisibilityBatch,
+  setSquareCatalogItemsReleasedAtBatch,
 } from '../squarePosClient.js'
 
 const FAKE_ENV = { SQUARE_ACCESS_TOKEN: 'fake-token', SQUARE_ENV: 'sandbox' }
@@ -155,5 +156,50 @@ test('setSquareCatalogItemsVisibilityBatch clears hiddenFromWeb when set back to
 
     const sentObject = JSON.parse(calls[1].options.body).batches[0].objects[0]
     assert.equal('outpost_hide_from_web' in (sentObject.custom_attribute_values || {}), false)
+  })
+})
+
+test('setSquareCatalogItemsReleasedAtBatch sets outpost_released_at on every item, leaving variations untouched', async () => {
+  const responses = [
+    { ok: true, body: { objects: [itemObject('ITEM1'), itemObject('ITEM2')] } },
+    { ok: true, body: { objects: [], id_mappings: [] } },
+  ]
+
+  await withMockedFetch(responses, async calls => {
+    await setSquareCatalogItemsReleasedAtBatch(['ITEM1', 'ITEM2'], '2026-08-01', FAKE_ENV)
+
+    const sentObjects = JSON.parse(calls[1].options.body).batches[0].objects
+    for (const object of sentObjects) {
+      assert.equal(object.custom_attribute_values.outpost_released_at.string_value, '2026-08-01')
+      assert.equal(object.custom_attribute_values.outpost_released_at.type, 'STRING')
+      // untouched
+      assert.equal(object.item_data.variations[0].item_variation_data.sellable, true)
+    }
+  })
+})
+
+test('setSquareCatalogItemsReleasedAtBatch clears outpost_released_at when passed null', async () => {
+  const responses = [
+    {
+      ok: true,
+      body: {
+        objects: [
+          {
+            ...itemObject('ITEM1'),
+            custom_attribute_values: {
+              outpost_released_at: { key: 'outpost_released_at', type: 'STRING', string_value: '2026-01-01' },
+            },
+          },
+        ],
+      },
+    },
+    { ok: true, body: { objects: [], id_mappings: [] } },
+  ]
+
+  await withMockedFetch(responses, async calls => {
+    await setSquareCatalogItemsReleasedAtBatch(['ITEM1'], null, FAKE_ENV)
+
+    const sentObject = JSON.parse(calls[1].options.body).batches[0].objects[0]
+    assert.equal('outpost_released_at' in (sentObject.custom_attribute_values || {}), false)
   })
 })

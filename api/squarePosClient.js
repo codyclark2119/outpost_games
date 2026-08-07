@@ -86,6 +86,38 @@ const buildHiddenFromWebAttributeValues = (existing, hidden) => {
   return next
 }
 
+// A third CatalogCustomAttributeDefinition (type STRING — Square has no native
+// DATE type; confirmed against the live CatalogCustomAttributeDefinitionType
+// enum, which only has STRING/BOOLEAN/NUMBER/SELECTION — created the same way
+// as the two above, key `outpost_released_at`, scoped to ITEM). Stores an ISO
+// date (YYYY-MM-DD) staff set to mark when a product actually became
+// available. This exists because Square's own `created_at` on an ITEM reflects
+// whenever that catalog entry was last created/touched in Square — bulk
+// imports and catalog cleanups bump it without the product actually being new
+// — so it's unreliable as a "newest arrivals" signal on its own. The public
+// catalog's default sort (getPublicSquareCatalog, below) uses this value when
+// set, falling back to itemCreatedAt when it isn't.
+const RELEASED_AT_ATTRIBUTE_KEY = 'outpost_released_at'
+
+const readReleasedAt = rawItemObject =>
+  rawItemObject.custom_attribute_values?.[RELEASED_AT_ATTRIBUTE_KEY]?.string_value || null
+
+// releasedAt: null/'' removes the attribute entirely (falls back to
+// itemCreatedAt again), same "omitting means not set" convention as above.
+const buildReleasedAtAttributeValues = (existing, releasedAt) => {
+  const next = { ...(existing || {}) }
+  if (!releasedAt) {
+    delete next[RELEASED_AT_ATTRIBUTE_KEY]
+  } else {
+    next[RELEASED_AT_ATTRIBUTE_KEY] = {
+      key: RELEASED_AT_ATTRIBUTE_KEY,
+      type: 'STRING',
+      string_value: releasedAt,
+    }
+  }
+  return next
+}
+
 const normalizeEnvValue = value => {
   if (typeof value !== 'string') return ''
   const trimmed = value.trim()
@@ -313,6 +345,7 @@ export const listSquareCatalogItems = async (env = process.env) => {
           primaryImageId,
           costCents: readCostCents(variation),
           hiddenFromWeb,
+          releasedAt: readReleasedAt(object),
           itemCreatedAt: object.created_at || null,
         })
       }
@@ -502,6 +535,8 @@ export const getPublicSquareCatalog = async (env = process.env) => {
       categoryName,
       setId,
       setName,
+      releasedAt: variation.releasedAt,
+      itemCreatedAt: variation.itemCreatedAt,
     })
   }
 
@@ -514,9 +549,23 @@ export const getPublicSquareCatalog = async (env = process.env) => {
     .sort((a, b) => (stockByCategory.get(b) || 0) - (stockByCategory.get(a) || 0))
 
   const categoryRank = new Map([...pinned, ...middle].map((name, index) => [name, index]))
-  // Array#sort is stable (guaranteed since ES2019), so items keep their
-  // original relative order within a category — only category order changes.
-  const items = rawItems.sort((a, b) => categoryRank.get(a.categoryName) - categoryRank.get(b.categoryName))
+  // Primary key: category order (pinned games first, then by stock). Secondary
+  // key: newest item first within a category — the default browse order the
+  // public site wants. Prefers the admin-set `releasedAt` (outpost_released_at,
+  // see above) over Square's own item-level created_at, since created_at
+  // reflects whenever the catalog entry was last created/touched in Square
+  // (bulk imports/cleanups skew it) rather than when the product actually
+  // became available. Items with neither sort last rather than falsely
+  // claiming to be newest.
+  const sortDateMs = item => {
+    const raw = item.releasedAt || item.itemCreatedAt
+    return raw ? new Date(raw).getTime() : -Infinity
+  }
+  const items = rawItems.sort((a, b) => {
+    const rankDiff = categoryRank.get(a.categoryName) - categoryRank.get(b.categoryName)
+    if (rankDiff !== 0) return rankDiff
+    return sortDateMs(b) - sortDateMs(a)
+  })
 
   return {
     fetchedAt: new Date().toISOString(),
@@ -680,6 +729,8 @@ export const getSquareCatalogItem = async (itemId, env = process.env) => {
     name: itemData.name || null,
     description: itemData.description || '',
     hiddenFromWeb: readHiddenFromWeb(object),
+    releasedAt: readReleasedAt(object),
+    itemCreatedAt: object.created_at || null,
     imageUrl,
     categories: (itemData.categories || []).map(category => ({
       id: category.id,
@@ -716,6 +767,12 @@ export const updateSquareCatalogItem = async (itemId, changes, env = process.env
     object.custom_attribute_values = buildHiddenFromWebAttributeValues(
       object.custom_attribute_values,
       changes.hiddenFromWeb
+    )
+  }
+  if (changes.releasedAt !== undefined) {
+    object.custom_attribute_values = buildReleasedAtAttributeValues(
+      object.custom_attribute_values,
+      changes.releasedAt
     )
   }
   if (changes.categoryIds !== undefined) {
@@ -1049,6 +1106,23 @@ export const setSquareCatalogItemsVisibilityBatch = async (
       })
     }
     object.item_data = itemData
+    return object
+  })
+  return batchUpsertSquareCatalogObjects(mutated, env)
+}
+
+// releasedAt: null clears it (falls back to itemCreatedAt again) for every
+// selected item — item-level only, no per-variation cascade needed (a
+// product's release date is one decision for the whole item, same scoping as
+// hiddenFromWeb). Lets staff correct a whole shipment/batch at once instead of
+// opening each item individually.
+export const setSquareCatalogItemsReleasedAtBatch = async (itemIds, releasedAt, env = process.env) => {
+  const { objectsById } = await batchRetrieveSquareCatalogObjects(itemIds, {}, env)
+  const mutated = [...objectsById.values()].map(object => {
+    object.custom_attribute_values = buildReleasedAtAttributeValues(
+      object.custom_attribute_values,
+      releasedAt
+    )
     return object
   })
   return batchUpsertSquareCatalogObjects(mutated, env)
