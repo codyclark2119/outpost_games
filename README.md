@@ -101,7 +101,7 @@ See `local-dev/README.md` for details.
 ```
 ├── src/
 │   ├── views/
-│   │   ├── Home.vue              # One-page site: hero, marketing posters carousel, games, about, Discord/Instagram, contact
+│   │   ├── Home.vue              # One-page site: hero, marketing posters carousel, games, about, Instagram feed, Discord/Instagram CTA, contact
 │   │   ├── home-sections/         # Async-loaded Home sections (code-split below the fold)
 │   │   │   ├── MultiTcgShowcase.vue
 │   │   │   └── SocialCtaSection.vue    # Discord + Instagram CTA cards
@@ -147,6 +147,8 @@ See `local-dev/README.md` for details.
 │   ├── inventoryExport.js     # Monthly inventory .xlsx export + scheduler
 │   ├── mailClient.js          # Gmail SMTP wrapper (nodemailer)
 │   └── scripts/               # Maintenance CLI tools — see "Square POS Catalog Admin" below
+├── .github/workflows/
+│   └── warm-hours.yml     # Cron that pins the Fly machine(s) awake during business hours
 ├── local-dev/             # Docker dev environment
 ├── scripts/               # Deployment utilities
 ├── docs/                  # Deployment documentation
@@ -322,6 +324,8 @@ Copy `.env.example` to `.env` and fill in values:
 | `SQUARESPACE_USER_AGENT`                                                           | Descriptive User-Agent for Commerce API calls                                                                        | `TheOutpostGames-Website/1.0`      |
 | `SQUARESPACE_CACHE_TTL_MS`                                                         | Cache TTL before background refresh                                                                                  | `900000` (15 min)                  |
 | `SQUARESPACE_CLIENT_ID` / `SQUARESPACE_CLIENT_SECRET` / `SQUARESPACE_REDIRECT_URI` | OAuth credentials (only needed without `SQUARESPACE_API_KEY`)                                                        | —                                  |
+| `WARM_WINDOW_SELF_PING`                                                            | Set `true` to enable the optional in-process warm-hours fallback ping (see "Warm Hours")                             | `false`                            |
+| `WARM_WINDOW_SELF_PING_URL`                                                        | Override the self-ping target URL; defaults to `https://<FLY_APP_NAME>.fly.dev/api/health`                           | —                                  |
 
 For production on Upstash, use a `rediss://` URL (TLS is auto-detected from `upstash.io` in the hostname).
 
@@ -340,6 +344,29 @@ flyctl deploy
 ```
 
 See `docs/deployment/` for full deployment guides.
+
+### Warm Hours
+
+`fly.toml` keeps `auto_stop_machines`/`auto_start_machines` on with `min_machines_running = 0` — off-hours the machine sleeps after ~5 min idle and the next visitor eats a ~500ms cold start on wake. To avoid that during business hours without paying to stay warm 24/7, `.github/workflows/warm-hours.yml` pins the machine(s) awake on a schedule instead:
+
+| Window                                  | Behavior                                                                |
+| --------------------------------------- | ----------------------------------------------------------------------- |
+| Noon – midnight, America/Chicago, daily | Guaranteed warm — the cron starts every machine at window open          |
+| Midnight – noon, America/Chicago, daily | Normal wake-on-demand auto-sleep (today's existing behavior, unchanged) |
+
+**DST**: GitHub Actions cron has no timezone support and runs in UTC, so the workflow uses one fixed UTC time per job, chosen so the window is never caught cold — see the comment block at the top of `warm-hours.yml` for the full noon/midnight → UTC table. Net effect: the store is never cold during business hours; the only cost is up to ~1 extra warm hour/day around whichever DST boundary doesn't line up exactly (a few cents).
+
+**To change the warm-hours window later**: edit the two `cron:` lines in `warm-hours.yml` (and `WARM_WINDOW_START_HOUR` in `api/server.js` if the optional self-ping fallback is enabled) — that file's comment block has the conversion math.
+
+**One manual step required**: create a Fly deploy token and add it as a repo secret:
+
+```bash
+fly tokens create deploy -x 999999h
+```
+
+Then: repo **Settings → Secrets and variables → Actions → New repository secret**, name it `FLY_API_TOKEN`, paste the token. Without this the workflow's `flyctl` calls will fail authentication.
+
+An optional in-process fallback (belt-and-suspenders, off by default) is described under `WARM_WINDOW_SELF_PING` in Environment Variables above — the GitHub Actions cron is the primary mechanism and is sufficient on its own.
 
 ---
 

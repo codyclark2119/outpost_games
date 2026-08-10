@@ -17,6 +17,7 @@ console.log('🔧 Environment:', process.env.NODE_ENV || 'development')
 import dotenv from 'dotenv'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
+import crypto from 'node:crypto'
 
 // Load the repo-root .env explicitly — dotenv's default lookup is relative to
 // process.cwd(), which is api/ under the documented `cd api && npm run dev`
@@ -146,11 +147,19 @@ app.use(cookieParser())
 
 console.log('✅ Middleware configured')
 
+// Dedicated, stricter limiter for the login route only — a single-admin password
+// login doesn't need the general API's 100/15min allowance, and only failed
+// attempts count against it so a legitimate admin never gets locked out by
+// their own successful logins.
 const loginRateLimiter = rateLimit({
-  windowMs: parseInt(process.env.RATE_LIMIT_WINDOW, 10) || 15 * 60 * 1000,
-  limit: parseInt(process.env.RATE_LIMIT_MAX, 10) || 100,
+  windowMs:
+    parseInt(process.env.LOGIN_RATE_LIMIT_WINDOW, 10) ||
+    parseInt(process.env.RATE_LIMIT_WINDOW, 10) ||
+    15 * 60 * 1000,
+  limit: parseInt(process.env.LOGIN_RATE_LIMIT_MAX, 10) || 10,
   standardHeaders: true,
   legacyHeaders: false,
+  skipSuccessfulRequests: true,
   message: { error: 'Too many login attempts, please try again later' },
 })
 
@@ -942,7 +951,11 @@ app.put('/api/square/categories/:categoryId', requireAdminAuth, async (req, res)
 app.put('/api/square/categories/:categoryId/parent', requireAdminAuth, async (req, res) => {
   try {
     const parentCategoryId = req.body?.parentCategoryId ?? null
-    const category = await reparentSquareCategory(req.params.categoryId, parentCategoryId, process.env)
+    const category = await reparentSquareCategory(
+      req.params.categoryId,
+      parentCategoryId,
+      process.env
+    )
     invalidatePublicCatalog()
     res.json({ ok: true, category })
   } catch (error) {
@@ -981,7 +994,9 @@ app.post('/api/square/categories/:fromCategoryId/merge', requireAdminAuth, async
     res.json({ ok: true, mergedItemCount: result.mergedItemCount })
   } catch (error) {
     console.error('❌ Square category merge failed:', error.message)
-    res.status(502).json({ ok: false, error: 'Square category merge failed', message: error.message })
+    res
+      .status(502)
+      .json({ ok: false, error: 'Square category merge failed', message: error.message })
   }
 })
 
@@ -1006,11 +1021,9 @@ app.put('/api/square/products/:itemId', requireAdminAuth, async (req, res) => {
         Object.prototype.hasOwnProperty.call(variation, 'sku')
       )
     if (touchesSku) {
-      return res
-        .status(400)
-        .json({
-          error: 'SKU cannot be edited here — it is locked to protect in-store barcode scanning',
-        })
+      return res.status(400).json({
+        error: 'SKU cannot be edited here — it is locked to protect in-store barcode scanning',
+      })
     }
     if (body.releasedAt != null && !/^\d{4}-\d{2}-\d{2}$/.test(body.releasedAt)) {
       return res.status(400).json({ error: 'releasedAt must be an ISO date (YYYY-MM-DD)' })
@@ -1148,13 +1161,23 @@ app.post('/api/square/products/:itemId/variations', requireAdminAuth, async (req
     if (!name || !name.trim()) {
       return res.status(400).json({ error: 'Variation name is required' })
     }
-    if (priceCents !== undefined && priceCents !== null && (!Number.isFinite(priceCents) || priceCents < 0)) {
+    if (
+      priceCents !== undefined &&
+      priceCents !== null &&
+      (!Number.isFinite(priceCents) || priceCents < 0)
+    ) {
       return res.status(400).json({ error: 'priceCents must be a non-negative number' })
     }
 
     await addSquareCatalogVariation(
       req.params.itemId,
-      { name: name.trim(), sku: sku?.trim() || undefined, priceCents: priceCents ?? null, trackInventory, sellable },
+      {
+        name: name.trim(),
+        sku: sku?.trim() || undefined,
+        priceCents: priceCents ?? null,
+        trackInventory,
+        sellable,
+      },
       process.env
     )
     const item = await getSquareCatalogItem(req.params.itemId, process.env)
@@ -1241,7 +1264,11 @@ app.post(
         console.error('❌ Square variation image upload failed:', error.message)
         res
           .status(502)
-          .json({ ok: false, error: 'Square variation image upload failed', message: error.message })
+          .json({
+            ok: false,
+            error: 'Square variation image upload failed',
+            message: error.message,
+          })
       }
     })
   }
@@ -1307,13 +1334,11 @@ app.post('/api/square/inventory/batch', requireAdminAuth, async (req, res) => {
     res.json({ ok: true, updatedCount: result.updatedCount })
   } catch (error) {
     console.error('❌ Square batch inventory correction failed:', error.message)
-    res
-      .status(502)
-      .json({
-        ok: false,
-        error: 'Square batch inventory correction failed',
-        message: error.message,
-      })
+    res.status(502).json({
+      ok: false,
+      error: 'Square batch inventory correction failed',
+      message: error.message,
+    })
   }
 })
 
@@ -1439,7 +1464,9 @@ app.post('/api/square/restock-mappings/:id/apply', requireAdminAuth, async (req,
     res.json({ ok: true, ...result })
   } catch (error) {
     console.error('❌ Square restock apply failed:', error.message)
-    res.status(502).json({ ok: false, error: 'Square restock apply failed', message: error.message })
+    res
+      .status(502)
+      .json({ ok: false, error: 'Square restock apply failed', message: error.message })
   }
 })
 
@@ -1449,7 +1476,9 @@ app.get('/api/square/sales', requireAdminAuth, async (req, res) => {
     const from = req.query.from
       ? new Date(req.query.from).toISOString()
       : new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString()
-    const granularity = ['week', 'month'].includes(req.query.granularity) ? req.query.granularity : 'day'
+    const granularity = ['week', 'month'].includes(req.query.granularity)
+      ? req.query.granularity
+      : 'day'
 
     const report = await getSquareSalesReport({ from, to, granularity }, process.env)
     res.json(report)
@@ -1590,6 +1619,56 @@ app.put('/api/squarespace/products/:productId/assignment', requireAdminAuth, asy
     res.status(500).json({ error: 'Failed to set assignment' })
   }
 })
+
+// ─── Warm-hours self-ping (belt-and-suspenders) ─────────────────────────────
+// The .github/workflows/warm-hours.yml cron is the primary mechanism that
+// guarantees the machine is awake for the noon-midnight America/Chicago
+// window (see that file for the full DST-handling writeup). This is a
+// fallback that keeps it warm for the *rest* of the window even if that
+// workflow run fails or is delayed.
+//
+// This has to hit the machine through Fly's real public endpoint to count as
+// activity — Fly's auto-stop watches for connections at its edge PROXY, not
+// inside the process, so a plain in-process timer or a loopback fetch to
+// 127.0.0.1 would be invisible to it and wouldn't actually prevent idle-stop.
+// Off by default (WARM_WINDOW_SELF_PING unset) since the cron job above is
+// sufficient on its own; this only adds redundancy.
+const WARM_WINDOW_TIMEZONE = 'America/Chicago'
+const WARM_WINDOW_START_HOUR = 12 // noon — keep in sync with the cron schedule in warm-hours.yml
+const SELF_PING_INTERVAL_MS = 2 * 60 * 1000 // well under Fly's ~5 min idle-stop timeout
+
+const isInsideWarmWindow = () => {
+  const hour = Number(
+    new Intl.DateTimeFormat('en-US', {
+      timeZone: WARM_WINDOW_TIMEZONE,
+      hour: 'numeric',
+      hour12: false,
+    }).format(new Date())
+  )
+  return hour >= WARM_WINDOW_START_HOUR
+}
+
+if (process.env.WARM_WINDOW_SELF_PING === 'true') {
+  const selfPingUrl =
+    process.env.WARM_WINDOW_SELF_PING_URL ||
+    (process.env.FLY_APP_NAME ? `https://${process.env.FLY_APP_NAME}.fly.dev/api/health` : null)
+
+  if (!selfPingUrl) {
+    console.warn(
+      '⚠️  WARM_WINDOW_SELF_PING is set but no target URL could be determined (need FLY_APP_NAME or WARM_WINDOW_SELF_PING_URL) — skipping'
+    )
+  } else {
+    setInterval(() => {
+      if (!isInsideWarmWindow()) return
+      // Best-effort — a failed ping just means the next one tries again in
+      // SELF_PING_INTERVAL_MS; nothing here should ever crash the process.
+      fetch(selfPingUrl).catch(() => {})
+    }, SELF_PING_INTERVAL_MS)
+    console.log(
+      `🔥 Warm-window self-ping enabled — pinging ${selfPingUrl} every ${SELF_PING_INTERVAL_MS / 1000}s from ${WARM_WINDOW_START_HOUR}:00 Central`
+    )
+  }
+}
 
 app.listen(PORT, '0.0.0.0', () => {
   console.log(`🚀 API server running on port ${PORT}`)

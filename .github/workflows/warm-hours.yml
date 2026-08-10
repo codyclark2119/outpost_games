@@ -1,0 +1,101 @@
+name: Warm hours (Fly.io)
+
+# Keeps the outpost-games-rgv Fly machine(s) guaranteed-warm during business
+# hours (noon-midnight America/Chicago, daily) and lets them return to normal
+# wake-on-demand auto-sleep the rest of the day. fly.toml's
+# auto_stop_machines/auto_start_machines/min_machines_running are left exactly
+# as-is (min_machines_running stays 0) — those knobs are idle-based, not
+# schedule-based, so they can't express "warm from noon to midnight" on their
+# own. This workflow is what actually drives the schedule, by directly
+# starting/stopping the app's machines via flyctl on a cron.
+#
+# Mechanism: `flyctl machine start/stop <id>`, with the machine id list
+# fetched live via `flyctl machine list --json` rather than hardcoded — machine
+# ids can change across a `flyctl deploy`, so hardcoding one would silently
+# start no-oping the first time the app is redeployed. This is the
+# least-destructive option available: it never touches fly.toml (so a normal
+# deploy can't conflict with it) and doesn't depend on any runtime override of
+# min_machines_running, which flyctl doesn't cleanly support outside of a
+# fly.toml change + redeploy.
+#
+# DST handling: GitHub Actions cron has no timezone support and always runs in
+# UTC. Rather than juggling conditional cron entries for CST vs. CDT, each job
+# below uses a single fixed UTC time chosen so it's exactly on time in one DST
+# state and only ever early/late — never in the wrong direction — in the
+# other:
+#   - Warm-up runs at 17:00 UTC == noon CDT (summer, exactly on time) ==
+#     11:00 AM CST (winter, up to 1h EARLY). Never late — the store is never
+#     caught cold at the start of business hours.
+#   - Let-sleep runs at 06:00 UTC == midnight CST (winter, exactly on time) ==
+#     1:00 AM CDT (summer, up to 1h LATE). Never early — biased late on
+#     purpose, since staying warm an extra hour costs a few cents and closing
+#     early would risk a cold start for a late customer.
+# Net effect: guaranteed-warm noon-midnight Central year-round, with up to ~1
+# extra warm hour/day during whichever DST state doesn't line up exactly —
+# a small, deliberate tradeoff, not a bug.
+#
+# To change the warm-hours window later: edit the two `cron:` schedules below
+# (this file is the single place the schedule lives) — see README "Warm
+# Hours" for the full noon/midnight -> UTC conversion table.
+#
+# One-time manual setup (see README for the full checklist):
+#   1. Create a deploy token:  fly tokens create deploy -x 999999h
+#      (or a scoped org token, if preferred)
+#   2. Add it as a repo secret named FLY_API_TOKEN:
+#      Settings -> Secrets and variables -> Actions -> New repository secret
+
+on:
+  schedule:
+    - cron: '0 17 * * *' # warm-up — see DST comment above
+    - cron: '0 6 * * *' # let-sleep — see DST comment above
+  workflow_dispatch:
+    inputs:
+      action:
+        description: 'Action to run manually (for testing the toggle without waiting for the cron)'
+        required: true
+        type: choice
+        options:
+          - warm-up
+          - let-sleep
+
+env:
+  FLY_APP: outpost-games-rgv
+
+jobs:
+  warm-up:
+    if: github.event.schedule == '0 17 * * *' || github.event.inputs.action == 'warm-up'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: superfly/flyctl-actions/setup-flyctl@master
+      - name: Start every machine
+        env:
+          FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
+        run: |
+          ids=$(flyctl machine list -a "$FLY_APP" --json | jq -r '.[].id')
+          if [ -z "$ids" ]; then
+            echo "No machines found for $FLY_APP — nothing to start"
+            exit 0
+          fi
+          for id in $ids; do
+            echo "Starting machine $id"
+            flyctl machine start "$id" -a "$FLY_APP" || true
+          done
+
+  let-sleep:
+    if: github.event.schedule == '0 6 * * *' || github.event.inputs.action == 'let-sleep'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: superfly/flyctl-actions/setup-flyctl@master
+      - name: Stop every machine (auto_stop_machines/auto_start_machines resume normal wake-on-demand behavior from here)
+        env:
+          FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
+        run: |
+          ids=$(flyctl machine list -a "$FLY_APP" --json | jq -r '.[].id')
+          if [ -z "$ids" ]; then
+            echo "No machines found for $FLY_APP — nothing to stop"
+            exit 0
+          fi
+          for id in $ids; do
+            echo "Stopping machine $id"
+            flyctl machine stop "$id" -a "$FLY_APP" || true
+          done
