@@ -140,11 +140,21 @@ const isActiveSection = (sectionId?: string) =>
 
 const sectionIds = ['about', 'community', 'contact']
 let observer: IntersectionObserver | null = null
+let scrollSpyRetry: number | null = null
 
 const teardownScrollSpy = () => {
   observer?.disconnect()
   observer = null
   activeSection.value = null
+  // The retry chain below is a pending timer, not part of the observer —
+  // without cancelling it here, navigating away and back re-entered
+  // setupScrollSpy while the previous chain was still alive, and the two
+  // chains then shared (and exhausted) one attempt budget while each
+  // disconnected the other's observer.
+  if (scrollSpyRetry !== null) {
+    clearTimeout(scrollSpyRetry)
+    scrollSpyRetry = null
+  }
 }
 
 // AppHeader's onMounted fires as soon as App.vue mounts, which is BEFORE
@@ -166,7 +176,7 @@ const setupScrollSpy = () => {
 
   if (foundEls.length === 0 && scrollSpySetupAttempts < 10) {
     scrollSpySetupAttempts += 1
-    setTimeout(setupScrollSpy, 150)
+    scrollSpyRetry = window.setTimeout(setupScrollSpy, 150)
     return
   }
   scrollSpySetupAttempts = 0
@@ -193,6 +203,10 @@ onMounted(() => {
 watch(
   () => route.path,
   () => {
+    // Fresh budget per navigation — otherwise one route where the sections
+    // never appear (any non-Home page) leaves the counter maxed out and the
+    // spy silently dead for the rest of the session.
+    scrollSpySetupAttempts = 0
     nextTick(setupScrollSpy)
   }
 )

@@ -5,16 +5,10 @@
       <!-- Magical particles -->
       <div class="particles-container absolute inset-0 pointer-events-none">
         <div
-          v-for="i in 20"
-          :key="i"
+          v-for="particle in particles"
+          :key="particle.id"
           class="magical-particle"
-          :style="{
-            left: `${Math.random() * 100}%`,
-            top: `${Math.random() * 100}%`,
-            animationDelay: `${Math.random() * 3}s`,
-            animationDuration: `${3 + Math.random() * 2}s`,
-            transform: 'translate3d(0, 0, 0)',
-          }"
+          :style="particle.style"
         ></div>
       </div>
 
@@ -331,6 +325,7 @@ import { useWeeklyOverridesStore } from '../stores/weeklyOverrides'
 import { STORE_INFO } from '../config/storeInfo'
 import { WEEKLY_SCHEDULE } from '../config/weeklySchedule'
 import { toISODate } from '../utils/weeklySchedule'
+import { scrollToSectionId, cancelPendingSectionScroll } from '../utils/scrollToSection'
 import { usePageMeta } from '../composables/usePageMeta'
 
 const MultiTcgShowcase = defineAsyncComponent(() => import('./home-sections/MultiTcgShowcase.vue'))
@@ -346,6 +341,22 @@ usePageMeta({
 const route = useRoute()
 const eventsStore = useEventsStore()
 const weeklyOverridesStore = useWeeklyOverridesStore()
+
+// ── Hero particles ────────────────────────────────────────────────────────────
+// Rolled once here rather than inline in the template. A `:style` binding
+// calling Math.random() is re-evaluated on every re-render of Home — and the
+// poster carousel re-renders it every 6 seconds — so all 20 particles used to
+// jump to new positions and restart their animations on each tick.
+const particles = Array.from({ length: 20 }, (_, id) => ({
+  id,
+  style: {
+    left: `${Math.random() * 100}%`,
+    top: `${Math.random() * 100}%`,
+    animationDelay: `${Math.random() * 3}s`,
+    animationDuration: `${3 + Math.random() * 2}s`,
+    transform: 'translate3d(0, 0, 0)',
+  },
+}))
 
 // ── Date helper ───────────────────────────────────────────────────────────────
 const parseEventDate = (dateString: string): Date => {
@@ -492,23 +503,18 @@ onMounted(async () => {
 
 onUnmounted(() => {
   if (featuredInterval) clearInterval(featuredInterval)
+  // A hash-scroll chain started on mount can still be pending when the
+  // visitor navigates away — leaving it running would scroll the page they
+  // just landed on.
+  cancelPendingSectionScroll()
 })
 
 // Arriving at '/' with a hash already set (cross-route section nav via
-// useSectionNav, or a direct link like /#community) — scroll to it once mounted.
-// Sections below the fold are async-loaded (defineAsyncComponent), so the page
-// is still growing for a moment after mount — a single scrollIntoView call can
-// target a not-yet-final layout. Re-issue it a few times over ~1.5s so it
-// self-corrects once the async chunks resolve and layout settles.
+// useSectionNav, or a direct link like /#community) — scroll to it once
+// mounted. The retry/cancellation rationale lives in scrollToSection.ts.
 if (route.hash) {
   const targetId = route.hash.slice(1)
-  let attemptsLeft = 10
-  const tryScroll = () => {
-    document.getElementById(targetId)?.scrollIntoView({ behavior: 'smooth' })
-    attemptsLeft -= 1
-    if (attemptsLeft > 0) setTimeout(tryScroll, 150)
-  }
-  nextTick(tryScroll)
+  nextTick(() => scrollToSectionId(targetId))
 }
 </script>
 

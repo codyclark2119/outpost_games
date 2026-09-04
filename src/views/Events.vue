@@ -213,9 +213,28 @@ usePageMeta({
 const eventsStore = useEventsStore()
 const weeklyOverridesStore = useWeeklyOverridesStore()
 
-const visibleSpecialEvents = computed(() =>
-  eventsStore.upcomingEvents.filter(e => e.isVisible !== false)
-)
+// The store's `upcomingEvents` is the raw list from the API — nothing on
+// either side of it drops events whose date has passed (the admin views do
+// their own date filter, and their auto-clean only runs while an admin has
+// the page open). Without the date check here a finished tournament kept
+// sitting under the "Upcoming Special Events" heading indefinitely, and got
+// published to search engines as a scheduled Event via the JSON-LD below.
+const parseEventDate = (dateString: string): Date => {
+  if (/^\d{4}-\d{2}-\d{2}$/.test(dateString)) return new Date(dateString + 'T12:00:00')
+  const parsed = new Date(dateString)
+  return isNaN(parsed.getTime()) ? new Date() : parsed
+}
+
+const visibleSpecialEvents = computed(() => {
+  const today = new Date()
+  today.setHours(0, 0, 0, 0)
+  return eventsStore.upcomingEvents.filter(e => {
+    if (e.isVisible === false) return false
+    const date = parseEventDate(e.date)
+    date.setHours(0, 0, 0, 0)
+    return date >= today
+  })
+})
 
 // A weekly slot's "date" for override purposes is the next upcoming occurrence
 // of that weekday — matches Home.vue's day-walk so a hidden occurrence
