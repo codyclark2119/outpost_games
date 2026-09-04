@@ -30,7 +30,7 @@
             <p class="text-sm text-gray-600">
               605 W. Main Street, Suite 4<br />
               Rio Grande City, TX 78582<br /><br />
-              <strong>Hours:</strong> Thu-Sun 5:00 PM - 10:00 PM
+              <strong>Hours:</strong> Tue-Sat 5:30 PM - 10:00 PM
             </p>
           </div>
         </div>

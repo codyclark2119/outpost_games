@@ -10,13 +10,12 @@ export const STORE_INFO = {
     full: '605 W. Main Street, Suite 4, Rio Grande City, TX 78582',
   },
   email: 'theoutpostgamingrgv@gmail.com',
+  // Every open day keeps identical hours, so these are grouped rather than
+  // listed per-day — both consumers (AppFooter, Home's contact section) just
+  // iterate this object in insertion order.
   hours: {
-    'Mon-Tues': 'Closed',
-    Wednesday: '5:00 PM - 9:00 PM',
-    Thursday: '5:00 PM - 10:00 PM',
-    Friday: '5:00 PM - 10:00 PM',
-    Saturday: '5:00 PM - 10:00 PM',
-    Sunday: '5:00 PM - 10:00 PM',
+    'Sun-Mon': 'Closed',
+    'Tue-Sat': '5:30 PM - 10:00 PM',
   },
   social: {
     facebook: 'https://www.facebook.com/Theoutpostgames/',

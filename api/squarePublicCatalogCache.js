@@ -13,9 +13,9 @@ import { getSquareConfigurationStatus, getPublicSquareCatalog } from './squarePo
 
 const CACHE_KEY = 'outpost:square:public-catalog'
 const STORE_TIMEZONE = 'America/Chicago'
-const OPEN_WEEKDAYS = new Set(['Thu', 'Fri', 'Sat', 'Sun'])
-const OPEN_HOUR = 17 // 5:00 PM
-const CLOSE_HOUR = 22 // 10:00 PM
+const OPEN_WEEKDAYS = new Set(['Tue', 'Wed', 'Thu', 'Fri', 'Sat'])
+const OPEN_MINUTES_FROM_MIDNIGHT = 17 * 60 + 30 // 5:30 PM
+const CLOSE_MINUTES_FROM_MIDNIGHT = 22 * 60 // 10:00 PM
 const OPEN_HOURS_TTL_MS = 60 * 60 * 1000 // 1 hour
 const CLOSED_TTL_MS = 24 * 60 * 60 * 1000 // 1 day
 
@@ -24,12 +24,21 @@ const isStoreOpenNow = () => {
     timeZone: STORE_TIMEZONE,
     weekday: 'short',
     hour: 'numeric',
+    minute: 'numeric',
     hour12: false,
   }).formatToParts(new Date())
   const weekday = parts.find(part => part.type === 'weekday')?.value
-  const hour = Number(parts.find(part => part.type === 'hour')?.value)
+  // ICU renders midnight as hour 24 with hour12:false — normalize so a
+  // just-after-midnight check reads as 0, not as a past-closing 24.
+  const rawHour = Number(parts.find(part => part.type === 'hour')?.value)
+  const hour = rawHour === 24 ? 0 : rawHour
+  const minute = Number(parts.find(part => part.type === 'minute')?.value)
   if (!weekday || !OPEN_WEEKDAYS.has(weekday)) return false
-  return hour >= OPEN_HOUR && hour < CLOSE_HOUR
+  const minutesFromMidnight = hour * 60 + minute
+  return (
+    minutesFromMidnight >= OPEN_MINUTES_FROM_MIDNIGHT &&
+    minutesFromMidnight < CLOSE_MINUTES_FROM_MIDNIGHT
+  )
 }
 
 const getTtlMs = () => (isStoreOpenNow() ? OPEN_HOURS_TTL_MS : CLOSED_TTL_MS)

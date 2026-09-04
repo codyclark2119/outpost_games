@@ -12,7 +12,7 @@ The public site is a single page (`src/views/Home.vue`) plus two standalone rout
 
 - **Address:** 605 W. Main Street, Suite 4, Rio Grande City, TX 78582
 - **Email:** theoutpostgamingrgv@gmail.com
-- **Hours:** Thursday–Sunday, 5:00 PM – 10:00 PM
+- **Hours:** Tuesday–Saturday, 5:30 PM – 10:00 PM (closed Sunday & Monday)
 - **Facebook:** https://www.facebook.com/Theoutpostgames/
 - **Instagram:** https://www.instagram.com/theoutpostgames_rgc
 - **Discord:** https://discord.gg/PW3YkMtFmz

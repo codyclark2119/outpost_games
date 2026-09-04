@@ -36,7 +36,7 @@ const bucketKey = (isoTimestamp, granularity) => {
 
 // Store-local weekday/hour — orders are timestamped in UTC, but "which day or
 // hour sells best" is only meaningful in the shop's own timezone (open
-// Thu-Sun, 5-10 PM Central), not UTC. Same ICU-midnight-quirk guard as
+// Tue-Sat, 5:30-10 PM Central), not UTC. Same ICU-midnight-quirk guard as
 // squarePublicCatalogCache.js's isStoreOpenNow().
 const localPartsOf = isoTimestamp => {
   const parts = new Intl.DateTimeFormat('en-US', {

@@ -1,8 +1,8 @@
 // Canonical weekly recurring event schedule — previously duplicated
 // independently across Home.vue (x2: the featured-event fallback and the
 // standalone "Weekly Events" grid) and Events.vue.
-// A day can carry more than one entry (e.g. Friday has both Nexus Night and
-// FNM) — every consumer must key/group on more than just dayName.
+// A day can carry more than one entry (e.g. Wednesday has both D&D and One
+// Piece) — every consumer must key/group on more than just dayName.
 export interface WeeklyScheduleEntry {
   id: string // stable, manually-assigned — foreign key for per-date hide overrides, never derive from eventName/dayName
   jsDay: number // JS Date.getDay() — 0 = Sunday
@@ -16,6 +16,16 @@ export interface WeeklyScheduleEntry {
 
 export const WEEKLY_SCHEDULE: WeeklyScheduleEntry[] = [
   {
+    id: 'tue-shop-league',
+    jsDay: 2,
+    dayName: 'Tuesday',
+    eventName: 'Shop League Event',
+    time: '6:00 PM',
+    description: 'Weekly shop league night — ongoing league play with seasonal prizes',
+    gameType: 'All Games',
+    gameTypeId: 'other',
+  },
+  {
     id: 'wed-dnd',
     jsDay: 3,
     dayName: 'Wednesday',
@@ -26,39 +36,19 @@ export const WEEKLY_SCHEDULE: WeeklyScheduleEntry[] = [
     gameTypeId: 'dnd',
   },
   {
-    id: 'wed-pokemon-league',
+    id: 'wed-one-piece',
     jsDay: 3,
     dayName: 'Wednesday',
-    eventName: 'Pokémon League',
+    eventName: 'One Piece',
     time: '6:00 PM',
-    description: 'Weekly Pokémon TCG league play',
-    gameType: 'Pokémon',
-    gameTypeId: 'pokemon',
+    description: 'Weekly One Piece Card Game night',
+    gameType: 'One Piece',
+    gameTypeId: 'one-piece',
   },
   {
-    id: 'thu-free-play',
+    id: 'thu-nexus-night',
     jsDay: 4,
     dayName: 'Thursday',
-    eventName: 'Free Play',
-    time: '6:00 PM',
-    description: 'Open free play — bring any game, casual and low-key',
-    gameType: 'All Games',
-    gameTypeId: 'other',
-  },
-  {
-    id: 'thu-on-demand-tournament',
-    jsDay: 4,
-    dayName: 'Thursday',
-    eventName: 'On-Demand Tournament',
-    time: '6:00 PM',
-    description: 'Casual tournament that forms once enough players are ready to play',
-    gameType: 'Varies',
-    gameTypeId: 'other',
-  },
-  {
-    id: 'fri-nexus-night',
-    jsDay: 5,
-    dayName: 'Friday',
     eventName: 'Nexus Night',
     time: '6:00 PM',
     description: 'Weekly Riftbound tournament night',
@@ -69,40 +59,30 @@ export const WEEKLY_SCHEDULE: WeeklyScheduleEntry[] = [
     id: 'fri-fnm',
     jsDay: 5,
     dayName: 'Friday',
-    eventName: 'FNM',
+    eventName: 'Friday Night Magic',
     time: '6:00 PM',
-    description: 'Friday Night Magic — weekly tournament with prizes for top finishers',
+    description: 'Weekly Magic tournament with prizes for top finishers',
     gameType: 'Magic: The Gathering',
     gameTypeId: 'magic',
   },
   {
-    id: 'sat-modern',
+    id: 'fri-pokemon',
+    jsDay: 5,
+    dayName: 'Friday',
+    eventName: 'Pokémon',
+    time: '6:00 PM',
+    description: 'Weekly Pokémon TCG league play',
+    gameType: 'Pokémon',
+    gameTypeId: 'pokemon',
+  },
+  {
+    id: 'sat-one-piece',
     jsDay: 6,
     dayName: 'Saturday',
-    eventName: 'Modern',
+    eventName: 'One Piece',
     time: '6:00 PM',
-    description: 'Modern format tournament with prizes for top finishers',
-    gameType: 'Magic: The Gathering',
-    gameTypeId: 'magic',
-  },
-  {
-    id: 'sat-on-demand-tournament',
-    jsDay: 6,
-    dayName: 'Saturday',
-    eventName: 'On-Demand Tournament',
-    time: '6:00 PM',
-    description: 'Casual tournament that forms once enough players are ready to play',
-    gameType: 'Varies',
-    gameTypeId: 'other',
-  },
-  {
-    id: 'sun-league-day',
-    jsDay: 0,
-    dayName: 'Sunday',
-    eventName: 'League Day',
-    time: '6:00 PM',
-    description: 'Ongoing league play with seasonal prizes',
-    gameType: 'Magic: The Gathering',
-    gameTypeId: 'magic',
+    description: 'Weekly One Piece Card Game tournament',
+    gameType: 'One Piece',
+    gameTypeId: 'one-piece',
   },
 ]
