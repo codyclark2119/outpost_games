@@ -74,9 +74,9 @@ Frontend reads `VITE_API_URL` (defaults to `/api`). In dev, Vite proxies `/api` 
 
 ### Pinia stores
 
-- `src/stores/events.ts` — `SpecialEvent` interface (id, title, date, time, entry, description, gameTypeId?, gameTypeName?)
+- `src/stores/events.ts` — `SpecialEvent` interface (id, title, date, time, entry, description, gameTypeId?, gameTypeName?, isVisible?). Note `upcomingEvents` is the **raw** API list despite the name — nothing in the store drops events whose date has passed, so every consumer filters for itself (`Events.vue`, `Home.vue`, and both admin list views each do their own date check). Anything new that renders events publicly must do the same or it will advertise finished tournaments.
 - `src/stores/weeklyOverrides.ts` — per-date hide overrides for `WEEKLY_SCHEDULE` entries
-- `src/stores/squareCatalog.ts` — live Square inventory for the public `/products` page (the shop's only product catalog — see "Square POS integration" below)
+- `src/stores/squareCatalog.ts` — live Square inventory for the public `/products` page (the shop's only product catalog — see "Square POS integration" below). Views call `ensureCatalog()` on mount, not `fetchCatalog()`: it reuses an in-memory copy younger than 5 minutes and re-requests otherwise. Freshness is tracked with its own client-side `loadedAt`, not the `fetchedAt` in the response — that one reports when the *API* last polled Square and can already be an hour old on arrival.
 - `src/stores/cart.ts` — cart state (reserved for future e-commerce, not wired to checkout)
 - `src/stores/auth.ts` — admin session state
 
@@ -113,7 +113,7 @@ All admin chunks are code-split into a separate `admin` bundle via `vite.config.
 
 ### `/products/:typeId?set=<setId>` deep links
 
-`ProductsGameType.vue` watches `route.query.set` with `immediate: true` and pre-populates the set filter checkbox. Set cards on `Products.vue` link directly to `?set=<setId>`. Featured slides on `Home.vue` use the same pattern in their `linkTo` field.
+`ProductsGameType.vue` seeds its `selectedSet` filter from `route.query.set` once during setup, then watches `selectedSet` and mirrors it back into the URL with `router.replace` — so the flow is query→state on entry and state→query afterwards, keeping the current filter shareable and refreshable. Set cards on `Products.vue` link directly to `?set=<setId>`.
 
 ### Square POS integration
 
@@ -164,7 +164,9 @@ Grouping is manual: `PUT /api/squarespace/products/:productId/assignment` tags a
 - Discord + Instagram social CTA (`home-sections/SocialCtaSection.vue`, async-loaded)
 - Contact section (`id="contact"`)
 
-In-page navigation (`About`/`Contact` links, cross-route anchors) is handled by `src/composables/useSectionNav.ts`.
+In-page navigation (`About`/`Contact` links, cross-route anchors) is handled by `src/composables/useSectionNav.ts`, which delegates the scrolling itself to `src/utils/scrollToSection.ts`.
+
+**Scrolling has exactly one owner per job — don't add a second.** `html { scroll-behavior: smooth }` in `src/style.css` governs in-page anchor scrolls, so no `scrollIntoView` call passes an explicit `behavior` (passing one from JS overrides CSS and silently defeats the `prefers-reduced-motion` override in that same file). Route changes are the opposite case and the router's `scrollBehavior` in `src/main.ts` sets `behavior: 'instant'` deliberately — smoothly animating to the top of a new page means animating the full height of the page just left. `scrollToSection.ts` also keeps only one retry chain alive at a time: the retries exist because async-loaded sections are still growing the page after mount, and two concurrent chains re-issuing scrolls at each other reads to a visitor as a frozen page.
 
 ### Deployment
 

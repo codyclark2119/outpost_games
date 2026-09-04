@@ -11,15 +11,25 @@ export default defineConfig({
         // Separate chunks for better caching and lazy loading
         manualChunks(id) {
           // Core vendor libraries
+          //
+          // Order matters, and it was wrong before: these are plain substring
+          // tests, and 'vue' is a substring of 'vue-chartjs',
+          // '@headlessui/vue' and '@unhead/vue'. With the generic vue check
+          // first, the two more specific branches below it were unreachable —
+          // vue-chartjs was landing in vendor-vue (dragging Chart.js's Vue
+          // wrapper into the chunk every visitor downloads, for a library
+          // only the admin sales page uses) and vendor-ui was never emitted
+          // at all. Specific packages must be matched before the generic one.
           if (id.includes('node_modules')) {
-            if (id.includes('vue') || id.includes('pinia') || id.includes('vue-router')) {
-              return 'vendor-vue'
+            if (id.includes('chart.js') || id.includes('vue-chartjs')) {
+              return 'vendor-charts'
             }
             if (id.includes('@headlessui') || id.includes('@heroicons')) {
               return 'vendor-ui'
             }
-            if (id.includes('chart.js') || id.includes('vue-chartjs')) {
-              return 'vendor-charts'
+            // 'vue-router' needs no separate test — it contains 'vue'.
+            if (id.includes('vue') || id.includes('pinia')) {
+              return 'vendor-vue'
             }
             // Other node_modules go into vendor-libs
             return 'vendor-libs'

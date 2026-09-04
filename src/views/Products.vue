@@ -420,7 +420,10 @@ const carouselGoTo = (slug: string, page: number) => {
 // Sidebar
 const sidebarOpen = ref(false)
 const scrollToSection = (id: string) => {
-  document.getElementById(id)?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+  // Behavior deliberately unset — see the note in utils/scrollToSection.ts:
+  // html { scroll-behavior: smooth } owns this, so prefers-reduced-motion is
+  // honoured instead of being overridden from JS.
+  document.getElementById(id)?.scrollIntoView({ block: 'start' })
   sidebarOpen.value = false
 }
 
@@ -458,7 +461,7 @@ const fetchTCGPlayerListings = async () => {
 }
 
 onMounted(() => {
-  if (PRODUCTS_CATALOG_LIVE) catalogStore.fetchCatalog()
+  if (PRODUCTS_CATALOG_LIVE) catalogStore.ensureCatalog()
   if (SINGLE_CARD_LISTINGS_LIVE) fetchTCGPlayerListings()
 })
 </script>
@@ -481,9 +484,13 @@ aside {
   border-right: 2px solid #f3f4f6;
 }
 
+/* No will-change on any of the rules below: it is a hint for a change that is
+   imminent, not a permanent flag. Here it was pinning a compositor layer for
+   a one-shot 0.8s intro (this rule) and one per product card for a transform
+   that only ever runs on hover (.card-image / .product-image). Plain
+   transform transitions are composited without the hint. */
 .hero-content {
   animation: fadeInUp 0.8s ease-out;
-  will-change: transform, opacity;
 }
 
 @keyframes fadeInUp {
@@ -521,7 +528,6 @@ aside {
   height: 150%;
   object-position: top center;
   transition: transform 0.4s cubic-bezier(0.4, 0, 0.2, 1);
-  will-change: transform;
 }
 .group:hover .card-image {
   transform: scale(1.05);
@@ -552,7 +558,6 @@ aside {
 
 .product-image {
   transition: transform 0.5s cubic-bezier(0.4, 0, 0.2, 1);
-  will-change: transform;
 }
 @media (hover: hover) and (pointer: fine) {
   .group:hover .product-image {

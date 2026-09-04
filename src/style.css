@@ -292,9 +292,14 @@ section:nth-child(odd) {
   border-radius: 50%;
   pointer-events: none;
   animation: sparkle 3s infinite;
+  /* No will-change. It is a short-lived hint for a change that is about to
+     happen, not a permanent flag — and there are 20 of these, so declaring it
+     pinned 20 compositor layers for the whole session, including long after
+     the hero has scrolled out of view. The sparkle keyframes already animate
+     only transform and opacity, which the compositor handles on its own, and
+     backface-visibility below is enough to promote them while they run. */
   backface-visibility: hidden;
   -webkit-backface-visibility: hidden;
-  will-change: transform, opacity;
 }
 
 /* Section dividers with fantasy styling */

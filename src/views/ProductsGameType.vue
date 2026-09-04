@@ -314,7 +314,7 @@ const filteredItems = computed((): SquarePublicItem[] => {
 })
 
 onMounted(() => {
-  if (PRODUCTS_CATALOG_LIVE && catalogStore.items.length === 0) catalogStore.fetchCatalog()
+  if (PRODUCTS_CATALOG_LIVE) catalogStore.ensureCatalog()
 })
 </script>
 

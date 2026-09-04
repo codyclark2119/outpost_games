@@ -43,11 +43,23 @@ export const slugify = (value: string) =>
     .replace(/[^a-z0-9]+/g, '-')
     .replace(/^-+|-+$/g, '') || 'uncategorized'
 
+// How long a catalog already in memory is reused before the next mount
+// re-requests it. Deliberately short: the endpoint behind it is itself served
+// from a store-hours-aware cache on the API side, so a request here is cheap
+// and almost always a cache hit.
+const CATALOG_MAX_AGE_MS = 5 * 60 * 1000
+
 export const useSquareCatalogStore = defineStore('squareCatalog', () => {
   const items = ref<SquarePublicItem[]>([])
   const fetchedAt = ref<string | null>(null)
   const loading = ref(false)
   const error = ref<string | null>(null)
+
+  // When *this browser* last loaded the catalog. Distinct from `fetchedAt`,
+  // which is when the API last polled Square — that one can already be an
+  // hour old the instant a fresh response arrives, so it says nothing about
+  // whether the local copy needs replacing.
+  const loadedAt = ref<number | null>(null)
 
   const fetchCatalog = async () => {
     loading.value = true
@@ -58,11 +70,25 @@ export const useSquareCatalogStore = defineStore('squareCatalog', () => {
       const data = await response.json()
       items.value = data.items || []
       fetchedAt.value = data.fetchedAt || null
+      loadedAt.value = Date.now()
     } catch (e) {
       error.value = e instanceof Error ? e.message : 'Failed to fetch catalog'
     } finally {
       loading.value = false
     }
+  }
+
+  // What both product views call on mount. They used to disagree: Products.vue
+  // re-fetched the whole catalog on every single visit, while
+  // ProductsGameType.vue fetched only when items was empty and so never
+  // refreshed for the rest of the session. Neither is right — this reuses a
+  // recent copy and replaces a stale one. An in-flight request counts as
+  // covering the caller, since it will populate the same shared state.
+  const ensureCatalog = async () => {
+    if (loading.value) return
+    const isFresh = loadedAt.value !== null && Date.now() - loadedAt.value < CATALOG_MAX_AGE_MS
+    if (items.value.length > 0 && isFresh) return
+    await fetchCatalog()
   }
 
   // Grouped by top-level category — this is the site's "game type" breakdown
@@ -103,5 +129,5 @@ export const useSquareCatalogStore = defineStore('squareCatalog', () => {
   const sectionBySlug = (slug: string) =>
     sections.value.find(section => section.slug === slug) ?? null
 
-  return { items, fetchedAt, loading, error, fetchCatalog, sections, sectionBySlug }
+  return { items, fetchedAt, loading, error, fetchCatalog, ensureCatalog, sections, sectionBySlug }
 })

@@ -147,10 +147,11 @@ app.use(cookieParser())
 
 console.log('✅ Middleware configured')
 
-// Dedicated, stricter limiter for the login route only — a single-admin password
-// login doesn't need the general API's 100/15min allowance, and only failed
-// attempts count against it so a legitimate admin never gets locked out by
-// their own successful logins.
+// Rate limiting is applied to the login route only — there is deliberately no
+// general/global limiter on this app, so don't read this block as "the strict
+// one" of a pair. A single-admin password login is the one endpoint worth
+// throttling, and only failed attempts count against it (skipSuccessfulRequests)
+// so a legitimate admin never gets locked out by their own successful logins.
 const loginRateLimiter = rateLimit({
   windowMs:
     parseInt(process.env.LOGIN_RATE_LIMIT_WINDOW, 10) ||
