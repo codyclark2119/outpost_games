@@ -13,7 +13,12 @@
 //   node scripts/reset-negative-inventory.js            # preview only, no changes
 //   node scripts/reset-negative-inventory.js --apply     # actually reset to 0
 
-import { getSquareInventoryReport, adjustSquareInventoryCount, resolveSquareCredentials, loadSquareEnvironment } from '../squarePosClient.js'
+import {
+  getSquareInventoryReport,
+  adjustSquareInventoryCount,
+  resolveSquareCredentials,
+  loadSquareEnvironment,
+} from '../squarePosClient.js'
 
 loadSquareEnvironment()
 
@@ -24,7 +29,9 @@ async function main() {
   console.log(`Reading inventory report (${environment})...`)
 
   const report = await getSquareInventoryReport(process.env)
-  const negativeItems = report.items.filter(item => item.trackInventory && item.quantity != null && item.quantity < 0)
+  const negativeItems = report.items.filter(
+    item => item.trackInventory && item.quantity != null && item.quantity < 0
+  )
 
   console.log(`\n${negativeItems.length} item(s) with a negative on-hand count:`)
   for (const item of negativeItems) {

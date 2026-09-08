@@ -3,6 +3,7 @@
     <!-- Sidebar Toggle — mobile/tablet only; the sidebar is always open on
          desktop (lg:) where there's no need to hide it behind a drawer -->
     <button
+      ref="sidebarToggle"
       type="button"
       class="fixed top-20 left-4 z-40 flex items-center gap-2 bg-outpost-gold text-outpost-black px-4 py-2.5 rounded-lg shadow-lg hover:bg-outpost-gold-light transition-colors lg:hidden"
       :aria-label="sidebarOpen ? 'Close product categories' : 'Browse product categories'"
@@ -58,23 +59,35 @@
              position:sticky naturally lets go once this flex row ends) -->
         <aside
           id="product-categories"
+          ref="sidebar"
+          :inert="!desktop && !sidebarOpen"
+          :role="!desktop && sidebarOpen ? 'dialog' : undefined"
+          :aria-modal="!desktop && sidebarOpen ? true : undefined"
+          aria-label="Product categories"
           class="fixed top-20 left-0 h-[calc(100vh-5rem)] bg-white shadow-xl z-30 transition-transform duration-300 w-64 overflow-y-auto lg:sticky lg:top-24 lg:h-auto lg:max-h-[calc(100vh-6rem)] lg:w-64 lg:flex-shrink-0 lg:rounded-xl lg:border lg:border-gray-200 lg:translate-x-0"
           :class="{ '-translate-x-full': !sidebarOpen, 'translate-x-0': sidebarOpen }"
         >
           <div class="p-6">
+            <button
+              type="button"
+              class="lg:hidden min-h-11 mb-3 underline"
+              @click="sidebarOpen = false"
+            >
+              Close categories
+            </button>
             <h2 class="font-cinzel text-xl font-bold text-gray-800 mb-6">Quick Navigation</h2>
             <nav class="space-y-1">
               <button
                 v-for="section in catalogStore.sections"
                 :key="section.slug"
-                class="w-full text-left px-4 py-3 rounded-lg hover:bg-outpost-gold/10 transition-colors font-semibold text-gray-700 hover:text-outpost-gold text-sm"
+                class="w-full text-left px-4 py-3 rounded-lg hover:bg-outpost-gold/10 transition-colors font-semibold text-gray-700 hover:text-outpost-gold-dark text-sm"
                 @click="scrollToSection(section.slug)"
               >
                 {{ section.name }}
               </button>
               <button
                 v-if="SINGLE_CARD_LISTINGS_LIVE"
-                class="w-full text-left px-4 py-3 rounded-lg hover:bg-outpost-gold/10 transition-colors font-semibold text-gray-700 hover:text-outpost-gold text-sm"
+                class="w-full text-left px-4 py-3 rounded-lg hover:bg-outpost-gold/10 transition-colors font-semibold text-gray-700 hover:text-outpost-gold-dark text-sm"
                 @click="scrollToSection('single-cards')"
               >
                 Featured Single Cards
@@ -91,6 +104,10 @@
             message="Live inventory isn't available online just yet. Everything is still fully stocked in store — come see the full selection in person!"
           />
 
+          <p v-else-if="catalogStore.error" class="py-12 text-gray-600">
+            Products are temporarily unavailable.
+            <button class="underline" @click="catalogStore.fetchCatalog">Try again</button>
+          </p>
           <template v-else>
             <!-- Loading -->
             <div
@@ -127,7 +144,7 @@
                   </h2>
                   <router-link
                     :to="`/products/${section.slug}`"
-                    class="text-outpost-gold hover:text-outpost-gold-dark font-semibold text-sm flex items-center gap-1 transition-colors mb-2"
+                    class="text-outpost-gold-dark hover:text-outpost-gold-dark font-semibold text-sm flex items-center gap-1 transition-colors mb-2"
                   >
                     View All
                     <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -146,7 +163,7 @@
                   <!-- Prev arrow -->
                   <button
                     v-if="getCarouselPage(section.slug) > 0"
-                    class="absolute left-0 top-1/2 -translate-y-1/2 -translate-x-4 z-10 w-10 h-10 bg-white border border-gray-200 rounded-full shadow-lg flex items-center justify-center hover:border-outpost-gold hover:text-outpost-gold transition-all"
+                    class="absolute left-0 top-1/2 -translate-y-1/2 -translate-x-4 z-10 w-11 h-11 bg-white border border-gray-200 rounded-full shadow-lg flex items-center justify-center hover:border-outpost-gold hover:text-outpost-gold-dark transition-all"
                     aria-label="Previous"
                     @click="carouselPrev(section.slug)"
                   >
@@ -216,12 +233,12 @@
 
                           <div class="flex-grow flex flex-col justify-center relative z-10">
                             <h3
-                              class="font-cinzel font-semibold text-center text-gray-800 text-xs md:text-sm group-hover:text-outpost-gold transition-colors duration-300 leading-tight"
+                              class="font-semibold text-center text-gray-800 text-xs md:text-sm group-hover:text-outpost-gold-dark transition-colors duration-300 leading-tight"
                             >
                               {{ item.name }}
                             </h3>
                             <p
-                              class="text-center text-xs font-medium mt-2 px-2 py-1 rounded-full inline-block mx-auto text-outpost-gold bg-outpost-gold/10"
+                              class="text-center text-xs font-medium mt-2 px-2 py-1 rounded-full inline-block mx-auto text-outpost-gold-dark bg-outpost-gold/10"
                             >
                               {{ formatPrice(item) }}
                             </p>
@@ -234,7 +251,7 @@
                   <!-- Next arrow -->
                   <button
                     v-if="getCarouselPage(section.slug) < lastPage(section.items.length)"
-                    class="absolute right-0 top-1/2 -translate-y-1/2 translate-x-4 z-10 w-10 h-10 bg-white border border-gray-200 rounded-full shadow-lg flex items-center justify-center hover:border-outpost-gold hover:text-outpost-gold transition-all"
+                    class="absolute right-0 top-1/2 -translate-y-1/2 translate-x-4 z-10 w-11 h-11 bg-white border border-gray-200 rounded-full shadow-lg flex items-center justify-center hover:border-outpost-gold hover:text-outpost-gold-dark transition-all"
                     aria-label="Next"
                     @click="carouselNext(section.slug, section.items.length)"
                   >
@@ -379,8 +396,10 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted } from 'vue'
+import { apiFetch } from '../services/api'
+import { ref, onMounted, computed, watch, nextTick } from 'vue'
 import { useSquareCatalogStore, type SquarePublicItem } from '../stores/squareCatalog'
+import { useMediaQuery, useEventListener } from '@vueuse/core'
 import ComingSoonPanel from '../components/ComingSoonPanel.vue'
 import { usePageMeta } from '../composables/usePageMeta'
 import { PRODUCTS_CATALOG_LIVE, SINGLE_CARD_LISTINGS_LIVE } from '../config/featureFlags'
@@ -394,8 +413,6 @@ usePageMeta({
 
 const catalogStore = useSquareCatalogStore()
 
-const API_BASE_URL = import.meta.env.VITE_API_URL || '/api'
-
 const formatPrice = (item: SquarePublicItem) =>
   item.priceCents != null ? `$${(item.priceCents / 100).toFixed(2)}` : 'See in store'
 
@@ -408,10 +425,16 @@ const formatPrice = (item: SquarePublicItem) =>
 // actually on screen — and by construction here every page always slices
 // through to the true last item, so the final item can never become
 // unreachable).
-const CAROUSEL_SIZE = 5
+const desktop = useMediaQuery('(min-width: 1024px)')
+const tablet = useMediaQuery('(min-width: 768px)')
+const CAROUSEL_SIZE = computed(() => (desktop.value ? 5 : tablet.value ? 3 : 2))
 const carouselPages = ref<Record<string, number>>({})
+watch(CAROUSEL_SIZE, () => {
+  carouselPages.value = {}
+})
 
-const lastPage = (totalItems: number) => Math.max(0, Math.ceil(totalItems / CAROUSEL_SIZE) - 1)
+const lastPage = (totalItems: number) =>
+  Math.max(0, Math.ceil(totalItems / CAROUSEL_SIZE.value) - 1)
 const getCarouselPage = (slug: string) => carouselPages.value[slug] ?? 0
 
 const carouselPrev = (slug: string) => {
@@ -426,6 +449,34 @@ const carouselGoTo = (slug: string, page: number) => {
 
 // Sidebar
 const sidebarOpen = ref(false)
+const sidebar = ref<HTMLElement | null>(null)
+const sidebarToggle = ref<HTMLButtonElement | null>(null)
+watch(sidebarOpen, async open => {
+  await nextTick()
+  if (open && !desktop.value) sidebar.value?.querySelector<HTMLButtonElement>('button')?.focus()
+  else if (!desktop.value) sidebarToggle.value?.focus()
+})
+watch(desktop, () => {
+  sidebarOpen.value = false
+})
+useEventListener(window, 'keydown', (event: KeyboardEvent) => {
+  if (!sidebarOpen.value || desktop.value) return
+  if (event.key === 'Escape') {
+    sidebarOpen.value = false
+    event.preventDefault()
+  }
+  if (event.key !== 'Tab') return
+  const buttons = [...(sidebar.value?.querySelectorAll<HTMLElement>('button, a[href]') ?? [])]
+  const first = buttons[0],
+    last = buttons[buttons.length - 1]
+  if (event.shiftKey && document.activeElement === first) {
+    event.preventDefault()
+    last?.focus()
+  } else if (!event.shiftKey && document.activeElement === last) {
+    event.preventDefault()
+    first?.focus()
+  }
+})
 const scrollToSection = (id: string) => {
   // Behavior deliberately unset — see the note in utils/scrollToSection.ts:
   // html { scroll-behavior: smooth } owns this, so prefers-reduced-motion is
@@ -455,9 +506,7 @@ const fetchTCGPlayerListings = async () => {
   loadingListings.value = true
   listingsError.value = null
   try {
-    const response = await fetch(`${API_BASE_URL}/tcgplayer-listings`)
-    if (!response.ok) throw new Error(`HTTP ${response.status}`)
-    const data = await response.json()
+    const data = await apiFetch<{ listings: CardListing[] }>('/tcgplayer-listings')
     cardListings.value = data.listings || []
   } catch (error) {
     console.error('TCGPlayer listings fetch error:', error)

@@ -1,12 +1,16 @@
 import { defineStore } from 'pinia'
 import { ref } from 'vue'
-import { apiFetch, ApiError } from '../services/api'
+import { apiFetch, ApiError, onSessionExpired } from '../services/api'
 interface AuthResponse {
   username: string
 }
 export const useAuthStore = defineStore('auth', () => {
   const username = ref<string | null>(null)
   const checked = ref(false)
+  onSessionExpired(() => {
+    username.value = null
+    checked.value = true
+  })
   const initAuth = async () => {
     try {
       username.value = (

@@ -1,3 +1,4 @@
+import storeConfig from './storeConfig.json' with { type: 'json' }
 import {
   createSquarePosClient,
   resolveSquareCredentials,
@@ -7,7 +8,7 @@ import {
 } from './squarePosClient.js'
 
 const ORDERS_PAGE_SAFETY_CAP = 200
-const STORE_TIMEZONE = 'America/Chicago'
+const STORE_TIMEZONE = storeConfig.timeZone
 const DAY_NAMES = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday']
 
 const clientFromEnv = (env = process.env) => {
@@ -91,7 +92,10 @@ const fetchCompletedOrders = async (client, from, to) => {
 // least-surprising "sales" figure for a trend chart. Per-item figures use
 // `gross_sales_money` (pre-tax, pre-discount) since tax isn't allocated per
 // line item in a way that's meaningful to attribute.
-export const getSquareSalesReport = async ({ from, to, granularity = 'day' }, env = process.env) => {
+export const getSquareSalesReport = async (
+  { from, to, granularity = 'day' },
+  env = process.env
+) => {
   const client = clientFromEnv(env)
   if (!client.locationId) {
     throw new Error('A Square location id is required to read sales')
@@ -215,7 +219,9 @@ export const getSquareSalesReport = async ({ from, to, granularity = 'day' }, en
   })
 
   const series = [...seriesByBucket.values()].sort((a, b) => a.date.localeCompare(b.date))
-  const topItems = [...itemTotals.values()].map(withProfit).sort((a, b) => b.unitsSold - a.unitsSold)
+  const topItems = [...itemTotals.values()]
+    .map(withProfit)
+    .sort((a, b) => b.unitsSold - a.unitsSold)
   const categoryBreakdown = [...categoryTotals.values()]
     .map(withProfit)
     .sort((a, b) => b.revenueCents - a.revenueCents)

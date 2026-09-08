@@ -1,3 +1,5 @@
+import storeConfig from './storeConfig.json' with { type: 'json' }
+import { AppError } from './middleware/errorHandler.js'
 // ─── Public Square catalog cache ─────────────────────────────────────────────
 // The public Products page reads live Square inventory, but hitting Square on
 // every page view would be slow for customers and needless load on the POS
@@ -12,7 +14,7 @@
 import { getSquareConfigurationStatus, getPublicSquareCatalog } from './squarePosClient.js'
 
 const CACHE_KEY = 'outpost:square:public-catalog'
-const STORE_TIMEZONE = 'America/Chicago'
+const STORE_TIMEZONE = storeConfig.timeZone
 const OPEN_WEEKDAYS = new Set(['Tue', 'Wed', 'Thu', 'Fri', 'Sat'])
 const OPEN_MINUTES_FROM_MIDNIGHT = 17 * 60 + 30 // 5:30 PM
 const CLOSE_MINUTES_FROM_MIDNIGHT = 22 * 60 // 10:00 PM
@@ -56,7 +58,10 @@ let itemCount = 0
 let refreshInProgress = null
 let warnedNotConfigured = false
 
-export const initSquarePublicCatalogCache = ({ redisClient: client, isRedisConnected: connectedFn }) => {
+export const initSquarePublicCatalogCache = ({
+  redisClient: client,
+  isRedisConnected: connectedFn,
+}) => {
   redisClient = client
   if (typeof connectedFn === 'function') isRedisConnected = connectedFn
 }
@@ -118,8 +123,8 @@ export const getCachedPublicSquareCatalog = async () => {
     if (configured) {
       try {
         return await refreshSquarePublicCatalog()
-      } catch {
-        return { fetchedAt: null, itemCount: 0, items: [] }
+      } catch (cause) {
+        throw new AppError(503, 'Products are temporarily unavailable', { cause })
       }
     }
     return { fetchedAt: null, itemCount: 0, items: [] }
@@ -146,7 +151,7 @@ export const bootstrapSquarePublicCatalogCache = () => {
   if (!getSquareConfigurationStatus().configured) {
     if (!warnedNotConfigured) {
       console.warn(
-        '⚠️  Square isn\'t configured — public product catalog is idle until SQUARE_ACCESS_TOKEN/SQUARE_APPLICATION_ID (or sandbox equivalents) are set.'
+        "⚠️  Square isn't configured — public product catalog is idle until SQUARE_ACCESS_TOKEN/SQUARE_APPLICATION_ID (or sandbox equivalents) are set."
       )
       warnedNotConfigured = true
     }

@@ -32,16 +32,19 @@ test('orders numeric-prefixed files numerically before unprefixed alphabetical f
 })
 
 test('strips numeric prefix from the title but not from unprefixed filenames', async () => {
-  await withPostersDir(['01-summer-sale.png', '02_fall_event.png', 'MtG: The Hobbit.png'], async dir => {
-    const posters = await listMarketingPosters({ MARKETING_POSTERS_DIR: dir })
-    const byId = Object.fromEntries(posters.map(p => [p.id, p.title]))
-    assert.equal(byId['01-summer-sale'], 'Summer Sale')
-    assert.equal(byId['02_fall_event'], 'Fall Event')
-    // Regression guard: existing non-numeric filenames must title-case exactly as before
-    // (titleFromFilename only uppercases each word's first character, it never
-    // lowercases the rest — "MtG" stays "MtG").
-    assert.equal(byId['MtG: The Hobbit'], 'MtG: The Hobbit')
-  })
+  await withPostersDir(
+    ['01-summer-sale.png', '02_fall_event.png', 'MtG: The Hobbit.png'],
+    async dir => {
+      const posters = await listMarketingPosters({ MARKETING_POSTERS_DIR: dir })
+      const byId = Object.fromEntries(posters.map(p => [p.id, p.title]))
+      assert.equal(byId['01-summer-sale'], 'Summer Sale')
+      assert.equal(byId['02_fall_event'], 'Fall Event')
+      // Regression guard: existing non-numeric filenames must title-case exactly as before
+      // (titleFromFilename only uppercases each word's first character, it never
+      // lowercases the rest — "MtG" stays "MtG").
+      assert.equal(byId['MtG: The Hobbit'], 'MtG: The Hobbit')
+    }
+  )
 })
 
 test('breaks ties between equal numeric prefixes alphabetically', async () => {
@@ -61,6 +64,8 @@ test('ignores non-image files and ENOENT returns an empty array', async () => {
     assert.equal(posters[0].title, 'Poster')
   })
 
-  const missing = await listMarketingPosters({ MARKETING_POSTERS_DIR: '/nonexistent/path/for/posters' })
+  const missing = await listMarketingPosters({
+    MARKETING_POSTERS_DIR: '/nonexistent/path/for/posters',
+  })
   assert.deepEqual(missing, [])
 })

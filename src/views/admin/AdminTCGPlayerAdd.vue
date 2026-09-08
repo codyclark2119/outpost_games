@@ -161,9 +161,10 @@
 </template>
 
 <script setup lang="ts">
+import { apiRequest } from '../../services/api'
 import { ref, reactive } from 'vue'
 
-const API_URL = `${import.meta.env.VITE_API_URL || '/api'}/tcgplayer-listings`
+const API_URL = `/tcgplayer-listings`
 
 const submitting = ref(false)
 const formError = ref('')
@@ -198,7 +199,7 @@ const handleSubmit = async () => {
   formError.value = ''
   submitting.value = true
   try {
-    const res = await fetch(API_URL, {
+    const res = await apiRequest(API_URL, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({

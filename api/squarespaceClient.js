@@ -11,7 +11,10 @@
 //
 // Uses native fetch / AbortController (Node 18+); no HTTP-client dependency.
 
-import { SquarespaceNotConfiguredError, SquarespaceNotAuthorizedError } from './squarespaceErrors.js'
+import {
+  SquarespaceNotConfiguredError,
+  SquarespaceNotAuthorizedError,
+} from './squarespaceErrors.js'
 import { isOAuthConfigured, getValidAccessToken } from './squarespaceOAuth.js'
 
 // NOTE: Products and Inventory live on DIFFERENT API version prefixes.
@@ -88,7 +91,10 @@ const requestWithRetry = async url => {
     } catch (err) {
       // Network failure or timeout/abort — retryable. Auth errors from
       // getAccessToken() (SquarespaceNotConfigured/NotAuthorized) are not.
-      if (err instanceof SquarespaceNotConfiguredError || err instanceof SquarespaceNotAuthorizedError) {
+      if (
+        err instanceof SquarespaceNotConfiguredError ||
+        err instanceof SquarespaceNotAuthorizedError
+      ) {
         throw err
       }
       lastError =
@@ -139,9 +145,7 @@ const fetchAllPages = async (baseUrl, arrayKey, extraParams = {}) => {
     // Only continue when we actually have a cursor — guards against a truthy
     // hasNextPage with a missing nextPageCursor spinning forever.
     cursor =
-      pagination.hasNextPage && pagination.nextPageCursor
-        ? String(pagination.nextPageCursor)
-        : null
+      pagination.hasNextPage && pagination.nextPageCursor ? String(pagination.nextPageCursor) : null
     pages++
   } while (cursor && pages < MAX_PAGES)
 

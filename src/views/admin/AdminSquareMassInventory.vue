@@ -143,38 +143,17 @@
 </template>
 
 <script setup lang="ts">
+import { useConfirmation } from '../../composables/useConfirmation'
+const { ask } = useConfirmation()
+import { squareAdminApi } from '../../services/squareAdminApi'
 import { ref, reactive, computed, onMounted } from 'vue'
 
-interface SquareStockItem {
-  id: string
-  itemId: string
-  displayName: string
-  sku: string | null
-  priceCents: number | null
-  currency: string | null
-  trackInventory: boolean
-  quantity: number | null
-  state: string
-  inStock: boolean
-  source: string
-  categoryId: string | null
-  categoryName: string
-}
+import type { SquareStockItem, SquareInventoryReport } from '../../services/squareAdminTypes'
 
 interface CategoryGroup {
   name: string
   items: SquareStockItem[]
 }
-
-interface SquareInventoryReport {
-  ok: boolean
-  environment: string
-  locationId: string | null
-  itemCount: number
-  items: SquareStockItem[]
-}
-
-const API_BASE = `${import.meta.env.VITE_API_URL || '/api'}/square`
 
 const report = ref<SquareInventoryReport | null>(null)
 const loading = ref(false)
@@ -244,9 +223,7 @@ const fetchReport = async () => {
   loading.value = true
   fetchError.value = null
   try {
-    const res = await fetch(`${API_BASE}/inventory-report`)
-    if (!res.ok) throw new Error('Failed to fetch Square inventory report')
-    report.value = await res.json()
+    report.value = await squareAdminApi.getCatalog()
   } catch (e) {
     fetchError.value = e instanceof Error ? e.message : 'Failed to load inventory report'
   } finally {
@@ -255,6 +232,7 @@ const fetchReport = async () => {
 }
 
 const saveAll = async () => {
+  if (saving.value) return
   saving.value = true
   saveError.value = null
   saveSuccess.value = false
@@ -264,13 +242,13 @@ const saveAll = async () => {
     .map(([variationId, value]) => ({ variationId, quantity: Number(value) }))
 
   try {
-    const res = await fetch(`${API_BASE}/inventory/batch`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ changes }),
-    })
-    const data = await res.json().catch(() => ({}))
-    if (!res.ok) throw new Error(data.error || 'Batch save failed')
+    if (
+      !(await ask(
+        `Replace on-hand inventory counts for ${changes.length} variations with the entered quantities?`
+      ))
+    )
+      return
+    const data = await squareAdminApi.updateInventoryBatch(changes)
 
     lastSavedCount.value = data.updatedCount || changes.length
     saveSuccess.value = true

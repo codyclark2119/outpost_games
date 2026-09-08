@@ -4,7 +4,7 @@
       <div class="max-w-7xl mx-auto">
         <router-link
           to="/products"
-          class="text-outpost-gold hover:text-outpost-gold-dark text-sm font-medium flex items-center gap-1 mb-6"
+          class="text-outpost-gold-dark hover:text-outpost-gold-dark text-sm font-medium flex items-center gap-1 mb-6"
         >
           <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path
@@ -41,6 +41,10 @@
             ></div>
           </div>
 
+          <p v-else-if="catalogStore.error" class="py-12 text-gray-600" role="status">
+            Products are temporarily unavailable.
+            <button class="underline" @click="catalogStore.fetchCatalog">Try again</button>
+          </p>
           <!-- Type not found -->
           <div v-else-if="!currentSection" class="text-center py-20">
             <p class="text-gray-500 text-lg mb-4">Game type not found.</p>

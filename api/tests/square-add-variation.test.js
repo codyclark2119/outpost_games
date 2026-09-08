@@ -67,7 +67,13 @@ test('addSquareCatalogVariation appends a new variation, leaving the sibling unt
   await withMockedFetch(responses, async calls => {
     await addSquareCatalogVariation(
       'ITEM123',
-      { name: 'Foil Enhanced', sku: 'NEW-SKU-9999', priceCents: 6000, trackInventory: true, sellable: true },
+      {
+        name: 'Foil Enhanced',
+        sku: 'NEW-SKU-9999',
+        priceCents: 6000,
+        trackInventory: true,
+        sellable: true,
+      },
       FAKE_ENV
     )
 

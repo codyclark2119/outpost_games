@@ -40,6 +40,8 @@ import { Squares2X2Icon } from '@heroicons/vue/24/outline'
 // Swap `imageUrl` in for each game's logo once official promotional assets
 // are sourced (see README for the retailer asset links tracked down for
 // Pokémon/One Piece/Gundam/Riftbound).
+// TODO: A canonical Square game ID/custom attribute is required to split Bandai
+// deep links safely; category/set IDs alone do not identify One Piece vs Gundam.
 const games = [
   {
     id: 'magic',

@@ -39,7 +39,10 @@ const categoryObject = (id, { name = `Category ${id}`, parentCategoryId } = {}) 
   },
 })
 
-const itemObject = (id, { categoryIds = ['CAT_FROM'], reporting_category, tax_ids = ['TAX1'] } = {}) => ({
+const itemObject = (
+  id,
+  { categoryIds = ['CAT_FROM'], reporting_category, tax_ids = ['TAX1'] } = {}
+) => ({
   id,
   type: 'ITEM',
   version: 1,
@@ -49,7 +52,11 @@ const itemObject = (id, { categoryIds = ['CAT_FROM'], reporting_category, tax_id
     categories: categoryIds.map(catId => ({ id: catId })),
     ...(reporting_category ? { reporting_category } : {}),
     variations: [
-      { id: `${id}-VAR1`, type: 'ITEM_VARIATION', item_variation_data: { name: 'Regular', sellable: true } },
+      {
+        id: `${id}-VAR1`,
+        type: 'ITEM_VARIATION',
+        item_variation_data: { name: 'Regular', sellable: true },
+      },
     ],
   },
 })
@@ -71,13 +78,19 @@ test('renameSquareCategory updates only category_data.name', async () => {
 test('reparentSquareCategory sets parent_category, and null removes it', async () => {
   const responses = [
     { ok: true, body: { object: categoryObject('CAT1') } },
-    { ok: true, body: { catalog_object: categoryObject('CAT1', { parentCategoryId: 'CAT_PARENT' }) } },
+    {
+      ok: true,
+      body: { catalog_object: categoryObject('CAT1', { parentCategoryId: 'CAT_PARENT' }) },
+    },
   ]
 
   await withMockedFetch(responses, async calls => {
     await reparentSquareCategory('CAT1', 'CAT_PARENT', FAKE_ENV)
     const sentObject = JSON.parse(calls[1].options.body).object
-    assert.deepEqual(sentObject.category_data.parent_category, { type: 'CATEGORY', id: 'CAT_PARENT' })
+    assert.deepEqual(sentObject.category_data.parent_category, {
+      type: 'CATEGORY',
+      id: 'CAT_PARENT',
+    })
   })
 
   const removalResponses = [
@@ -108,7 +121,15 @@ test('deleteSquareCategory refuses when items still reference it (no DELETE call
 test('deleteSquareCategory refuses when it still has child categories (no DELETE call made)', async () => {
   const responses = [
     { ok: true, body: { objects: [] } }, // no items reference it
-    { ok: true, body: { objects: [categoryObject('CAT1'), categoryObject('CAT_CHILD', { parentCategoryId: 'CAT1' })] } },
+    {
+      ok: true,
+      body: {
+        objects: [
+          categoryObject('CAT1'),
+          categoryObject('CAT_CHILD', { parentCategoryId: 'CAT1' }),
+        ],
+      },
+    },
   ]
 
   await withMockedFetch(responses, async calls => {
@@ -143,7 +164,10 @@ test('mergeSquareCategories reassigns every affected item then deletes the sourc
       ok: true,
       body: {
         objects: [
-          itemObject('ITEM1', { categoryIds: ['CAT_FROM'], reporting_category: { id: 'CAT_FROM' } }),
+          itemObject('ITEM1', {
+            categoryIds: ['CAT_FROM'],
+            reporting_category: { id: 'CAT_FROM' },
+          }),
           itemObject('ITEM2', { categoryIds: ['CAT_FROM', 'CAT_OTHER'] }),
         ],
       },
@@ -153,7 +177,10 @@ test('mergeSquareCategories reassigns every affected item then deletes the sourc
       ok: true,
       body: {
         objects: [
-          itemObject('ITEM1', { categoryIds: ['CAT_FROM'], reporting_category: { id: 'CAT_FROM' } }),
+          itemObject('ITEM1', {
+            categoryIds: ['CAT_FROM'],
+            reporting_category: { id: 'CAT_FROM' },
+          }),
           itemObject('ITEM2', { categoryIds: ['CAT_FROM', 'CAT_OTHER'] }),
         ],
       },

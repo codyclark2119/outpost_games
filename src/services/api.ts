@@ -11,10 +11,15 @@ export class ApiError extends Error {
     this.payload = payload
   }
 }
+let redirecting = false
+let expireSession = () => {}
+export const onSessionExpired = (handler: () => void) => {
+  expireSession = handler
+}
 type Options = NonNullable<Parameters<typeof globalThis.fetch>[1]> & {
   skipAuthRedirect?: boolean
 }
-export async function apiFetch<T>(path: string, options: Options = {}): Promise<T> {
+export async function apiRequest(path: string, options: Options = {}): Promise<Response> {
   const { skipAuthRedirect = false, ...init } = options
   const headers = new Headers(init.headers)
   if (init.body && !(init.body instanceof FormData) && !headers.has('Content-Type'))
@@ -23,8 +28,10 @@ export async function apiFetch<T>(path: string, options: Options = {}): Promise<
   try {
     response = await fetch(`${API_BASE_URL}${path}`, { ...init, headers })
   } catch (e) {
+    if (init.signal?.aborted) throw e
     throw new ApiError(0, e instanceof Error ? e.message : 'Network request failed')
   }
+  if (response.ok) return response
   const text = await response.text()
   let payload: unknown = null
   if (text) {
@@ -37,14 +44,19 @@ export async function apiFetch<T>(path: string, options: Options = {}): Promise<
   if (!response.ok) {
     if (
       response.status === 401 &&
+      !redirecting &&
       !skipAuthRedirect &&
       typeof window !== 'undefined' &&
       window.location.pathname.startsWith(ADMIN_BASE_PATH) &&
       window.location.pathname !== `${ADMIN_BASE_PATH}/login`
     ) {
+      redirecting = true
+      expireSession()
       const back = `${window.location.pathname}${window.location.search}${window.location.hash}`
       window.location.assign(`${ADMIN_BASE_PATH}/login?redirect=${encodeURIComponent(back)}`)
     }
+    if (response.status === 401 && !skipAuthRedirect)
+      throw new ApiError(401, 'Your session expired. Please sign in again.', payload)
     const message =
       payload &&
       typeof payload === 'object' &&
@@ -54,5 +66,10 @@ export async function apiFetch<T>(path: string, options: Options = {}): Promise<
         : `Request failed with HTTP ${response.status}`
     throw new ApiError(response.status, message, payload)
   }
-  return payload as T
+  return response
+}
+
+export async function apiFetch<T>(path: string, options: Options = {}): Promise<T> {
+  const response = await apiRequest(path, options)
+  return response.status === 204 ? (null as T) : ((await response.json()) as T)
 }

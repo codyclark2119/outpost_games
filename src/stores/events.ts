@@ -29,6 +29,7 @@ export const useEventsStore = defineStore('events', () => {
     }
   }
   const addEvent = async (event: Omit<SpecialEvent, 'id'>) => {
+    if (loading.value) throw new Error('An operation is already in progress')
     loading.value = true
     error.value = null
     try {
@@ -46,6 +47,7 @@ export const useEventsStore = defineStore('events', () => {
     }
   }
   const updateEvent = async (id: string, updatedEvent: Partial<SpecialEvent>) => {
+    if (loading.value) throw new Error('An operation is already in progress')
     loading.value = true
     error.value = null
     try {
@@ -64,6 +66,7 @@ export const useEventsStore = defineStore('events', () => {
     }
   }
   const deleteEvent = async (id: string) => {
+    if (loading.value) throw new Error('An operation is already in progress')
     loading.value = true
     error.value = null
     try {

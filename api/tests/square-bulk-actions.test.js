@@ -29,7 +29,10 @@ const withMockedFetch = async (responses, run) => {
   }
 }
 
-const itemObject = (id, { categories = [{ id: 'CAT_OLD' }], reporting_category, tax_ids = ['TAX1'] } = {}) => ({
+const itemObject = (
+  id,
+  { categories = [{ id: 'CAT_OLD' }], reporting_category, tax_ids = ['TAX1'] } = {}
+) => ({
   id,
   type: 'ITEM',
   version: 1,
@@ -39,8 +42,16 @@ const itemObject = (id, { categories = [{ id: 'CAT_OLD' }], reporting_category, 
     categories,
     ...(reporting_category ? { reporting_category } : {}),
     variations: [
-      { id: `${id}-VAR1`, type: 'ITEM_VARIATION', item_variation_data: { name: 'Regular', sellable: true } },
-      { id: `${id}-VAR2`, type: 'ITEM_VARIATION', item_variation_data: { name: 'Foil', sellable: false } },
+      {
+        id: `${id}-VAR1`,
+        type: 'ITEM_VARIATION',
+        item_variation_data: { name: 'Regular', sellable: true },
+      },
+      {
+        id: `${id}-VAR2`,
+        type: 'ITEM_VARIATION',
+        item_variation_data: { name: 'Foil', sellable: false },
+      },
     ],
   },
 })
@@ -85,7 +96,10 @@ test('setSquareCatalogItemsCategoryBatch sets categories/reporting_category on e
 
 test('setSquareCatalogItemsCategoryBatch clears categorization when categoryId is null', async () => {
   const responses = [
-    { ok: true, body: { objects: [itemObject('ITEM1', { reporting_category: { id: 'CAT_OLD' } })] } },
+    {
+      ok: true,
+      body: { objects: [itemObject('ITEM1', { reporting_category: { id: 'CAT_OLD' } })] },
+    },
     { ok: true, body: { objects: [], id_mappings: [] } },
   ]
 
@@ -142,7 +156,11 @@ test('setSquareCatalogItemsVisibilityBatch clears hiddenFromWeb when set back to
           {
             ...itemObject('ITEM1'),
             custom_attribute_values: {
-              outpost_hide_from_web: { key: 'outpost_hide_from_web', type: 'BOOLEAN', boolean_value: true },
+              outpost_hide_from_web: {
+                key: 'outpost_hide_from_web',
+                type: 'BOOLEAN',
+                boolean_value: true,
+              },
             },
           },
         ],
@@ -187,7 +205,11 @@ test('setSquareCatalogItemsReleasedAtBatch clears outpost_released_at when passe
           {
             ...itemObject('ITEM1'),
             custom_attribute_values: {
-              outpost_released_at: { key: 'outpost_released_at', type: 'STRING', string_value: '2026-01-01' },
+              outpost_released_at: {
+                key: 'outpost_released_at',
+                type: 'STRING',
+                string_value: '2026-01-01',
+              },
             },
           },
         ],

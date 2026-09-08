@@ -11,8 +11,8 @@
     "clean": "rm -rf dist",
     "lint": "eslint . --ext .vue,.js,.jsx,.cjs,.mjs,.ts,.tsx,.cts,.mts",
     "lint:fix": "eslint . --ext .vue,.js,.jsx,.cjs,.mjs,.ts,.tsx,.cts,.mts --fix",
-    "format": "prettier --write \"src/**/*.{js,jsx,ts,tsx,vue,json,css,scss,md}\"",
-    "format:check": "prettier --check \"src/**/*.{js,jsx,ts,tsx,vue,json,css,scss,md}\"",
+    "format": "prettier --write \"src/**/*.{js,jsx,ts,tsx,vue,json,css,scss,md}\" \"api/**/*.js\" \"scripts/**/*.{js,mjs,cjs}\" \"tests/**/*.mjs\" \"*.{js,ts,json}\" \".github/workflows/*.{yml,yaml}\" --no-error-on-unmatched-pattern",
+    "format:check": "prettier --check \"src/**/*.{js,jsx,ts,tsx,vue,json,css,scss,md}\" \"api/**/*.js\" \"scripts/**/*.{js,mjs,cjs}\" \"tests/**/*.mjs\" \"*.{js,ts,json}\" \".github/workflows/*.{yml,yaml}\" --no-error-on-unmatched-pattern",
     "type-check": "vue-tsc --noEmit",
     "pre-deploy": "npm run verify",
     "docker:up": "cd local-dev && docker-compose up -d",
@@ -22,19 +22,17 @@
     "docker:logs": "cd local-dev && docker-compose logs -f",
     "docker:restart": "cd local-dev && docker-compose restart",
     "docker:setup": "cd local-dev && ./quick-start.sh",
-    "verify": "npm run format:check && npm run lint && npm run type-check && npm run build && npm --prefix api test"
+    "verify": "npm run format:check && npm run lint && npm run type-check && npm run build && npm --prefix api test && npm test",
+    "test": "node --test tests/*.test.mjs"
   },
   "dependencies": {
     "@headlessui/vue": "^1.7.23",
     "@heroicons/vue": "^2.2.0",
-    "@pinia/nuxt": "^0.11.3",
     "@tailwindcss/forms": "^0.5.11",
     "@tailwindcss/typography": "^0.5.19",
     "@unhead/vue": "^3.2.3",
     "@vueuse/core": "^14.1.0",
     "chart.js": "^4.5.1",
-    "framer-motion": "^12.29.0",
-    "lucide-vue-next": "^0.563.0",
     "pinia": "^3.0.4",
     "vue": "^3.5.24",
     "vue-chartjs": "^5.3.4",
@@ -60,5 +58,8 @@
     "typescript": "~5.9.3",
     "vite": "^7.2.4",
     "vue-tsc": "^3.1.4"
+  },
+  "engines": {
+    "node": ">=22.12.0"
   }
 }

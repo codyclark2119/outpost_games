@@ -398,6 +398,7 @@ const saveEdit = async () => {
     editError.value = 'Please enter a custom game type name'
     return
   }
+  if (saving.value) return
   saving.value = true
   editError.value = ''
   try {
@@ -442,10 +443,13 @@ const confirmDelete = (event: SpecialEvent) => {
 }
 
 const executeDelete = async () => {
+  if (saving.value) return
   saving.value = true
   try {
     await eventsStore.deleteEvent(deleteModal.id)
     deleteModal.open = false
+  } catch {
+    deleteModal.open = false // the store error is visible in the page's retry panel
   } finally {
     saving.value = false
   }

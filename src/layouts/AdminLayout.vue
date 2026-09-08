@@ -28,11 +28,13 @@
         </nav>
       </div>
     </header>
-    <main><slot /></main>
+    <main class="admin-content"><slot /></main>
+    <ConfirmationModal />
   </div>
 </template>
 
 <script setup lang="ts">
+import ConfirmationModal from '../components/admin/ConfirmationModal.vue'
 import { ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { ADMIN_BASE_PATH } from '../config/adminPath'
@@ -51,3 +53,30 @@ const logout = async () => {
   }
 }
 </script>
+
+<style>
+.admin-content {
+  font-family: Arial, sans-serif;
+}
+.admin-content .input-field {
+  width: 100%;
+  padding: 0.5rem 1rem;
+  border: 1px solid #d1d5db;
+  border-radius: 0.5rem;
+  font-size: 0.875rem;
+}
+.admin-content button,
+.admin-content input,
+.admin-content select {
+  min-height: 2.75rem;
+}
+.admin-content button,
+.admin-content input,
+.admin-content select,
+.admin-content td {
+  font-family: inherit;
+}
+.admin-content button {
+  animation: none;
+}
+</style>

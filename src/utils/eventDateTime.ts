@@ -32,8 +32,17 @@ export const eventDateToISO = (value: string): string | null => {
   const trimmed = value.trim()
   if (parseISODateParts(trimmed)) return trimmed
 
+  if (
+    /^\d{4}-/.test(trimmed) ||
+    !/^(?:[A-Za-z]+,?\s+)?[A-Za-z]+\s+\d{1,2},?\s+\d{4}$/.test(trimmed)
+  )
+    return null
   const parsed = new Date(`${trimmed} 12:00:00 UTC`)
-  if (Number.isNaN(parsed.getTime())) return null
+  if (
+    Number.isNaN(parsed.getTime()) ||
+    parsed.getUTCDate() !== Number(trimmed.match(/\b(\d{1,2})\b/)?.[1])
+  )
+    return null
 
   const iso = parsed.toISOString().slice(0, 10)
   return parseISODateParts(iso) ? iso : null
@@ -109,3 +118,22 @@ export const formatStoreDateLabel = (iso: string): string =>
     month: 'long',
     day: 'numeric',
   }).format(new Date(`${iso}T12:00:00Z`))
+
+// Convert a store wall-clock time to an instant without using the viewer's zone.
+// Iteration resolves the offset on the target date, including Central DST.
+export const eventStartISO = (date: string, time: string): string | null => {
+  const iso = eventDateToISO(date)
+  const minutes = parseTimeToMinutes(time)
+  if (!iso || minutes === null) return null
+  const wall = Date.parse(`${iso}T00:00:00Z`) + minutes * 60000
+  let instant = wall
+  for (let attempt = 0; attempt < 3; attempt++) {
+    const local = getStoreDateTimeParts(new Date(instant))
+    const represented =
+      Date.parse(`${local.dateISO}T00:00:00Z`) + (local.hour * 60 + local.minute) * 60000
+    instant += wall - represented
+  }
+  const local = getStoreDateTimeParts(new Date(instant))
+  if (local.dateISO !== iso || local.hour * 60 + local.minute !== minutes) return null
+  return new Date(instant).toISOString()
+}

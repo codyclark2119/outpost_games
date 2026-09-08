@@ -23,6 +23,7 @@ export const useWeeklyOverridesStore = defineStore('weeklyOverrides', () => {
     }
   }
   const addOverride = async (override: Omit<WeeklyOverride, 'id'>) => {
+    if (loading.value) throw new Error('An operation is already in progress')
     loading.value = true
     error.value = null
     try {
@@ -40,6 +41,7 @@ export const useWeeklyOverridesStore = defineStore('weeklyOverrides', () => {
     }
   }
   const removeOverride = async (id: string) => {
+    if (loading.value) throw new Error('An operation is already in progress')
     loading.value = true
     error.value = null
     try {

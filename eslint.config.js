@@ -24,7 +24,6 @@ export default [
       '!**/.env.example',
       '**/Dockerfile*',
       '**/docker-compose*.yml',
-      '**/scripts/**',
       '**/public/**',
     ],
   },
@@ -34,7 +33,13 @@ export default [
 
   // Node.js files (API server, config files)
   {
-    files: ['api/**/*.js', '*.config.js', '*.config.ts'],
+    files: [
+      'api/**/*.js',
+      'scripts/**/*.{js,mjs,cjs}',
+      'tests/**/*.mjs',
+      '*.config.js',
+      '*.config.ts',
+    ],
     languageOptions: {
       globals: {
         ...globals.node,
@@ -59,6 +64,8 @@ export default [
       '@typescript-eslint': tsPlugin,
     },
     rules: {
+      // TypeScript's rule understands type-only parameters; the JS rule does not.
+      'no-unused-vars': 'off',
       '@typescript-eslint/no-unused-vars': [
         'error',
         {
@@ -94,9 +101,22 @@ export default [
       '@typescript-eslint': tsPlugin,
     },
     rules: {
-      'vue/multi-word-component-names': ['warn', {
-        ignores: ['About', 'Cart', 'Contact', 'Events', 'Home', 'Privacy', 'Products', 'Shop', 'Terms']
-      }],
+      'vue/multi-word-component-names': [
+        'warn',
+        {
+          ignores: [
+            'About',
+            'Cart',
+            'Contact',
+            'Events',
+            'Home',
+            'Privacy',
+            'Products',
+            'Shop',
+            'Terms',
+          ],
+        },
+      ],
       'vue/no-unused-vars': 'error',
       'vue/require-default-prop': 'off',
       'vue/attributes-order': 'warn',
@@ -113,6 +133,8 @@ export default [
           math: 'always',
         },
       ],
+      // TypeScript's rule understands type-only parameters; the JS rule does not.
+      'no-unused-vars': 'off',
       '@typescript-eslint/no-unused-vars': [
         'error',
         {

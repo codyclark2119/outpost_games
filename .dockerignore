@@ -40,3 +40,7 @@ api/node_modules
 # Documentation
 README.md
 WPN_ASSET_ACCESS_GUIDE.md
+
+# Backend environment files must not be copied into the runtime image.
+api/.env
+api/.env.*

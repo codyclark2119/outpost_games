@@ -36,10 +36,10 @@ export default defineConfig({
           }
         },
         // Asset file naming with content hash for cache busting
-        assetFileNames: (assetInfo) => {
+        assetFileNames: assetInfo => {
           const info = assetInfo.name?.split('.')
           const ext = info?.[info.length - 1]
-          
+
           // Fonts
           if (/woff|woff2|ttf|eot|otf/.test(ext || '')) {
             return 'assets/fonts/[name]-[hash][extname]'
@@ -58,7 +58,7 @@ export default defineConfig({
         // JS chunk naming with content hash
         chunkFileNames: 'assets/js/[name]-[hash].js',
         entryFileNames: 'assets/js/[name]-[hash].js',
-      }
+      },
     },
     // Asset inline threshold - files smaller than this are inlined
     assetsInlineLimit: 4096, // 4kb
@@ -79,7 +79,7 @@ export default defineConfig({
   optimizeDeps: {
     include: ['vue', 'vue-router', 'pinia'],
     // Exclude large dependencies that don't need pre-bundling
-    exclude: []
+    exclude: [],
   },
   // Server settings for development
   server: {
@@ -88,8 +88,8 @@ export default defineConfig({
     proxy: {
       '/api': {
         target: 'http://localhost:3001',
-        changeOrigin: true
-      }
-    }
-  }
+        changeOrigin: true,
+      },
+    },
+  },
 })

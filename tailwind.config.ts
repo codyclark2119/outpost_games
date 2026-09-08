@@ -1,9 +1,6 @@
 /** @type {import('tailwindcss').Config} */
 export default {
-  content: [
-    "./index.html",
-    "./src/**/*.{vue,js,ts,jsx,tsx}",
-  ],
+  content: ['./index.html', './src/**/*.{vue,js,ts,jsx,tsx}'],
   theme: {
     extend: {
       colors: {
@@ -20,7 +17,7 @@ export default {
         'outpost-black': '#0D0D0D',
         // Lorwyn Eclipsed color palette
         'lorwyn-teal': '#4ECDC4',
-        'lorwyn-teal-dark': '#3BA39E', 
+        'lorwyn-teal-dark': '#3BA39E',
         'lorwyn-gold': '#F4D03F',
         'lorwyn-gold-dark': '#D4B429',
         'lorwyn-lavender': '#B8A8E8',
@@ -39,8 +36,8 @@ export default {
         'mtg-green': '#00733E',
       },
       fontFamily: {
-        'cinzel': ['Cinzel', 'serif'],
-        'crimson': ['Crimson Text', 'serif'],
+        cinzel: ['Cinzel', 'serif'],
+        crimson: ['Crimson Text', 'serif'],
       },
       animation: {
         'fade-in': 'fadeIn 0.5s ease-in-out',

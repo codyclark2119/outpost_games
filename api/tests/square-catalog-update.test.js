@@ -1,7 +1,11 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
 
-import { updateSquareCatalogItem, deleteSquareCatalogVariation, SquareVersionMismatchError } from '../squarePosClient.js'
+import {
+  updateSquareCatalogItem,
+  deleteSquareCatalogVariation,
+  SquareVersionMismatchError,
+} from '../squarePosClient.js'
 
 const FAKE_ENV = { SQUARE_ACCESS_TOKEN: 'fake-token', SQUARE_ENV: 'sandbox' }
 
@@ -53,7 +57,12 @@ const multiVariationObject = () => {
     type: 'ITEM_VARIATION',
     id: 'VAR456',
     version: 333,
-    item_variation_data: { item_id: 'ITEM123', name: 'Large', sku: 'KEEP-ME-5678', price_money: { amount: 700, currency: 'USD' } },
+    item_variation_data: {
+      item_id: 'ITEM123',
+      name: 'Large',
+      sku: 'KEEP-ME-5678',
+      price_money: { amount: 700, currency: 'USD' },
+    },
   })
   return single
 }
@@ -84,10 +93,14 @@ test('updateSquareCatalogItem changes only the allow-listed fields, leaving sku/
   ]
 
   await withMockedFetch(responses, async calls => {
-    await updateSquareCatalogItem('ITEM123', {
-      name: 'New Name',
-      variations: [{ id: 'VAR123', priceCents: 999, trackInventory: false }],
-    }, FAKE_ENV)
+    await updateSquareCatalogItem(
+      'ITEM123',
+      {
+        name: 'New Name',
+        variations: [{ id: 'VAR123', priceCents: 999, trackInventory: false }],
+      },
+      FAKE_ENV
+    )
 
     const upsertCall = calls[1]
     const sentObject = JSON.parse(upsertCall.options.body).object
@@ -198,9 +211,13 @@ test('updateSquareCatalogItem edits only the referenced variation, leaving sibli
   ]
 
   await withMockedFetch(responses, async calls => {
-    await updateSquareCatalogItem('ITEM123', {
-      variations: [{ id: 'VAR123', priceCents: 999 }],
-    }, FAKE_ENV)
+    await updateSquareCatalogItem(
+      'ITEM123',
+      {
+        variations: [{ id: 'VAR123', priceCents: 999 }],
+      },
+      FAKE_ENV
+    )
 
     const sentObject = JSON.parse(calls[1].options.body).object
     const [varA, varB] = sentObject.item_data.variations
@@ -245,7 +262,11 @@ test('updateSquareCatalogItem surfaces a version conflict as SquareVersionMismat
     {
       ok: false,
       status: 400,
-      body: { errors: [{ category: 'INVALID_REQUEST_ERROR', code: 'VERSION_MISMATCH', detail: 'stale version' }] },
+      body: {
+        errors: [
+          { category: 'INVALID_REQUEST_ERROR', code: 'VERSION_MISMATCH', detail: 'stale version' },
+        ],
+      },
     },
   ]
 

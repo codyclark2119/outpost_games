@@ -31,7 +31,10 @@ const withMockedFetch = async (responses, run) => {
 test('uploadSquareCatalogImage moves the newly uploaded image to the front of image_ids', async () => {
   const responses = [
     // POST /v2/catalog/images
-    { ok: true, body: { image: { id: 'NEW_IMAGE', image_data: { url: 'https://example.com/new.png' } } } },
+    {
+      ok: true,
+      body: { image: { id: 'NEW_IMAGE', image_data: { url: 'https://example.com/new.png' } } },
+    },
     // GET /v2/catalog/object/:id (fetchRawCatalogObject)
     {
       ok: true,
@@ -65,7 +68,10 @@ test('uploadSquareCatalogImage moves the newly uploaded image to the front of im
 
 test('uploadSquareCatalogImage drops a stale duplicate of the new image id from the tail', async () => {
   const responses = [
-    { ok: true, body: { image: { id: 'NEW_IMAGE', image_data: { url: 'https://example.com/new.png' } } } },
+    {
+      ok: true,
+      body: { image: { id: 'NEW_IMAGE', image_data: { url: 'https://example.com/new.png' } } },
+    },
     {
       ok: true,
       body: {
@@ -97,7 +103,12 @@ test('uploadSquareCatalogImage drops a stale duplicate of the new image id from 
 // endpoint accepts either interchangeably (confirmed against official docs).
 test('uploadSquareCatalogImage reorders item_variation_data.image_ids when the target is a variation', async () => {
   const responses = [
-    { ok: true, body: { image: { id: 'NEW_IMAGE', image_data: { url: 'https://example.com/variation.png' } } } },
+    {
+      ok: true,
+      body: {
+        image: { id: 'NEW_IMAGE', image_data: { url: 'https://example.com/variation.png' } },
+      },
+    },
     {
       ok: true,
       body: {

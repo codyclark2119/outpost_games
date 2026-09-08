@@ -137,6 +137,7 @@
                   <td class="px-2 py-2 text-right">
                     <button
                       class="text-red-600 text-xs font-semibold hover:underline"
+                      :disabled="deletingMapping"
                       @click="deleteMapping(m.id)"
                     >
                       Delete
@@ -255,6 +256,9 @@
 </template>
 
 <script setup lang="ts">
+import { useConfirmation } from '../../composables/useConfirmation'
+const { ask } = useConfirmation()
+import { squareAdminApi } from '../../services/squareAdminApi'
 import { ref, reactive, computed, onMounted } from 'vue'
 
 interface InventoryItem {
@@ -264,16 +268,7 @@ interface InventoryItem {
   quantity: number | null
 }
 
-interface RestockMapping {
-  id: string
-  boxVariationId: string
-  boxName: string
-  packsVariationId: string
-  packsName: string
-  packsPerBox: number
-}
-
-const API_BASE = `${import.meta.env.VITE_API_URL || '/api'}/square`
+import type { RestockMapping, RestockResult } from '../../services/squareAdminTypes'
 
 const loading = ref(false)
 const fetchError = ref<string | null>(null)
@@ -283,16 +278,12 @@ const mappings = ref<RestockMapping[]>([])
 const quantityById = computed(() => new Map(items.value.map(item => [item.id, item.quantity ?? 0])))
 
 const fetchInventory = async () => {
-  const res = await fetch(`${API_BASE}/inventory-report`)
-  if (!res.ok) throw new Error('Failed to fetch Square inventory report')
-  const data = await res.json()
+  const data = await squareAdminApi.getCatalog()
   items.value = data.items || []
 }
 
 const fetchMappings = async () => {
-  const res = await fetch(`${API_BASE}/restock-mappings`)
-  if (!res.ok) throw new Error('Failed to fetch restock mappings')
-  const data = await res.json()
+  const data = await squareAdminApi.getRestockMappings()
   mappings.value = data.mappings || []
 }
 
@@ -379,22 +370,17 @@ const createMapping = async () => {
     return
   }
 
+  if (newMapping.saving) return
   newMapping.saving = true
   newMapping.error = ''
   try {
-    const res = await fetch(`${API_BASE}/restock-mappings`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        boxVariationId: newMapping.boxVariationId,
-        boxName: newMapping.boxName,
-        packsVariationId: newMapping.packsVariationId,
-        packsName: newMapping.packsName,
-        packsPerBox,
-      }),
+    const data = await squareAdminApi.createRestockMapping({
+      boxVariationId: newMapping.boxVariationId,
+      boxName: newMapping.boxName,
+      packsVariationId: newMapping.packsVariationId,
+      packsName: newMapping.packsName,
+      packsPerBox,
     })
-    const data = await res.json().catch(() => ({}))
-    if (!res.ok) throw new Error(data.error || 'Failed to create pairing')
     mappings.value.push(data.mapping)
     cancelNewMapping()
   } catch (e) {
@@ -404,26 +390,26 @@ const createMapping = async () => {
   }
 }
 
+const deletingMapping = ref(false)
 const deleteMapping = async (id: string) => {
+  if (
+    deletingMapping.value ||
+    !(await ask('Delete this saved restock pairing? Inventory counts will stay as they are.'))
+  )
+    return
+  deletingMapping.value = true
   try {
-    const res = await fetch(`${API_BASE}/restock-mappings/${id}`, { method: 'DELETE' })
-    if (!res.ok) throw new Error('Failed to delete pairing')
+    await squareAdminApi.deleteRestockMapping(id)
     mappings.value = mappings.value.filter(m => m.id !== id)
     if (restockForm.mappingId === id) restockForm.mappingId = ''
-  } catch {
-    // Non-critical — the list will still reflect the real state on next refresh.
+  } catch (e) {
+    fetchError.value = e instanceof Error ? e.message : 'Unable to delete pairing'
+  } finally {
+    deletingMapping.value = false
   }
 }
 
 // ── Quick Restock action ──────────────────────────────────────────────────────
-interface RestockResult {
-  boxName: string
-  packsName: string
-  previousBoxQty: number
-  newBoxQty: number
-  previousPacksQty: number
-  newPacksQty: number
-}
 
 const restockForm = reactive({
   mappingId: '',
@@ -455,18 +441,15 @@ const canApplyRestock = computed(
 )
 
 const applyRestock = async () => {
-  if (!selectedMapping.value) return
+  if (!selectedMapping.value || restockForm.applying) return
   restockForm.applying = true
   restockForm.error = ''
   restockForm.result = null
   try {
-    const res = await fetch(`${API_BASE}/restock-mappings/${selectedMapping.value.id}/apply`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ boxesOpened: restockFormBoxesOpened.value }),
-    })
-    const data = await res.json().catch(() => ({}))
-    if (!res.ok) throw new Error(data.error || data.message || 'Restock failed')
+    const data = await squareAdminApi.applyRestock(
+      selectedMapping.value.id,
+      restockFormBoxesOpened.value
+    )
     restockForm.result = {
       boxName: selectedMapping.value.boxName,
       packsName: selectedMapping.value.packsName,

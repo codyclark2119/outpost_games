@@ -1,19 +1,8 @@
-// Shared "which date does this weekly slot fall on" math, used by both
-// Home.vue's featured-day banner and Events.vue's weekly grid so the two
-// views never drift on what "the next occurrence" means.
-
-// Next date (today counts if it matches) whose getDay() === jsDay, at midnight.
+import { addDaysToISODate, getStoreTodayISO, weekdayFromISODate } from './eventDateTime'
+// Date is a UTC-noon calendar carrier, not an event start timestamp.
 export const nextOccurrenceOf = (jsDay: number, from: Date = new Date()): Date => {
-  const date = new Date(from)
-  date.setHours(0, 0, 0, 0)
-  const diff = (jsDay - date.getDay() + 7) % 7
-  date.setDate(date.getDate() + diff)
-  return date
+  const today = getStoreTodayISO(from)
+  const iso = addDaysToISODate(today, (jsDay - weekdayFromISODate(today) + 7) % 7)
+  return new Date(`${iso}T12:00:00Z`)
 }
-
-export const toISODate = (date: Date): string => {
-  const year = date.getFullYear()
-  const month = String(date.getMonth() + 1).padStart(2, '0')
-  const day = String(date.getDate()).padStart(2, '0')
-  return `${year}-${month}-${day}`
-}
+export const toISODate = (date: Date): string => date.toISOString().slice(0, 10)

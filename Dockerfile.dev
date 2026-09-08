@@ -3,7 +3,7 @@
 # See Dockerfile.dev.dockerignore for what is excluded from the build context.
 # Use: docker-compose (local-dev) with npm run docker:rebuild:web
 
-FROM node:20-alpine AS builder
+FROM node:22-alpine AS builder
 WORKDIR /app
 
 COPY package*.json ./

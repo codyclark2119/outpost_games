@@ -1,3 +1,4 @@
+import { assertPersistence, requiresPersistence, unavailable } from './services/persistence.js'
 // ─── Squarespace cache + merge orchestration ─────────────────────────────────
 // Fetches the read-only Squarespace store (products + inventory), merges them
 // into normalized entries with computed stock/visibility, and caches the result.
@@ -8,7 +9,10 @@
 // initSquarespaceCache() so we reuse server.js's single connection.
 
 import { listAllProducts, listAllInventory, isConfigured } from './squarespaceClient.js'
-import { SquarespaceNotConfiguredError, SquarespaceNotAuthorizedError } from './squarespaceErrors.js'
+import {
+  SquarespaceNotConfiguredError,
+  SquarespaceNotAuthorizedError,
+} from './squarespaceErrors.js'
 
 const CACHE_KEY = 'outpost:squarespace:cache'
 const ASSIGNMENTS_KEY = 'outpost:squarespace:assignments'
@@ -69,23 +73,27 @@ const writeCache = async cache => {
 }
 
 const readAssignments = async () => {
+  assertPersistence(isRedisConnected() && redisClient)
   if (!isRedisConnected() || !redisClient) return memoryAssignments
   try {
     const data = await redisClient.get(ASSIGNMENTS_KEY)
     return data ? JSON.parse(data) : memoryAssignments
-  } catch {
+  } catch (cause) {
+    if (requiresPersistence()) throw unavailable(cause)
     return memoryAssignments
   }
 }
 
 const writeAssignments = async assignments => {
-  memoryAssignments = assignments // write-through mirror
-  if (!isRedisConnected() || !redisClient) return
-  try {
-    await redisClient.set(ASSIGNMENTS_KEY, JSON.stringify(assignments))
-  } catch (err) {
-    console.warn('⚠️  Failed to persist Squarespace assignments to Redis:', err.message)
+  assertPersistence(isRedisConnected() && redisClient)
+  if (isRedisConnected() && redisClient) {
+    try {
+      await redisClient.set(ASSIGNMENTS_KEY, JSON.stringify(assignments))
+    } catch (cause) {
+      throw unavailable(cause)
+    }
   }
+  memoryAssignments = assignments
 }
 
 // ─── Pure merge logic ────────────────────────────────────────────────────────
@@ -246,7 +254,7 @@ export const bootstrapSquarespaceCache = () => {
   if (!isConfigured()) {
     if (!warnedNotConfigured) {
       console.warn(
-        '⚠️  Squarespace isn\'t configured — set SQUARESPACE_API_KEY, or SQUARESPACE_CLIENT_ID/SQUARESPACE_CLIENT_SECRET/SQUARESPACE_REDIRECT_URI for OAuth. Integration is idle (manual catalog unaffected).'
+        "⚠️  Squarespace isn't configured — set SQUARESPACE_API_KEY, or SQUARESPACE_CLIENT_ID/SQUARESPACE_CLIENT_SECRET/SQUARESPACE_REDIRECT_URI for OAuth. Integration is idle (manual catalog unaffected)."
       )
       warnedNotConfigured = true
     }

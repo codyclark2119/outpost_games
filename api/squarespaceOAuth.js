@@ -1,3 +1,4 @@
+import { assertPersistence, requiresPersistence, unavailable } from './services/persistence.js'
 // ─── Squarespace OAuth 2.0 (authorization-code flow) ─────────────────────────
 // Needed because this store isn't on a plan that supports Developer API Keys,
 // so the read-only Products/Inventory integration in squarespaceClient.js has
@@ -19,7 +20,10 @@
 // integration actually needs — never request write scopes here.
 
 import crypto from 'crypto'
-import { SquarespaceNotConfiguredError, SquarespaceNotAuthorizedError } from './squarespaceErrors.js'
+import {
+  SquarespaceNotConfiguredError,
+  SquarespaceNotAuthorizedError,
+} from './squarespaceErrors.js'
 
 const AUTHORIZE_URL = 'https://login.squarespace.com/api/1/login/oauth/provider/authorize'
 const TOKEN_URL = 'https://login.squarespace.com/api/1/login/oauth/provider/tokens'
@@ -56,23 +60,27 @@ export const initSquarespaceOAuth = ({ redisClient: client, isRedisConnected: co
 }
 
 const readTokens = async () => {
+  assertPersistence(isRedisConnected() && redisClient)
   if (!isRedisConnected() || !redisClient) return memoryTokens
   try {
     const data = await redisClient.get(TOKENS_KEY)
     return data ? JSON.parse(data) : memoryTokens
-  } catch {
+  } catch (cause) {
+    if (requiresPersistence()) throw unavailable(cause)
     return memoryTokens
   }
 }
 
 const writeTokens = async tokens => {
-  memoryTokens = tokens // write-through mirror, same pattern as squarespaceCache.js
-  if (!isRedisConnected() || !redisClient) return
-  try {
-    await redisClient.set(TOKENS_KEY, JSON.stringify(tokens))
-  } catch (err) {
-    console.warn('⚠️  Failed to persist Squarespace OAuth tokens to Redis:', err.message)
+  assertPersistence(isRedisConnected() && redisClient)
+  if (isRedisConnected() && redisClient) {
+    try {
+      await redisClient.set(TOKENS_KEY, JSON.stringify(tokens))
+    } catch (cause) {
+      throw unavailable(cause)
+    }
   }
+  memoryTokens = tokens
 }
 
 // Builds the one-time /authorize URL. Deliberately omits website_id — that

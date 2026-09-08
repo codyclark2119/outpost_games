@@ -89,7 +89,10 @@ test('batchUpsertSquareCatalogObjects chunks at 1000 objects per call and merges
   ]
 
   await withMockedFetch(responses, async calls => {
-    const { objects: resultObjects, idMappings } = await batchUpsertSquareCatalogObjects(objects, FAKE_ENV)
+    const { objects: resultObjects, idMappings } = await batchUpsertSquareCatalogObjects(
+      objects,
+      FAKE_ENV
+    )
 
     assert.equal(calls.length, 2)
     assert.equal(JSON.parse(calls[0].options.body).batches[0].objects.length, 1000)

@@ -1,3 +1,4 @@
+import { apiFetch } from '../services/api'
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
 
@@ -31,8 +32,6 @@ export interface CatalogSection {
   sets: CatalogSet[]
 }
 
-const API_BASE_URL = import.meta.env.VITE_API_URL || '/api'
-
 // Square category ids are opaque strings, unsuitable for a readable /products/:typeId
 // URL — sections are addressed by a slug of their (admin-controlled, effectively
 // stable) top-level category name instead.
@@ -65,9 +64,9 @@ export const useSquareCatalogStore = defineStore('squareCatalog', () => {
     loading.value = true
     error.value = null
     try {
-      const response = await fetch(`${API_BASE_URL}/square/public-catalog`)
-      if (!response.ok) throw new Error('Failed to fetch catalog')
-      const data = await response.json()
+      const data = await apiFetch<{ items: SquarePublicItem[]; fetchedAt: string | null }>(
+        '/square/public-catalog'
+      )
       items.value = data.items || []
       fetchedAt.value = data.fetchedAt || null
       loadedAt.value = Date.now()

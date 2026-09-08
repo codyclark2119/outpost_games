@@ -17,7 +17,13 @@ const IMAGE_EXTENSIONS = new Set(['.png', '.jpg', '.jpeg', '.webp', '.gif', '.av
 // (e.g. local-dev's docker-compose, where the API runs from a differently
 // shaped container and gets the folder volume-mounted elsewhere instead).
 const defaultPostersDir = () =>
-  path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', 'public', 'wpn-assets', 'posters')
+  path.resolve(
+    path.dirname(fileURLToPath(import.meta.url)),
+    '..',
+    'public',
+    'wpn-assets',
+    'posters'
+  )
 
 const resolvePostersDir = (env = process.env) =>
   env.MARKETING_POSTERS_DIR ? path.resolve(env.MARKETING_POSTERS_DIR) : defaultPostersDir()
@@ -61,7 +67,10 @@ const readMetadata = async (dir, filename) => {
     return parsed && typeof parsed === 'object' ? parsed : {}
   } catch (error) {
     if (error.code === 'ENOENT') return {}
-    if (error instanceof SyntaxError) { console.warn(`⚠️  Ignoring malformed poster metadata for ${filename}: ${error.message}`); return {} }
+    if (error instanceof SyntaxError) {
+      console.warn(`⚠️  Ignoring malformed poster metadata for ${filename}: ${error.message}`)
+      return {}
+    }
     throw error
   }
 }
@@ -89,11 +98,22 @@ export const listMarketingPosters = async (env = process.env) => {
     .filter(filename => IMAGE_EXTENSIONS.has(path.extname(filename).toLowerCase()))
     .sort(comparePosterFilenames)
 
-  return Promise.all(filenames.map(async filename => {
-    const metadata = await readMetadata(dir, filename)
-    const fallbackTitle = titleFromFilename(filename)
-    const title = typeof metadata.title === 'string' && metadata.title.trim() ? metadata.title.trim() : fallbackTitle
-    const alt = typeof metadata.alt === 'string' && metadata.alt.trim() ? metadata.alt.trim() : title
-    return { id:path.basename(filename,path.extname(filename)), title, alt, imageUrl:`/wpn-assets/posters/${filename}` }
-  }))
+  return Promise.all(
+    filenames.map(async filename => {
+      const metadata = await readMetadata(dir, filename)
+      const fallbackTitle = titleFromFilename(filename)
+      const title =
+        typeof metadata.title === 'string' && metadata.title.trim()
+          ? metadata.title.trim()
+          : fallbackTitle
+      const alt =
+        typeof metadata.alt === 'string' && metadata.alt.trim() ? metadata.alt.trim() : title
+      return {
+        id: path.basename(filename, path.extname(filename)),
+        title,
+        alt,
+        imageUrl: `/wpn-assets/posters/${filename}`,
+      }
+    })
+  )
 }

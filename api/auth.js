@@ -1,3 +1,5 @@
+import { assertPersistence, unavailable } from './services/persistence.js'
+import { asyncRoute } from './middleware/errorHandler.js'
 // ─── Admin session auth ───────────────────────────────────────────────────────
 // Opaque server-side sessions (not JWT) so a login can be revoked immediately by
 // deleting its Redis key — matters for an admin panel with catalog write access.
@@ -34,7 +36,8 @@ const parseAdminUsers = () => {
 }
 
 export const verifyCredentials = async (username, password) => {
-  if (!username || !password) return false
+  if (typeof username !== 'string' || typeof password !== 'string' || !username || !password)
+    return false
   const users = parseAdminUsers()
   const user = users.find(u => u.username === username)
   if (!user || !user.passwordHash) return false
@@ -42,13 +45,23 @@ export const verifyCredentials = async (username, password) => {
 }
 
 export const createSession = async username => {
+  assertPersistence(isRedisConnected() && redisClient)
   const sessionId = crypto.randomBytes(32).toString('hex')
   const session = { username, createdAt: Date.now() }
 
   if (isRedisConnected() && redisClient) {
-    await redisClient.set(SESSION_PREFIX + sessionId, JSON.stringify(session), { EX: SESSION_TTL_SECONDS })
+    await redisClient
+      .set(SESSION_PREFIX + sessionId, JSON.stringify(session), {
+        EX: SESSION_TTL_SECONDS,
+      })
+      .catch(cause => {
+        throw unavailable(cause)
+      })
   } else {
-    memorySessions.set(sessionId, { ...session, expiresAt: Date.now() + SESSION_TTL_SECONDS * 1000 })
+    memorySessions.set(sessionId, {
+      ...session,
+      expiresAt: Date.now() + SESSION_TTL_SECONDS * 1000,
+    })
   }
 
   return sessionId
@@ -56,6 +69,7 @@ export const createSession = async username => {
 
 export const getSession = async sessionId => {
   if (!sessionId) return null
+  assertPersistence(isRedisConnected() && redisClient)
 
   if (isRedisConnected() && redisClient) {
     const key = SESSION_PREFIX + sessionId
@@ -77,19 +91,28 @@ export const getSession = async sessionId => {
 
 export const destroySession = async sessionId => {
   if (!sessionId) return
+  assertPersistence(isRedisConnected() && redisClient)
   if (isRedisConnected() && redisClient) {
-    await redisClient.del(SESSION_PREFIX + sessionId)
+    await redisClient.del(SESSION_PREFIX + sessionId).catch(cause => {
+      throw unavailable(cause)
+    })
   } else {
     memorySessions.delete(sessionId)
   }
 }
 
-export const requireAdminAuth = async (req, res, next) => {
+export const requireAdminAuth = asyncRoute(async (req, res, next) => {
+  if (req.admin) return next()
   const sessionId = req.cookies?.sid
-  const session = await getSession(sessionId)
+  let session
+  try {
+    session = await getSession(sessionId)
+  } catch (cause) {
+    throw unavailable(cause)
+  }
   if (!session) {
     return res.status(401).json({ error: 'Not authenticated' })
   }
   req.admin = session
   next()
-}
+})

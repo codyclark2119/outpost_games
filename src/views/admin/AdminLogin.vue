@@ -52,12 +52,17 @@ const error = ref('')
 const loading = ref(false)
 
 const handleSubmit = async () => {
+  if (loading.value) return
   loading.value = true
   error.value = ''
   try {
     await auth.login(username.value, password.value)
     const redirect =
-      typeof route.query.redirect === 'string' ? route.query.redirect : ADMIN_BASE_PATH
+      typeof route.query.redirect === 'string' &&
+      route.query.redirect.startsWith(`${ADMIN_BASE_PATH}/`) &&
+      !route.query.redirect.startsWith('//')
+        ? route.query.redirect
+        : ADMIN_BASE_PATH
     router.push(redirect)
   } catch (e) {
     error.value = e instanceof Error ? e.message : 'Login failed'

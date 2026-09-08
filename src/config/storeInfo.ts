@@ -1,3 +1,4 @@
+import storeConfig from '../../api/storeConfig.json'
 // Single source of truth for store facts — previously duplicated independently
 // across Home.vue, About.vue, Contact.vue, and AppFooter.vue.
 export const STORE_INFO = {
@@ -10,7 +11,7 @@ export const STORE_INFO = {
     full: '605 W. Main Street, Suite 4, Rio Grande City, TX 78582',
   },
   email: 'theoutpostgamingrgv@gmail.com',
-  timeZone: 'America/Chicago',
+  timeZone: storeConfig.timeZone,
   // Every open day keeps identical hours, so these are grouped rather than
   // listed per-day — both consumers (AppFooter, Home's contact section) just
   // iterate this object in insertion order.

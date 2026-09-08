@@ -1,4 +1,4 @@
-FROM node:20-alpine
+FROM node:22-alpine
 
 # /app/api (not /app) so server.js's repo-root-relative .env path resolution
 # (path.resolve(__dirname, '..', '.env') -> /app/.env) matches Dockerfile.combined's

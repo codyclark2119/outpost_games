@@ -57,7 +57,9 @@ const CATEGORY_NAME = categoryFlagIndex !== -1 ? process.argv[categoryFlagIndex 
 const filePath = process.argv.slice(2).find(arg => arg.endsWith('.xlsx'))
 
 if (!filePath) {
-  console.error('Usage: node scripts/cross-reference-wotc-sku.js <path-to.xlsx> [--create-drafts] [--sellable] [--update-existing] [--category "<Name>"]')
+  console.error(
+    'Usage: node scripts/cross-reference-wotc-sku.js <path-to.xlsx> [--create-drafts] [--sellable] [--update-existing] [--category "<Name>"]'
+  )
   process.exit(1)
 }
 
@@ -66,7 +68,15 @@ if ((CREATE_DRAFTS || UPDATE_EXISTING) && !CATEGORY_NAME) {
   process.exit(1)
 }
 
-const REQUIRED_COLUMNS = ['Item Name', 'SKU', 'GTIN', 'Description', 'Item Type', 'Variation Name', 'Price']
+const REQUIRED_COLUMNS = [
+  'Item Name',
+  'SKU',
+  'GTIN',
+  'Description',
+  'Item Type',
+  'Variation Name',
+  'Price',
+]
 
 const normalize = str =>
   (str || '')
@@ -80,10 +90,15 @@ async function readWotcSheet(path) {
   await workbook.xlsx.readFile(path)
   const sheet = workbook.worksheets[0]
 
-  const header = sheet.getRow(1).values.slice(1).map(v => String(v).trim())
+  const header = sheet
+    .getRow(1)
+    .values.slice(1)
+    .map(v => String(v).trim())
   const missingColumns = REQUIRED_COLUMNS.filter(col => !header.includes(col))
   if (missingColumns.length) {
-    throw new Error(`This doesn't look like a WotC SKU sheet — missing columns: ${missingColumns.join(', ')}`)
+    throw new Error(
+      `This doesn't look like a WotC SKU sheet — missing columns: ${missingColumns.join(', ')}`
+    )
   }
   const columnIndex = Object.fromEntries(header.map((name, i) => [name, i + 1]))
 
@@ -107,7 +122,9 @@ async function readWotcSheet(path) {
     const price = row.getCell(columnIndex['Price']).value
     itemsByName.get(name).variations.push({
       variationName: row.getCell(columnIndex['Variation Name']).value || 'Regular',
-      gtin: row.getCell(columnIndex['GTIN']).value ? String(row.getCell(columnIndex['GTIN']).value) : null,
+      gtin: row.getCell(columnIndex['GTIN']).value
+        ? String(row.getCell(columnIndex['GTIN']).value)
+        : null,
       wotcSku: row.getCell(columnIndex['SKU']).value || null,
       priceCents: price ? Math.round(Number(price) * 100) : null,
     })
@@ -119,7 +136,9 @@ async function readWotcSheet(path) {
 async function resolveCategoryId(name, env) {
   const categories = await listSquareCategories(env)
   const normalized = name.trim().toLowerCase()
-  const existing = categories.find(category => (category.name || '').trim().toLowerCase() === normalized)
+  const existing = categories.find(
+    category => (category.name || '').trim().toLowerCase() === normalized
+  )
   if (existing) {
     console.log(`Using existing category "${existing.name}" (${existing.id})`)
     return existing.id
@@ -132,12 +151,17 @@ async function resolveCategoryId(name, env) {
 
 async function main() {
   const { items: fileItems, rowCount } = await readWotcSheet(filePath)
-  console.log(`Parsed ${fileItems.length} product(s) / ${rowCount} variation row(s) from ${filePath}`)
+  console.log(
+    `Parsed ${fileItems.length} product(s) / ${rowCount} variation row(s) from ${filePath}`
+  )
 
   console.log('Reading current Square catalog...')
   const catalogVariations = await listSquareCatalogItems(process.env)
   const bySku = new Map(catalogVariations.filter(v => v.sku).map(v => [v.sku, v]))
-  const normalizedCatalog = catalogVariations.map(v => ({ ...v, normalizedName: normalize(v.name) }))
+  const normalizedCatalog = catalogVariations.map(v => ({
+    ...v,
+    normalizedName: normalize(v.name),
+  }))
 
   const results = { exactGtinMatch: [], possibleNameMatch: [], new: [] }
 
@@ -150,7 +174,8 @@ async function main() {
       }
       const normalizedItemName = normalize(item.name)
       const nameMatch = normalizedCatalog.find(
-        v => v.normalizedName === normalizedItemName || v.normalizedName.includes(normalizedItemName)
+        v =>
+          v.normalizedName === normalizedItemName || v.normalizedName.includes(normalizedItemName)
       )
       if (nameMatch) {
         results.possibleNameMatch.push({ item, variation, match: nameMatch })
@@ -162,21 +187,31 @@ async function main() {
 
   console.log(`\n✅ Already in catalog (GTIN match): ${results.exactGtinMatch.length}`)
   for (const r of results.exactGtinMatch) {
-    console.log(`   "${r.item.name}" / ${r.variation.variationName} → "${r.match.name}" (sku ${r.match.sku})`)
+    console.log(
+      `   "${r.item.name}" / ${r.variation.variationName} → "${r.match.name}" (sku ${r.match.sku})`
+    )
   }
 
-  console.log(`\n⚠️  Possible match by name, but SKU/GTIN differs — review manually: ${results.possibleNameMatch.length}`)
+  console.log(
+    `\n⚠️  Possible match by name, but SKU/GTIN differs — review manually: ${results.possibleNameMatch.length}`
+  )
   for (const r of results.possibleNameMatch) {
-    console.log(`   "${r.item.name}" (file GTIN ${r.variation.gtin}) ~ "${r.match.name}" (catalog sku ${r.match.sku})`)
+    console.log(
+      `   "${r.item.name}" (file GTIN ${r.variation.gtin}) ~ "${r.match.name}" (catalog sku ${r.match.sku})`
+    )
   }
 
   console.log(`\n🆕 Not in catalog at all: ${results.new.length}`)
   for (const r of results.new) {
-    console.log(`   ${r.item.name} — ${r.variation.variationName} (GTIN ${r.variation.gtin}, WotC SKU ${r.variation.wotcSku})`)
+    console.log(
+      `   ${r.item.name} — ${r.variation.variationName} (GTIN ${r.variation.gtin}, WotC SKU ${r.variation.wotcSku})`
+    )
   }
 
   if (!CREATE_DRAFTS && !UPDATE_EXISTING) {
-    console.log('\nReport only — rerun with --create-drafts and/or --update-existing (plus --category) to write changes.')
+    console.log(
+      '\nReport only — rerun with --create-drafts and/or --update-existing (plus --category) to write changes.'
+    )
     return
   }
 
@@ -209,16 +244,22 @@ async function main() {
         continue
       }
 
-      await updateSquareCatalogItem(itemId, {
-        name: fileItem.name,
-        description: fileItem.description,
-        categoryIds: [categoryId],
-      }, process.env)
+      await updateSquareCatalogItem(
+        itemId,
+        {
+          name: fileItem.name,
+          description: fileItem.description,
+          categoryIds: [categoryId],
+        },
+        process.env
+      )
       console.log(`   updated "${current.name}"${needsNameUpdate ? ` → "${fileItem.name}"` : ''}`)
       updatedCount += 1
     }
 
-    console.log(`\nUpdated ${updatedCount} existing item(s), ${alreadyCorrectCount} already correct.`)
+    console.log(
+      `\nUpdated ${updatedCount} existing item(s), ${alreadyCorrectCount} already correct.`
+    )
   }
 
   if (CREATE_DRAFTS) {
@@ -229,21 +270,26 @@ async function main() {
     )
     const fullyNewItems = fileItems.filter(item => !itemNamesWithAnyMatch.has(item.name))
 
-    console.log(`\nCreating ${fullyNewItems.length} new ${SELLABLE ? 'sellable' : 'draft'} item(s) in Square...`)
+    console.log(
+      `\nCreating ${fullyNewItems.length} new ${SELLABLE ? 'sellable' : 'draft'} item(s) in Square...`
+    )
     for (const item of fullyNewItems) {
-      const created = await createSquareCatalogItem({
-        name: item.name,
-        description: item.description,
-        categoryIds: [categoryId],
-        variations: item.variations.map(v => ({
-          name: v.variationName,
-          sku: v.gtin || undefined,
-          priceCents: v.priceCents,
-          trackInventory: true,
-          sellable: SELLABLE,
-          stockable: true,
-        })),
-      }, process.env)
+      const created = await createSquareCatalogItem(
+        {
+          name: item.name,
+          description: item.description,
+          categoryIds: [categoryId],
+          variations: item.variations.map(v => ({
+            name: v.variationName,
+            sku: v.gtin || undefined,
+            priceCents: v.priceCents,
+            trackInventory: true,
+            sellable: SELLABLE,
+            stockable: true,
+          })),
+        },
+        process.env
+      )
       console.log(`   created "${item.name}" → ${created.id}`)
     }
   }

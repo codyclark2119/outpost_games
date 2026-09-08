@@ -132,40 +132,15 @@
 </template>
 
 <script setup lang="ts">
+import { squareAdminApi } from '../../services/squareAdminApi'
 import { ref, computed, onMounted } from 'vue'
 
-interface SquareStockItem {
-  id: string
-  itemId: string
-  displayName: string
-  sku: string | null
-  priceCents: number | null
-  currency: string | null
-  trackInventory: boolean
-  sellable: boolean
-  quantity: number | null
-  state: string
-  inStock: boolean
-  source: string
-  categoryId: string | null
-  categoryName: string
-  itemCreatedAt: string | null
-}
+import type { SquareStockItem, SquareInventoryReport } from '../../services/squareAdminTypes'
 
 interface CategoryGroup {
   name: string
   items: SquareStockItem[]
 }
-
-interface SquareInventoryReport {
-  ok: boolean
-  environment: string
-  locationId: string | null
-  itemCount: number
-  items: SquareStockItem[]
-}
-
-const API_URL = `${import.meta.env.VITE_API_URL || '/api'}/square/inventory-report`
 
 const report = ref<SquareInventoryReport | null>(null)
 const loading = ref(false)
@@ -225,9 +200,7 @@ const fetchReport = async () => {
   loading.value = true
   fetchError.value = null
   try {
-    const res = await fetch(API_URL)
-    if (!res.ok) throw new Error('Failed to fetch Square stock report')
-    report.value = await res.json()
+    report.value = await squareAdminApi.getCatalog()
   } catch (e) {
     fetchError.value = e instanceof Error ? e.message : 'Failed to load stock report'
   } finally {

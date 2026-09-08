@@ -153,7 +153,8 @@ const resetForm = () => {
 }
 
 const formatDateToReadable = (isoDate: string): string =>
-  new Date(isoDate + 'T12:00:00').toLocaleDateString('en-US', {
+  new Date(isoDate + 'T12:00:00Z').toLocaleDateString('en-US', {
+    timeZone: 'UTC',
     year: 'numeric',
     month: 'long',
     day: 'numeric',

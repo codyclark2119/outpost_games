@@ -102,7 +102,10 @@ const buildSandboxItem = item => {
       product_type: itemData.product_type,
       ecom_visibility: itemData.ecom_visibility,
       present_at_all_locations: true,
-      categories: (itemData.categories || []).map(category => ({ type: 'CATEGORY', id: categoryTempId(category.id) })),
+      categories: (itemData.categories || []).map(category => ({
+        type: 'CATEGORY',
+        id: categoryTempId(category.id),
+      })),
       variations: (itemData.variations || []).map(variation => {
         const variationData = variation.item_variation_data || {}
         return {
@@ -137,32 +140,49 @@ async function main() {
   )
 
   if (COPY_INVENTORY && !prodClient.locationId) {
-    console.log('\n--with-inventory requires SQUARE_LOCATION_ID to read production counts — skipping inventory copy.')
+    console.log(
+      '\n--with-inventory requires SQUARE_LOCATION_ID to read production counts — skipping inventory copy.'
+    )
   }
 
   console.log(`Reading existing sandbox catalog (${sandboxClient.environment})...`)
-  const existingSandbox = [...(await listAll(sandboxClient, 'ITEM')), ...(await listAll(sandboxClient, 'CATEGORY'))]
+  const existingSandbox = [
+    ...(await listAll(sandboxClient, 'ITEM')),
+    ...(await listAll(sandboxClient, 'CATEGORY')),
+  ]
   console.log(`  ${existingSandbox.length} existing sandbox objects would be deleted first`)
 
   if (!APPLY) {
-    console.log('\nPreview only — rerun with --apply to actually wipe sandbox and copy the catalog over.')
+    console.log(
+      '\nPreview only — rerun with --apply to actually wipe sandbox and copy the catalog over.'
+    )
     if (COPY_INVENTORY) {
-      console.log(`--with-inventory would also copy on-hand counts for ${prodTrackedVariationIds.length} tracked production variation(s).`)
+      console.log(
+        `--with-inventory would also copy on-hand counts for ${prodTrackedVariationIds.length} tracked production variation(s).`
+      )
     }
     return
   }
 
   if (existingSandbox.length > 0) {
     console.log(`Deleting ${existingSandbox.length} existing sandbox objects...`)
-    for (const batch of chunk(existingSandbox.map(o => o.id), DELETE_BATCH_SIZE)) {
-      await sandboxClient.request('/v2/catalog/batch-delete', { method: 'POST', body: { object_ids: batch } })
+    for (const batch of chunk(
+      existingSandbox.map(o => o.id),
+      DELETE_BATCH_SIZE
+    )) {
+      await sandboxClient.request('/v2/catalog/batch-delete', {
+        method: 'POST',
+        body: { object_ids: batch },
+      })
     }
   }
 
   const newCategories = prodCategories.map(buildSandboxCategory)
   const newItems = prodItems.map(buildSandboxItem)
 
-  console.log(`Creating ${newCategories.length} categories + ${newItems.length} items in sandbox...`)
+  console.log(
+    `Creating ${newCategories.length} categories + ${newItems.length} items in sandbox...`
+  )
   const result = await sandboxClient.request('/v2/catalog/batch-upsert', {
     method: 'POST',
     body: {
@@ -179,20 +199,38 @@ async function main() {
 
   console.log(`Done — ${result.objects?.length || 0} objects created in sandbox.`)
 
-  if (COPY_INVENTORY && prodClient.locationId && sandboxClient.locationId && prodTrackedVariationIds.length > 0) {
-    console.log(`\nReading production on-hand counts for ${prodTrackedVariationIds.length} tracked variation(s)...`)
-    const prodCounts = await fetchInventoryCounts(prodClient, prodTrackedVariationIds, prodClient.locationId)
-    const quantityByProdVariationId = new Map(prodCounts.map(count => [count.catalog_object_id, Number(count.quantity)]))
+  if (
+    COPY_INVENTORY &&
+    prodClient.locationId &&
+    sandboxClient.locationId &&
+    prodTrackedVariationIds.length > 0
+  ) {
+    console.log(
+      `\nReading production on-hand counts for ${prodTrackedVariationIds.length} tracked variation(s)...`
+    )
+    const prodCounts = await fetchInventoryCounts(
+      prodClient,
+      prodTrackedVariationIds,
+      prodClient.locationId
+    )
+    const quantityByProdVariationId = new Map(
+      prodCounts.map(count => [count.catalog_object_id, Number(count.quantity)])
+    )
 
     // batch-upsert's id_mappings resolves every temp id (e.g. `#var-<prodId>`)
     // used above to the real sandbox id Square assigned it.
-    const idMappings = new Map((result.id_mappings || []).map(m => [m.client_object_id, m.object_id]))
+    const idMappings = new Map(
+      (result.id_mappings || []).map(m => [m.client_object_id, m.object_id])
+    )
 
     const changes = prodTrackedVariationIds
       .map(prodVariationId => {
         const sandboxVariationId = idMappings.get(variationTempId(prodVariationId))
         if (!sandboxVariationId) return null
-        return { variationId: sandboxVariationId, quantity: quantityByProdVariationId.get(prodVariationId) ?? 0 }
+        return {
+          variationId: sandboxVariationId,
+          quantity: quantityByProdVariationId.get(prodVariationId) ?? 0,
+        }
       })
       .filter(Boolean)
 

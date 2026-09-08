@@ -38,7 +38,7 @@ The public site is a single page (`src/views/Home.vue`) plus two standalone rout
 
 ### Prerequisites
 
-- Node.js 18+
+- Node.js 22.12+ (CI and production use Node 22)
 - npm
 
 ### Frontend
@@ -49,6 +49,7 @@ npm run dev          # Vite dev server → http://localhost:5173
 npm run dev:all      # Vite + api dev server together (via concurrently)
 npm run build        # Type-check + production build
 npm run type-check   # vue-tsc --noEmit
+npm run verify       # Formatting, lint, type checks, production build, API and occurrence tests
 npm run lint         # ESLint
 npm run lint:fix     # ESLint auto-fix
 npm run format       # Prettier write

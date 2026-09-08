@@ -1,3 +1,5 @@
+import storeConfig from './storeConfig.json' with { type: 'json' }
+import { assertPersistence, requiresPersistence, unavailable } from './services/persistence.js'
 // ─── Monthly inventory export ────────────────────────────────────────────────
 // Builds an .xlsx snapshot of the Square inventory report (non-snack items,
 // grouped by stock status → category → quantity) and emails it to the shop.
@@ -11,7 +13,7 @@ import { getSquareInventoryReport } from './squarePosClient.js'
 import { sendMail } from './mailClient.js'
 
 const LAST_RUN_KEY = 'outpost:inventory-export:lastRun'
-const STORE_TIMEZONE = 'America/Chicago'
+const STORE_TIMEZONE = storeConfig.timeZone
 export const EXCLUDED_EXPORT_CATEGORIES = ['Snacks']
 const CHECK_INTERVAL_MS = 60 * 60 * 1000 // hourly
 
@@ -105,30 +107,45 @@ export const buildInventoryWorkbook = async (env = process.env) => {
 }
 
 const readLastRun = async () => {
+  assertPersistence(isRedisConnected() && redisClient)
   if (!isRedisConnected() || !redisClient) return memoryLastRun
   try {
     return (await redisClient.get(LAST_RUN_KEY)) || memoryLastRun
-  } catch {
+  } catch (cause) {
+    if (requiresPersistence()) throw unavailable(cause)
     return memoryLastRun
   }
 }
 
 const writeLastRun = async monthKey => {
-  memoryLastRun = monthKey
-  if (!isRedisConnected() || !redisClient) return
-  try {
-    await redisClient.set(LAST_RUN_KEY, monthKey)
-  } catch {
-    // In-memory value above still records the run for this process's lifetime.
+  assertPersistence(isRedisConnected() && redisClient)
+  if (isRedisConnected() && redisClient) {
+    try {
+      await redisClient.set(LAST_RUN_KEY, monthKey)
+    } catch (cause) {
+      throw unavailable(cause)
+    }
   }
+  memoryLastRun = monthKey
 }
 
 const MONTH_NAMES = [
-  'January', 'February', 'March', 'April', 'May', 'June',
-  'July', 'August', 'September', 'October', 'November', 'December',
+  'January',
+  'February',
+  'March',
+  'April',
+  'May',
+  'June',
+  'July',
+  'August',
+  'September',
+  'October',
+  'November',
+  'December',
 ]
 
 export const runMonthlyInventoryExport = async (env = process.env) => {
+  assertPersistence(isRedisConnected() && redisClient, env)
   const { year, month } = localDatePartsOf(new Date())
   const monthKey = `${year}-${month}`
   const monthLabel = `${MONTH_NAMES[Number(month) - 1]} ${year}`

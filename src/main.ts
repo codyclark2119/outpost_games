@@ -200,4 +200,5 @@ const app = createApp(App)
 app.use(pinia)
 app.use(router)
 app.use(head)
-app.mount('#app')
+// Wait for initial guards and lazy route resolution so admin URLs never flash the public layout.
+router.isReady().then(() => app.mount('#app'))

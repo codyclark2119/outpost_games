@@ -283,6 +283,9 @@
 </template>
 
 <script setup lang="ts">
+import { apiRequest } from '../../services/api'
+import { useConfirmation } from '../../composables/useConfirmation'
+const { ask: confirm } = useConfirmation()
 import { ref, reactive, onMounted } from 'vue'
 
 interface CardListing {
@@ -298,7 +301,7 @@ interface CardListing {
   productUrl: string
 }
 
-const API_URL = `${import.meta.env.VITE_API_URL || '/api'}/tcgplayer-listings`
+const API_URL = `/tcgplayer-listings`
 
 const listings = ref<CardListing[]>([])
 const loading = ref(false)
@@ -309,7 +312,7 @@ const fetchListings = async () => {
   loading.value = true
   fetchError.value = null
   try {
-    const res = await fetch(API_URL)
+    const res = await apiRequest(API_URL)
     if (!res.ok) throw new Error('Failed to fetch')
     const data = await res.json()
     listings.value = data.listings || []
@@ -355,10 +358,11 @@ const closeEdit = () => {
 }
 
 const saveEdit = async () => {
+  if (saving.value) return
   saving.value = true
   editError.value = ''
   try {
-    const res = await fetch(`${API_URL}/${editModal.id}`, {
+    const res = await apiRequest(`${API_URL}/${editModal.id}`, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -393,10 +397,14 @@ const confirmDelete = (card: CardListing) => {
 }
 
 const executeDelete = async () => {
+  if (saving.value) return
   saving.value = true
   try {
-    await fetch(`${API_URL}/${deleteModal.id}`, { method: 'DELETE' })
+    await apiRequest(`${API_URL}/${deleteModal.id}`, { method: 'DELETE' })
     listings.value = listings.value.filter(c => c.id !== deleteModal.id)
+    deleteModal.open = false
+  } catch (e) {
+    fetchError.value = e instanceof Error ? e.message : 'Delete failed'
     deleteModal.open = false
   } finally {
     saving.value = false
@@ -405,9 +413,17 @@ const executeDelete = async () => {
 
 // ── Clear all ─────────────────────────────────────────────────────────────────
 const clearAll = async () => {
-  if (!confirm('Delete ALL listings? This cannot be undone.')) return
-  await fetch(API_URL, { method: 'DELETE' })
-  listings.value = []
+  if (!(await confirm('Delete ALL listings? This cannot be undone.'))) return
+  if (saving.value) return
+  saving.value = true
+  try {
+    await apiRequest(API_URL, { method: 'DELETE' })
+    listings.value = []
+  } catch (e) {
+    fetchError.value = e instanceof Error ? e.message : 'Delete failed'
+  } finally {
+    saving.value = false
+  }
 }
 
 onMounted(fetchListings)

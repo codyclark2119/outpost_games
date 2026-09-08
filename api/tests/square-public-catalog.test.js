@@ -59,7 +59,13 @@ const itemObject = (
     custom_attribute_values: {
       ...(hiddenFromWeb ? { outpost_hide_from_web: { boolean_value: true } } : {}),
       ...(releasedAt
-        ? { outpost_released_at: { key: 'outpost_released_at', type: 'STRING', string_value: releasedAt } }
+        ? {
+            outpost_released_at: {
+              key: 'outpost_released_at',
+              type: 'STRING',
+              string_value: releasedAt,
+            },
+          }
         : {}),
     },
   }),
@@ -68,7 +74,12 @@ const itemObject = (
 test('getPublicSquareCatalog exposes setId/setName for an item in a real subcategory ("set")', async () => {
   const responses = [
     // listSquareCatalogItems -> /v2/catalog/list?types=ITEM,IMAGE
-    { ok: true, body: { objects: [itemObject('ITEM1', { name: 'Bloomburrow Precon', categoryId: 'CAT_LEAF' })] } },
+    {
+      ok: true,
+      body: {
+        objects: [itemObject('ITEM1', { name: 'Bloomburrow Precon', categoryId: 'CAT_LEAF' })],
+      },
+    },
     // resolveTopLevelCategoryMap -> /v2/catalog/list?types=CATEGORY
     {
       ok: true,
@@ -93,7 +104,10 @@ test('getPublicSquareCatalog exposes setId/setName for an item in a real subcate
 
 test('getPublicSquareCatalog leaves setId/setName null for an item assigned directly to a top-level category', async () => {
   const responses = [
-    { ok: true, body: { objects: [itemObject('ITEM1', { name: 'Playmat', categoryId: 'CAT_TOP' })] } },
+    {
+      ok: true,
+      body: { objects: [itemObject('ITEM1', { name: 'Playmat', categoryId: 'CAT_TOP' })] },
+    },
     { ok: true, body: { objects: [categoryObject('CAT_TOP', { name: 'Magic' })] } },
   ]
 
@@ -141,7 +155,11 @@ test('getPublicSquareCatalog excludes items flagged outpost_hide_from_web even w
       ok: true,
       body: {
         objects: [
-          itemObject('ITEM1', { name: 'Hidden Precon', categoryId: 'CAT_MAGIC', hiddenFromWeb: true }),
+          itemObject('ITEM1', {
+            name: 'Hidden Precon',
+            categoryId: 'CAT_MAGIC',
+            hiddenFromWeb: true,
+          }),
           itemObject('ITEM2', { name: 'Regular Precon', categoryId: 'CAT_MAGIC' }),
         ],
       },
@@ -162,10 +180,22 @@ test('getPublicSquareCatalog orders items within a category newest-first, with m
       ok: true,
       body: {
         objects: [
-          itemObject('ITEM1', { name: 'Oldest', categoryId: 'CAT_MAGIC', createdAt: '2026-01-01T00:00:00.000Z' }),
+          itemObject('ITEM1', {
+            name: 'Oldest',
+            categoryId: 'CAT_MAGIC',
+            createdAt: '2026-01-01T00:00:00.000Z',
+          }),
           itemObject('ITEM2', { name: 'No Date', categoryId: 'CAT_MAGIC' }),
-          itemObject('ITEM3', { name: 'Newest', categoryId: 'CAT_MAGIC', createdAt: '2026-06-01T00:00:00.000Z' }),
-          itemObject('ITEM4', { name: 'Middle', categoryId: 'CAT_MAGIC', createdAt: '2026-03-01T00:00:00.000Z' }),
+          itemObject('ITEM3', {
+            name: 'Newest',
+            categoryId: 'CAT_MAGIC',
+            createdAt: '2026-06-01T00:00:00.000Z',
+          }),
+          itemObject('ITEM4', {
+            name: 'Middle',
+            categoryId: 'CAT_MAGIC',
+            createdAt: '2026-03-01T00:00:00.000Z',
+          }),
         ],
       },
     },
@@ -182,7 +212,7 @@ test('getPublicSquareCatalog orders items within a category newest-first, with m
   })
 })
 
-test('getPublicSquareCatalog prefers the admin-set releasedAt over Square\'s own created_at when ranking', async () => {
+test("getPublicSquareCatalog prefers the admin-set releasedAt over Square's own created_at when ranking", async () => {
   const responses = [
     {
       ok: true,

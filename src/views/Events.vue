@@ -33,6 +33,10 @@
               ></div>
             </div>
 
+            <p v-else-if="eventsStore.error" class="py-8 text-gray-600" role="status">
+              Event updates are temporarily unavailable.
+              <button class="underline" @click="eventsStore.fetchEvents">Try again</button>
+            </p>
             <div
               v-else-if="visibleSpecialEvents.length === 0"
               class="text-center py-8 text-gray-500"
@@ -66,7 +70,7 @@
                       {{ event.gameTypeName }}
                     </span>
                   </div>
-                  <p class="text-outpost-gold font-medium mb-1">
+                  <p class="text-outpost-gold-dark font-medium mb-1">
                     {{ event.date }} at {{ event.time }}
                   </p>
                   <p class="text-gray-600 text-sm mb-2">{{ event.description }}</p>
@@ -74,7 +78,7 @@
                     :href="STORE_INFO.social.discord"
                     target="_blank"
                     rel="noopener noreferrer"
-                    class="inline-flex items-center gap-1 text-xs font-semibold text-outpost-gold-dark hover:text-outpost-gold transition-colors"
+                    class="inline-flex items-center gap-1 text-xs font-semibold text-outpost-gold-dark hover:text-outpost-gold-dark transition-colors"
                   >
                     Join us on Discord
                     <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -169,7 +173,7 @@
               :href="STORE_INFO.social.discord"
               target="_blank"
               rel="noopener noreferrer"
-              class="relative z-10 mt-4 inline-flex items-center gap-1 text-xs font-semibold text-outpost-gold-dark hover:text-outpost-gold transition-colors"
+              class="relative z-10 mt-4 inline-flex items-center gap-1 text-xs font-semibold text-outpost-gold-dark hover:text-outpost-gold-dark transition-colors"
             >
               Join us on Discord
               <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -201,6 +205,7 @@ import { useWeeklyOverridesStore } from '../stores/weeklyOverrides'
 import { WEEKLY_SCHEDULE, type WeeklyScheduleEntry } from '../config/weeklySchedule'
 import { nextOccurrenceOf, toISODate } from '../utils/weeklySchedule'
 import { usePageMeta, SITE_URL } from '../composables/usePageMeta'
+import { eventDateToISO, hasEventStarted, eventStartISO } from '../utils/eventDateTime'
 import { STORE_INFO } from '../config/storeInfo'
 
 usePageMeta({
@@ -213,28 +218,12 @@ usePageMeta({
 const eventsStore = useEventsStore()
 const weeklyOverridesStore = useWeeklyOverridesStore()
 
-// The store's `upcomingEvents` is the raw list from the API — nothing on
-// either side of it drops events whose date has passed (the admin views do
-// their own date filter, and their auto-clean only runs while an admin has
-// the page open). Without the date check here a finished tournament kept
-// sitting under the "Upcoming Special Events" heading indefinitely, and got
-// published to search engines as a scheduled Event via the JSON-LD below.
-const parseEventDate = (dateString: string): Date => {
-  if (/^\d{4}-\d{2}-\d{2}$/.test(dateString)) return new Date(dateString + 'T12:00:00')
-  const parsed = new Date(dateString)
-  return isNaN(parsed.getTime()) ? new Date() : parsed
-}
-
-const visibleSpecialEvents = computed(() => {
-  const today = new Date()
-  today.setHours(0, 0, 0, 0)
-  return eventsStore.upcomingEvents.filter(e => {
-    if (e.isVisible === false) return false
-    const date = parseEventDate(e.date)
-    date.setHours(0, 0, 0, 0)
-    return date >= today
+const visibleSpecialEvents = computed(() =>
+  eventsStore.upcomingEvents.filter(e => {
+    const iso = eventDateToISO(e.date)
+    return e.isVisible !== false && iso !== null && !hasEventStarted(iso, e.time)
   })
-})
+)
 
 // A weekly slot's "date" for override purposes is the next upcoming occurrence
 // of that weekday — matches Home.vue's day-walk so a hidden occurrence
@@ -277,17 +266,12 @@ onMounted(() => {
 
 // Dynamic Event structured data — unlike the site-wide static LocalBusiness
 // JSON-LD in index.html, this genuinely needs to reflect live store data.
-const parseEventDateTime = (dateStr: string, timeStr: string): string | null => {
-  const parsed = new Date(`${dateStr} ${timeStr}`)
-  return isNaN(parsed.getTime()) ? null : parsed.toISOString()
-}
-
 const eventsJsonLd = computed(() =>
   visibleSpecialEvents.value.map(event => ({
     '@context': 'https://schema.org',
     '@type': 'Event',
     name: event.title,
-    startDate: parseEventDateTime(event.date, event.time) ?? undefined,
+    startDate: eventStartISO(event.date, event.time) ?? undefined,
     eventAttendanceMode: 'https://schema.org/OfflineEventAttendanceMode',
     eventStatus: 'https://schema.org/EventScheduled',
     location: {

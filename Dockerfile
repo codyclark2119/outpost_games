@@ -1,5 +1,5 @@
 # Build stage
-FROM node:20-alpine AS builder
+FROM node:22-alpine AS builder
 
 WORKDIR /app
 
@@ -26,6 +26,7 @@ RUN chmod -R 755 /usr/share/nginx/html && \
     find /usr/share/nginx/html -type f -exec chmod 644 {} \;
 
 # Copy nginx configuration for docker-compose (api:3001)
+COPY nginx.security-headers.conf /etc/nginx/security-headers.conf
 COPY nginx.compose.conf /etc/nginx/conf.d/default.conf
 
 # Expose port 80

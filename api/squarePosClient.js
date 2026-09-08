@@ -1,3 +1,4 @@
+import { AppError } from './middleware/errorHandler.js'
 import fs from 'node:fs'
 import path from 'node:path'
 import crypto from 'node:crypto'
@@ -5,7 +6,13 @@ import { fileURLToPath } from 'node:url'
 
 const SANDBOX_BASE_URL = 'https://connect.squareupsandbox.com'
 const PRODUCTION_BASE_URL = 'https://connect.squareup.com'
-const PLACEHOLDER_VALUES = new Set(['YOUR_LOCATION_ID', 'YOUR_ACCESS_TOKEN', 'YOUR_APPLICATION_ID', 'YOUR_APP_ID', 'YOUR_TOKEN'])
+const PLACEHOLDER_VALUES = new Set([
+  'YOUR_LOCATION_ID',
+  'YOUR_ACCESS_TOKEN',
+  'YOUR_APPLICATION_ID',
+  'YOUR_APP_ID',
+  'YOUR_TOKEN',
+])
 const CATALOG_PAGE_SAFETY_CAP = 200
 const INVENTORY_BATCH_SIZE = 100
 // Square's confirmed real limits for these three batch endpoints (developer.squareup.com).
@@ -187,9 +194,19 @@ export const resolveSquareCredentials = (env = process.env) => {
 
   return {
     environment,
-    accessToken: normalizeEnvValue(isProduction ? env.SQUARE_ACCESS_TOKEN : env.SQUARE_SANDBOX_ACCESS_TOKEN),
-    applicationId: normalizeEnvValue(isProduction ? env.SQUARE_APPLICATION_ID : env.SQUARE_SANDBOX_APPLICATION_ID) || null,
-    locationId: normalizeEnvValue(isProduction ? env.SQUARE_LOCATION_ID : (env.SQUARE_SANDBOX_LOCATION_ID || env.SQUARE_LOCATION_ID)) || null,
+    accessToken: normalizeEnvValue(
+      isProduction ? env.SQUARE_ACCESS_TOKEN : env.SQUARE_SANDBOX_ACCESS_TOKEN
+    ),
+    applicationId:
+      normalizeEnvValue(
+        isProduction ? env.SQUARE_APPLICATION_ID : env.SQUARE_SANDBOX_APPLICATION_ID
+      ) || null,
+    locationId:
+      normalizeEnvValue(
+        isProduction
+          ? env.SQUARE_LOCATION_ID
+          : env.SQUARE_SANDBOX_LOCATION_ID || env.SQUARE_LOCATION_ID
+      ) || null,
   }
 }
 
@@ -230,7 +247,11 @@ export const createSquarePosClient = ({
 
       const payload = await response.json().catch(() => ({}))
       if (!response.ok) {
-        const error = new Error(payload.message || payload.errors?.[0]?.detail || `Square request failed with ${response.status}`)
+        const error = new Error(
+          payload.message ||
+            payload.errors?.[0]?.detail ||
+            `Square request failed with ${response.status}`
+        )
         error.status = response.status
         error.squareErrors = payload.errors || []
         throw error
@@ -367,10 +388,17 @@ export const listSquareCatalogItems = async (env = process.env) => {
   return variations
 }
 
-export const listSquareInventory = async (env = process.env, { catalogObjectIds = [], locationIds = [] } = {}) => {
+export const listSquareInventory = async (
+  env = process.env,
+  { catalogObjectIds = [], locationIds = [] } = {}
+) => {
   const client = clientFromEnv(env)
 
-  const resolvedLocationIds = locationIds.length ? locationIds : (client.locationId ? [client.locationId] : [])
+  const resolvedLocationIds = locationIds.length
+    ? locationIds
+    : client.locationId
+      ? [client.locationId]
+      : []
   if (!catalogObjectIds.length || !resolvedLocationIds.length) return []
 
   const counts = []
@@ -414,9 +442,10 @@ export const getSquareInventoryReport = async (env = process.env) => {
     return {
       id: variation.id,
       itemId: variation.itemId,
-      displayName: variation.variationName && variation.variationName !== 'Regular'
-        ? `${variation.name} - ${variation.variationName}`
-        : variation.name || 'Unnamed item',
+      displayName:
+        variation.variationName && variation.variationName !== 'Regular'
+          ? `${variation.name} - ${variation.variationName}`
+          : variation.name || 'Unnamed item',
       sku: variation.sku,
       priceCents: variation.priceCents,
       currency: variation.currency,
@@ -448,7 +477,13 @@ export const getSquareInventoryReport = async (env = process.env) => {
 // top-level category name, so tagging a new item under one of these just
 // works with no code change; anything not listed here shows up on the public
 // site by default.
-const PUBLIC_CATALOG_EXCLUDED_CATEGORIES = ['snacks', 'food', 'drinks', 'concessions', 'accessories']
+const PUBLIC_CATALOG_EXCLUDED_CATEGORIES = [
+  'snacks',
+  'food',
+  'drinks',
+  'concessions',
+  'accessories',
+]
 
 // Display order for the public catalog's category sections: these three
 // always lead, in this exact sequence, when present; every other category
@@ -525,9 +560,10 @@ export const getPublicSquareCatalog = async (env = process.env) => {
     rawItems.push({
       id: variation.id,
       itemId: variation.itemId,
-      name: variation.variationName && variation.variationName !== 'Regular'
-        ? `${variation.name} - ${variation.variationName}`
-        : variation.name || 'Unnamed item',
+      name:
+        variation.variationName && variation.variationName !== 'Regular'
+          ? `${variation.name} - ${variation.variationName}`
+          : variation.name || 'Unnamed item',
       priceCents: variation.priceCents,
       currency: variation.currency,
       imageUrl: variation.imageUrl,
@@ -789,7 +825,9 @@ export const updateSquareCatalogItem = async (itemId, changes, env = process.env
   }
 
   if (changes.variations !== undefined) {
-    const changesByVariationId = new Map(changes.variations.map(variation => [variation.id, variation]))
+    const changesByVariationId = new Map(
+      changes.variations.map(variation => [variation.id, variation])
+    )
     for (const variation of variations) {
       const variationChanges = changesByVariationId.get(variation.id)
       if (!variationChanges) continue
@@ -805,9 +843,12 @@ export const updateSquareCatalogItem = async (itemId, changes, env = process.env
           currency: variationData.price_money?.currency || 'USD',
         }
       }
-      if (variationChanges.trackInventory !== undefined) variationData.track_inventory = variationChanges.trackInventory
-      if (variationChanges.sellable !== undefined) variationData.sellable = variationChanges.sellable
-      if (variationChanges.stockable !== undefined) variationData.stockable = variationChanges.stockable
+      if (variationChanges.trackInventory !== undefined)
+        variationData.track_inventory = variationChanges.trackInventory
+      if (variationChanges.sellable !== undefined)
+        variationData.sellable = variationChanges.sellable
+      if (variationChanges.stockable !== undefined)
+        variationData.stockable = variationChanges.stockable
       if (variationChanges.costCents !== undefined) {
         variation.custom_attribute_values = buildCostAttributeValues(
           variation.custom_attribute_values,
@@ -848,7 +889,9 @@ export const createSquareCategory = async ({ name, parentCategoryId }, env = pro
         id: '#new-category',
         category_data: {
           name,
-          ...(parentCategoryId ? { parent_category: { type: 'CATEGORY', id: parentCategoryId } } : {}),
+          ...(parentCategoryId
+            ? { parent_category: { type: 'CATEGORY', id: parentCategoryId } }
+            : {}),
         },
       },
     },
@@ -866,7 +909,10 @@ export const createSquareCategory = async ({ name, parentCategoryId }, env = pro
 // A variation without priceCents is created as VARIABLE_PRICING (price set at
 // sale time) rather than failing on a missing price — useful for draft items
 // staged ahead of a set's release, before the shop has decided resale pricing.
-export const createSquareCatalogItem = async ({ name, description, categoryIds = [], ecomVisibility, variations }, env = process.env) => {
+export const createSquareCatalogItem = async (
+  { name, description, categoryIds = [], ecomVisibility, variations },
+  env = process.env
+) => {
   const client = clientFromEnv(env)
 
   const object = {
@@ -884,7 +930,9 @@ export const createSquareCatalogItem = async ({ name, description, categoryIds =
           name: variation.name || 'Regular',
           sku: variation.sku || undefined,
           pricing_type: variation.priceCents != null ? 'FIXED_PRICING' : 'VARIABLE_PRICING',
-          ...(variation.priceCents != null ? { price_money: { amount: variation.priceCents, currency: 'USD' } } : {}),
+          ...(variation.priceCents != null
+            ? { price_money: { amount: variation.priceCents, currency: 'USD' } }
+            : {}),
           track_inventory: variation.trackInventory ?? false,
           sellable: variation.sellable ?? true,
           stockable: variation.stockable ?? true,
@@ -913,10 +961,13 @@ export const deleteSquareCatalogVariation = async (itemId, variationId, env = pr
   const current = await fetchRawCatalogObject(client, itemId)
   const variations = current.object.item_data?.variations || []
   if (variations.length <= 1) {
-    throw new Error('An item must have at least one variation — delete the whole item instead')
+    throw new AppError(
+      409,
+      'An item must have at least one variation — delete the whole item instead'
+    )
   }
   if (!variations.some(variation => variation.id === variationId)) {
-    throw new Error('That variation does not belong to this item')
+    throw new AppError(409, 'That variation does not belong to this item')
   }
 
   return client.request(`/v2/catalog/object/${variationId}`, { method: 'DELETE' })
@@ -1068,7 +1119,11 @@ export const deleteSquareCatalogItemsBatch = async (itemIds, env = process.env) 
 // with just this one — distinct from mergeSquareCategories, which moves
 // *everything* out of one category; this moves an admin-picked subset into
 // exactly one target category.
-export const setSquareCatalogItemsCategoryBatch = async (itemIds, categoryId, env = process.env) => {
+export const setSquareCatalogItemsCategoryBatch = async (
+  itemIds,
+  categoryId,
+  env = process.env
+) => {
   const { objectsById } = await batchRetrieveSquareCatalogObjects(itemIds, {}, env)
   const mutated = [...objectsById.values()].map(object => {
     const itemData = object.item_data || {}
@@ -1116,7 +1171,11 @@ export const setSquareCatalogItemsVisibilityBatch = async (
 // product's release date is one decision for the whole item, same scoping as
 // hiddenFromWeb). Lets staff correct a whole shipment/batch at once instead of
 // opening each item individually.
-export const setSquareCatalogItemsReleasedAtBatch = async (itemIds, releasedAt, env = process.env) => {
+export const setSquareCatalogItemsReleasedAtBatch = async (
+  itemIds,
+  releasedAt,
+  env = process.env
+) => {
   const { objectsById } = await batchRetrieveSquareCatalogObjects(itemIds, {}, env)
   const mutated = [...objectsById.values()].map(object => {
     object.custom_attribute_values = buildReleasedAtAttributeValues(
@@ -1179,17 +1238,25 @@ export const deleteSquareCategory = async (categoryId, env = process.env) => {
   ])
 
   const referencingItemCount = new Set(
-    variations.filter(variation => variation.categoryIds.includes(categoryId)).map(variation => variation.itemId)
+    variations
+      .filter(variation => variation.categoryIds.includes(categoryId))
+      .map(variation => variation.itemId)
   ).size
   if (referencingItemCount > 0) {
-    throw new Error(`Cannot delete — ${referencingItemCount} item(s) still use this category. Merge it into another category first.`)
+    throw new AppError(
+      409,
+      `Cannot delete — ${referencingItemCount} item(s) still use this category. Merge it into another category first.`
+    )
   }
 
   const childCategoryCount = allCategories.filter(
     category => category.category_data?.parent_category?.id === categoryId
   ).length
   if (childCategoryCount > 0) {
-    throw new Error(`Cannot delete — ${childCategoryCount} sub-category(ies) still live under this category. Re-parent or delete them first.`)
+    throw new AppError(
+      409,
+      `Cannot delete — ${childCategoryCount} sub-category(ies) still live under this category. Re-parent or delete them first.`
+    )
   }
 
   return client.request(`/v2/catalog/object/${categoryId}`, { method: 'DELETE' })
@@ -1210,7 +1277,9 @@ export const mergeSquareCategories = async (fromCategoryId, toCategoryId, env = 
   const variations = await listSquareCatalogItems(env)
   const affectedItemIds = [
     ...new Set(
-      variations.filter(variation => variation.categoryIds.includes(fromCategoryId)).map(variation => variation.itemId)
+      variations
+        .filter(variation => variation.categoryIds.includes(fromCategoryId))
+        .map(variation => variation.itemId)
     ),
   ]
 
@@ -1219,7 +1288,9 @@ export const mergeSquareCategories = async (fromCategoryId, toCategoryId, env = 
     const mutated = [...objectsById.values()].map(object => {
       const itemData = object.item_data || {}
       const existingIds = (itemData.categories || []).map(category => category.id)
-      const nextIds = [...new Set(existingIds.map(id => (id === fromCategoryId ? toCategoryId : id)))]
+      const nextIds = [
+        ...new Set(existingIds.map(id => (id === fromCategoryId ? toCategoryId : id))),
+      ]
       itemData.categories = nextIds.map(id => ({ id }))
       if (itemData.reporting_category?.id === fromCategoryId) {
         itemData.reporting_category = { id: toCategoryId }
@@ -1238,7 +1309,11 @@ export const mergeSquareCategories = async (fromCategoryId, toCategoryId, env = 
 // an ITEM_VARIATION id (sets that one variation's own photo) — Square's
 // CreateCatalogImage endpoint accepts either interchangeably, confirmed
 // against the official docs (developer.squareup.com/docs/catalog-api/upload-and-attach-images).
-export const uploadSquareCatalogImage = async (objectId, { buffer, filename, mimeType }, env = process.env) => {
+export const uploadSquareCatalogImage = async (
+  objectId,
+  { buffer, filename, mimeType },
+  env = process.env
+) => {
   loadSquareEnvironment()
   const credentials = resolveSquareCredentials(env)
   if (!credentials.accessToken) {
@@ -1246,11 +1321,14 @@ export const uploadSquareCatalogImage = async (objectId, { buffer, filename, mim
   }
 
   const formData = new FormData()
-  formData.append('request', JSON.stringify({
-    idempotency_key: crypto.randomUUID(),
-    object_id: objectId,
-    image: { id: '#new-image', type: 'IMAGE', image_data: {} },
-  }))
+  formData.append(
+    'request',
+    JSON.stringify({
+      idempotency_key: crypto.randomUUID(),
+      object_id: objectId,
+      image: { id: '#new-image', type: 'IMAGE', image_data: {} },
+    })
+  )
   formData.append('file', new Blob([buffer], { type: mimeType }), filename)
 
   const response = await fetch(buildSquareApiUrl('/v2/catalog/images', credentials.environment), {
@@ -1261,7 +1339,11 @@ export const uploadSquareCatalogImage = async (objectId, { buffer, filename, mim
 
   const payload = await response.json().catch(() => ({}))
   if (!response.ok) {
-    const error = new Error(payload.message || payload.errors?.[0]?.detail || `Square image upload failed with ${response.status}`)
+    const error = new Error(
+      payload.message ||
+        payload.errors?.[0]?.detail ||
+        `Square image upload failed with ${response.status}`
+    )
     error.status = response.status
     error.squareErrors = payload.errors || []
     throw error
@@ -1296,7 +1378,11 @@ export const uploadSquareCatalogImage = async (objectId, { buffer, filename, mim
   return { imageUrl }
 }
 
-export const adjustSquareInventoryCount = async (variationId, { quantity, locationId }, env = process.env) => {
+export const adjustSquareInventoryCount = async (
+  variationId,
+  { quantity, locationId },
+  env = process.env
+) => {
   const client = clientFromEnv(env)
   const resolvedLocationId = locationId || client.locationId
   if (!resolvedLocationId) {
@@ -1399,7 +1485,7 @@ export const applyBoxToPackRestock = async (
   const previousPacksQty = countByVariationId.get(packsVariationId) ?? 0
 
   if (boxesOpened > previousBoxQty) {
-    throw new Error(`Cannot open ${boxesOpened} box(es) — only ${previousBoxQty} in stock`)
+    throw new AppError(409, `Cannot open ${boxesOpened} box(es) — only ${previousBoxQty} in stock`)
   }
 
   const newBoxQty = previousBoxQty - boxesOpened

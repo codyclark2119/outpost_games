@@ -29,7 +29,3 @@ pnpm-lock.yaml
 
 # Public assets (don't format)
 public/
-
-# Config files
-*.config.js
-*.config.ts

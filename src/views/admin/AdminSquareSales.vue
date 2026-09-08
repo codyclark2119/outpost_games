@@ -286,6 +286,7 @@
 </template>
 
 <script setup lang="ts">
+import { squareAdminApi } from '../../services/squareAdminApi'
 import { ref, computed, onMounted } from 'vue'
 import { Line, Bar, Doughnut } from 'vue-chartjs'
 import {
@@ -314,63 +315,7 @@ ChartJS.register(
   Filler
 )
 
-interface SalesBucket {
-  date: string
-  revenueCents: number
-  orderCount: number
-}
-
-interface TopItem {
-  name: string
-  categoryName: string
-  unitsSold: number
-  revenueCents: number
-  costCents: number | null
-  hasCostData: boolean
-  profitCents: number | null
-}
-
-interface TenderTotal {
-  type: string
-  amountCents: number
-  count: number
-}
-
-interface DayOfWeekTotal {
-  day: string
-  revenueCents: number
-  orderCount: number
-}
-
-interface HourOfDayTotal {
-  hour: number
-  revenueCents: number
-  orderCount: number
-}
-
-interface SalesReport {
-  ok: boolean
-  environment: string
-  from: string
-  to: string
-  granularity: 'day' | 'week' | 'month'
-  series: SalesBucket[]
-  topItems: TopItem[]
-  categoryBreakdown: TopItem[] // same shape as top items but rolled up by categoryName
-  tenderTotals: TenderTotal[]
-  dayOfWeek: DayOfWeekTotal[]
-  hourOfDay: HourOfDayTotal[]
-  totals: {
-    revenueCents: number
-    orderCount: number
-    taxCents: number
-    discountCents: number
-    profitCents: number | null
-    costDataCoverage: { itemsWithCost: number; itemsTotal: number }
-  }
-}
-
-const API_URL = `${import.meta.env.VITE_API_URL || '/api'}/square/sales`
+import type { SalesReport } from '../../services/squareAdminTypes'
 
 const presets = [
   { label: '7 Days', days: 7 },
@@ -651,24 +596,27 @@ const selectPreset = (days: number) => {
   fetchReport()
 }
 
+let reportController: AbortController | undefined
 const fetchReport = async () => {
+  reportController?.abort()
+  const controller = new AbortController()
+  reportController = controller
   loading.value = true
   fetchError.value = null
   try {
     const to = new Date()
     const from = new Date(Date.now() - activeDays.value * 24 * 60 * 60 * 1000)
-    const query = new URLSearchParams({
+    const query = {
       from: from.toISOString(),
       to: to.toISOString(),
       granularity: granularity.value,
-    })
-    const res = await fetch(`${API_URL}?${query.toString()}`)
-    if (!res.ok) throw new Error('Failed to fetch Square sales report')
-    report.value = await res.json()
+    }
+    report.value = await squareAdminApi.getSales(query, controller.signal)
   } catch (e) {
+    if (controller.signal.aborted) return
     fetchError.value = e instanceof Error ? e.message : 'Failed to load sales report'
   } finally {
-    loading.value = false
+    if (reportController === controller) loading.value = false
   }
 }
 

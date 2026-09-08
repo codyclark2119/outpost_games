@@ -1,3 +1,12 @@
+import storeConfig from './storeConfig.json' with { type: 'json' }
+import { mountRecords } from './routes/records.js'
+import { errorHandler, AppError } from './middleware/errorHandler.js'
+import { requiresPersistence } from './services/persistence.js'
+import { mountSquarespace } from './routes/squarespace.js'
+import { mountInventoryExport } from './routes/inventoryExport.js'
+import { mountSquare } from './routes/square.js'
+import { mountMarketingPosters } from './routes/marketingPosters.js'
+import { mountAuth } from './routes/auth.js'
 // Catch all uncaught errors
 process.on('uncaughtException', error => {
   console.error('❌ UNCAUGHT EXCEPTION:', error)
@@ -17,7 +26,6 @@ console.log('🔧 Environment:', process.env.NODE_ENV || 'development')
 import dotenv from 'dotenv'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
-import crypto from 'node:crypto'
 
 // Load the repo-root .env explicitly — dotenv's default lookup is relative to
 // process.cwd(), which is api/ under the documented `cd api && npm run dev`
@@ -31,74 +39,15 @@ import cors from 'cors'
 import cookieParser from 'cookie-parser'
 import rateLimit from 'express-rate-limit'
 import { createClient } from 'redis'
-import {
-  initSquarespaceCache,
-  bootstrapSquarespaceCache,
-  getSquarespaceCatalog,
-  refreshSquarespaceCatalog,
-  getSquarespaceStatus,
-  getAllAssignments,
-  setAssignment,
-} from './squarespaceCache.js'
-import {
-  initSquarespaceOAuth,
-  getAuthorizeUrl,
-  handleOAuthCallback,
-  getOAuthStatus,
-} from './squarespaceOAuth.js'
-import {
-  SquarespaceNotConfiguredError,
-  SquarespaceNotAuthorizedError,
-} from './squarespaceErrors.js'
-import {
-  getSquareConfigurationStatus,
-  testSquareConnection,
-  getSquareInventoryReport,
-  listSquareCategories,
-  getSquareCatalogItem,
-  updateSquareCatalogItem,
-  createSquareCategory,
-  renameSquareCategory,
-  reparentSquareCategory,
-  deleteSquareCategory,
-  mergeSquareCategories,
-  deleteSquareCatalogItem,
-  deleteSquareCatalogVariation,
-  addSquareCatalogVariation,
-  deleteSquareCatalogItemsBatch,
-  setSquareCatalogItemsCategoryBatch,
-  setSquareCatalogItemsVisibilityBatch,
-  setSquareCatalogItemsReleasedAtBatch,
-  uploadSquareCatalogImage,
-  adjustSquareInventoryCount,
-  adjustSquareInventoryCountBatch,
-  applyBoxToPackRestock,
-  resolveSquareCredentials,
-  SquareVersionMismatchError,
-} from './squarePosClient.js'
-import { getSquareSalesReport } from './squareOrdersClient.js'
+import { initSquarespaceCache, bootstrapSquarespaceCache } from './squarespaceCache.js'
+import { initSquarespaceOAuth } from './squarespaceOAuth.js'
+
 import {
   initSquarePublicCatalogCache,
   bootstrapSquarePublicCatalogCache,
-  getCachedPublicSquareCatalog,
-  refreshSquarePublicCatalog,
-  getSquarePublicCatalogStatus,
 } from './squarePublicCatalogCache.js'
-import {
-  initAuth,
-  verifyCredentials,
-  createSession,
-  destroySession,
-  requireAdminAuth,
-} from './auth.js'
-import {
-  initInventoryExport,
-  runMonthlyInventoryExport,
-  startInventoryExportScheduler,
-} from './inventoryExport.js'
-import { isMailConfigured, MailNotConfiguredError } from './mailClient.js'
-import { listMarketingPosters } from './marketingPosters.js'
-import multer from 'multer'
+import { initAuth } from './auth.js'
+import { initInventoryExport, startInventoryExportScheduler } from './inventoryExport.js'
 
 console.log('✅ Modules imported successfully')
 
@@ -137,7 +86,7 @@ app.use(
     origin: (origin, callback) => {
       // Same-origin requests (curl, server-to-server, no Origin header) have no origin at all.
       if (!origin || allowedOrigins.includes(origin)) return callback(null, true)
-      callback(new Error('Not allowed by CORS'))
+      callback(new AppError(403, 'Origin not allowed'))
     },
     credentials: true,
   })
@@ -179,12 +128,21 @@ const redisClient = createClient({
   },
 })
 
-redisClient.on('error', err => { console.error('Redis Client Error:', err.message); if (!redisClient.isReady) redisConnected = false })
+redisClient.on('error', err => {
+  console.error('Redis Client Error:', err.message)
+  if (!redisClient.isReady) redisConnected = false
+})
+redisClient.on('ready', () => {
+  redisConnected = true
+})
+redisClient.on('end', () => {
+  redisConnected = false
+})
 redisClient.on('connect', () => console.log('✅ Connected to Redis'))
 redisClient.on('reconnecting', () => console.log('🔄 Reconnecting to Redis...'))
 
 let redisConnected = false
-const requireProductionPersistence = Boolean(process.env.FLY_APP_NAME)
+const requireProductionPersistence = requiresPersistence()
 
 // Wire the Squarespace cache + OAuth token store to server.js's single Redis
 // client + the live connection flag (passed as a getter so it always reads
@@ -200,11 +158,14 @@ initInventoryExport({ redisClient, isRedisConnected: () => redisConnected })
   try {
     await redisClient.connect()
     redisConnected = true
-    await initializeEvents()
-    await initializeListings()
   } catch (err) {
     redisConnected = false
-    console.warn(requireProductionPersistence ? '⚠️  Redis unavailable: production persistence is degraded:' : '⚠️  Redis unavailable: development memory fallback is active:', err.message)
+    console.warn(
+      requireProductionPersistence
+        ? '⚠️  Redis unavailable: production persistence is degraded:'
+        : '⚠️  Redis unavailable: development memory fallback is active:',
+      err.message
+    )
   } finally {
     // Kick off the initial Squarespace refresh once the Redis state is settled
     // (connected or not). No-ops with a one-time warning if no API key is set.
@@ -216,1174 +177,40 @@ initInventoryExport({ redisClient, isRedisConnected: () => redisConnected })
   }
 })()
 
-// In-memory fallback exists only for local development/test. Production mutations
-// fail closed when Redis is unavailable.
-let memoryEvents = []
-const EVENTS_KEY = 'outpost:events'
-const initializeEvents = async () => {
-  if (!redisConnected) return
-  const exists = await redisClient.exists(EVENTS_KEY)
-  if (!exists) await redisClient.set(EVENTS_KEY, '[]')
-}
-
-const persistenceUnavailable = res => res.status(503).json({ error: 'Persistence temporarily unavailable', retryable: true })
-const validIsoDate = value => {
-  if (typeof value !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(value)) return false
-  const [y,m,d]=value.split('-').map(Number), dt=new Date(Date.UTC(y,m-1,d))
-  return dt.getUTCFullYear()===y && dt.getUTCMonth()===m-1 && dt.getUTCDate()===d
-}
-const validEventDate = value => typeof value === 'string' && (validIsoDate(value) || !Number.isNaN(Date.parse(`${value.trim()} 12:00:00 UTC`)))
-const validEventTime = value => { const m=typeof value==='string' && value.trim().match(/^(\d{1,2}):(\d{2})\s*(AM|PM)$/i); return Boolean(m && +m[1]>=1 && +m[1]<=12 && +m[2]<=59) }
-const EVENT_FIELDS = new Set(['title','date','time','entry','description','gameTypeId','gameTypeName','isVisible'])
-const validateEvent = (body, partial=false) => {
-  if (!body || typeof body!=='object' || Array.isArray(body)) return {error:'Request body must be a JSON object'}
-  const unknown=Object.keys(body).filter(k=>!EVENT_FIELDS.has(k)); if(unknown.length) return {error:`Unknown event fields: ${unknown.join(', ')}`}
-  for(const f of ['title','entry','description']) if(f in body && (typeof body[f]!=='string'||!body[f].trim())) return {error:`${f} must be a non-empty string`}
-  if(!partial){for(const f of ['title','date','time','entry','description']) if(!(f in body)) return {error:`${f} is required`}} else if(!Object.keys(body).length) return {error:'At least one field is required'}
-  if('date' in body && !validEventDate(body.date)) return {error:'date is invalid'}
-  if('time' in body && !validEventTime(body.time)) return {error:'time must use h:mm AM/PM format'}
-  if('isVisible' in body && typeof body.isVisible!=='boolean') return {error:'isVisible must be a boolean'}
-  return {value:Object.fromEntries(Object.entries(body).map(([k,v])=>[k,typeof v==='string'?v.trim():v]))}
-}
-
 // Health check endpoint
 app.get('/api/health', (req, res) => {
   res.json({
-    status: 'ok',
+    status: redisConnected ? 'ok' : 'degraded',
     message: 'API is running',
-    redis: redisConnected ? 'connected' : requireProductionPersistence ? 'unavailable' : 'disconnected (development memory fallback)',
+    redis: redisConnected
+      ? 'connected'
+      : requireProductionPersistence
+        ? 'unavailable'
+        : 'disconnected (development memory fallback)',
     persistent: redisConnected,
     timestamp: new Date().toISOString(),
   })
 })
 
-// ─── Admin auth ──────────────────────────────────────────────────────────────
-// `secure` is gated on actually running on Fly.io (not NODE_ENV, which this repo's
-// .env sets to "production" even for local dev) so the session cookie still works
-// over plain http://localhost while requiring HTTPS in the real deployment.
-const SESSION_COOKIE_OPTIONS = {
-  httpOnly: true,
-  secure: Boolean(process.env.FLY_APP_NAME),
-  sameSite: 'strict',
-  maxAge: 12 * 60 * 60 * 1000, // 12 hours
-}
+mountAuth(app, loginRateLimiter)
 
-app.post('/api/auth/login', loginRateLimiter, async (req, res) => {
-  try {
-    const { username, password } = req.body || {}
-    const valid = await verifyCredentials(username, password)
-    if (!valid) {
-      return res.status(401).json({ error: 'Invalid username or password' })
-    }
+mountMarketingPosters(app)
 
-    const sessionId = await createSession(username)
-    res.cookie('sid', sessionId, SESSION_COOKIE_OPTIONS)
-    res.json({ ok: true, username })
-  } catch (error) {
-    console.error('❌ Login failed:', error.message)
-    res.status(500).json({ error: 'Login failed' })
-  }
+mountRecords(app, {
+  redisClient,
+  isRedisConnected: () => redisConnected,
+  persistent: requireProductionPersistence,
 })
 
-app.post('/api/auth/logout', async (req, res) => {
-  await destroySession(req.cookies?.sid)
-  res.clearCookie('sid', SESSION_COOKIE_OPTIONS)
-  res.json({ ok: true })
+mountSquare(app, {
+  redisClient,
+  isRedisConnected: () => redisConnected,
+  requireProductionPersistence,
 })
 
-app.get('/api/auth/me', requireAdminAuth, (req, res) => {
-  res.json({ username: req.admin.username })
-})
+mountInventoryExport(app)
 
-// Homepage carousel — fully filesystem-driven, see marketingPosters.js.
-app.get('/api/marketing-posters', async (req, res) => {
-  try {
-    const posters = await listMarketingPosters(process.env)
-    res.json({ ok: true, posters })
-  } catch (error) {
-    console.error('❌ Marketing posters listing failed:', error.message)
-    res.status(500).json({ ok: false, error: 'Failed to list marketing posters' })
-  }
-})
-
-// Event and weekly override routes
-app.get('/api/events', async (_req,res)=>{
-  if(!redisConnected){ if(requireProductionPersistence) return persistenceUnavailable(res); return res.json(memoryEvents) }
-  try{ const d=await redisClient.get(EVENTS_KEY); res.json(d?JSON.parse(d):[]) } catch(e){ console.error('Error fetching events:',e); return requireProductionPersistence?persistenceUnavailable(res):res.json(memoryEvents) }
-})
-app.post('/api/events', requireAdminAuth, async (req,res)=>{ const parsed=validateEvent(req.body); if(parsed.error)return res.status(400).json({error:parsed.error}); if(!redisConnected&&requireProductionPersistence)return persistenceUnavailable(res); const event={id:crypto.randomUUID(),...parsed.value}; try{ if(redisConnected){const d=await redisClient.get(EVENTS_KEY),xs=d?JSON.parse(d):[];xs.push(event);await redisClient.set(EVENTS_KEY,JSON.stringify(xs))}else memoryEvents.push(event); res.status(201).json(event)}catch(e){console.error('Error adding event:',e);return requireProductionPersistence?persistenceUnavailable(res):res.status(500).json({error:'Failed to add event'})} })
-app.put('/api/events/:id', requireAdminAuth, async (req,res)=>{ const parsed=validateEvent(req.body,true); if(parsed.error)return res.status(400).json({error:parsed.error}); if(!redisConnected&&requireProductionPersistence)return persistenceUnavailable(res); try{ let xs;if(redisConnected){const d=await redisClient.get(EVENTS_KEY);xs=d?JSON.parse(d):[]}else xs=memoryEvents; const i=xs.findIndex(e=>e.id===req.params.id); if(i<0)return res.status(404).json({error:'Event not found'}); xs[i]={...xs[i],...parsed.value,id:xs[i].id}; if(redisConnected)await redisClient.set(EVENTS_KEY,JSON.stringify(xs)); else memoryEvents=xs; res.json(xs[i]) }catch(e){console.error('Error updating event:',e);return requireProductionPersistence?persistenceUnavailable(res):res.status(500).json({error:'Failed to update event'})} })
-app.delete('/api/events/:id', requireAdminAuth, async (req,res)=>{ if(!redisConnected&&requireProductionPersistence)return persistenceUnavailable(res); try{ let xs;if(redisConnected){const d=await redisClient.get(EVENTS_KEY);xs=d?JSON.parse(d):[]}else xs=memoryEvents; const filtered=xs.filter(e=>e.id!==req.params.id); if(filtered.length===xs.length)return res.status(404).json({error:'Event not found'}); if(redisConnected)await redisClient.set(EVENTS_KEY,JSON.stringify(filtered)); else memoryEvents=filtered; res.json({message:'Event deleted successfully'}) }catch(e){console.error('Error deleting event:',e);return requireProductionPersistence?persistenceUnavailable(res):res.status(500).json({error:'Failed to delete event'})} })
-
-let memoryWeeklyOverrides=[]
-const WEEKLY_OVERRIDES_KEY='outpost:weeklyOverrides'
-app.get('/api/weekly-overrides',async(_req,res)=>{if(!redisConnected){if(requireProductionPersistence)return persistenceUnavailable(res);return res.json(memoryWeeklyOverrides)}try{const d=await redisClient.get(WEEKLY_OVERRIDES_KEY);res.json(d?JSON.parse(d):[])}catch(e){console.error(e);return requireProductionPersistence?persistenceUnavailable(res):res.json(memoryWeeklyOverrides)}})
-app.post('/api/weekly-overrides',requireAdminAuth,async(req,res)=>{const {weeklyEventId,date,reason}=req.body||{};if(typeof weeklyEventId!=='string'||!weeklyEventId.trim()||!validIsoDate(date))return res.status(400).json({error:'weeklyEventId and a real YYYY-MM-DD date are required'});if(!redisConnected&&requireProductionPersistence)return persistenceUnavailable(res);const item={id:crypto.randomUUID(),weeklyEventId:weeklyEventId.trim(),date,...(typeof reason==='string'&&reason.trim()?{reason:reason.trim()}:{})};try{if(redisConnected){const d=await redisClient.get(WEEKLY_OVERRIDES_KEY),xs=d?JSON.parse(d):[];xs.push(item);await redisClient.set(WEEKLY_OVERRIDES_KEY,JSON.stringify(xs))}else memoryWeeklyOverrides.push(item);res.status(201).json(item)}catch(e){console.error(e);return requireProductionPersistence?persistenceUnavailable(res):res.status(500).json({error:'Failed to add weekly override'})}})
-app.delete('/api/weekly-overrides/:id',requireAdminAuth,async(req,res)=>{if(!redisConnected&&requireProductionPersistence)return persistenceUnavailable(res);try{let xs;if(redisConnected){const d=await redisClient.get(WEEKLY_OVERRIDES_KEY);xs=d?JSON.parse(d):[]}else xs=memoryWeeklyOverrides;const f=xs.filter(o=>o.id!==req.params.id);if(f.length===xs.length)return res.status(404).json({error:'Weekly override not found'});if(redisConnected)await redisClient.set(WEEKLY_OVERRIDES_KEY,JSON.stringify(f));else memoryWeeklyOverrides=f;res.json({message:'Weekly override deleted successfully'})}catch(e){console.error(e);return requireProductionPersistence?persistenceUnavailable(res):res.status(500).json({error:'Failed to delete weekly override'})}})
-
-// TCGPlayer listings endpoint - Manual Management
-const TCGPLAYER_LISTINGS_KEY = 'outpost:tcgplayer:listings'
-const SHOP_SELLER_ID = '61af7a3a'
-const TCGPLAYER_SHOP_URL = `https://www.tcgplayer.com/search/all/product?seller=${SHOP_SELLER_ID}&view=grid&page=1`
-
-// Sample default listings
-const DEFAULT_LISTINGS = [
-  {
-    id: 'tcg-sample-1',
-    name: 'Sample Card - Add Your Own!',
-    setName: 'Your Set Here',
-    price: 0,
-    priceDisplay: 'See TCGPlayer',
-    imageUrl: null,
-    productUrl: TCGPLAYER_SHOP_URL,
-    condition: 'NM',
-    foiling: 'Normal',
-    quantityInStock: 0,
-    seller: 'The Outpost Games',
-    createdAt: new Date().toISOString(),
-  },
-]
-
-// Initialize listings
-const initializeListings = async () => {
-  try {
-    if (!redisConnected) {
-      // Already have default in memory
-      return
-    }
-
-    const exists = await redisClient.exists(TCGPLAYER_LISTINGS_KEY)
-    if (!exists) {
-      await redisClient.set(TCGPLAYER_LISTINGS_KEY, JSON.stringify(DEFAULT_LISTINGS))
-      console.log('Initialized TCGPlayer listings with sample data')
-    }
-  } catch (error) {
-    console.warn('TCGPlayer listings initialization failed:', error.message)
-  }
-}
-
-// Get all listings
-app.get('/api/tcgplayer-listings', async (req, res) => {
-  try {
-    const page = parseInt(req.query.page) || 1
-    const limit = parseInt(req.query.limit) || 20
-
-    let allListings = []
-
-    if (redisConnected) {
-      const data = await redisClient.get(TCGPLAYER_LISTINGS_KEY)
-      allListings = data ? JSON.parse(data) : DEFAULT_LISTINGS
-    } else {
-      allListings = DEFAULT_LISTINGS
-    }
-
-    // Pagination
-    const startIndex = (page - 1) * limit
-    const endIndex = page * limit
-    const paginatedListings = allListings.slice(startIndex, endIndex)
-
-    res.json({
-      listings: paginatedListings,
-      page,
-      limit,
-      totalResults: paginatedListings.length,
-      totalListings: allListings.length,
-      timestamp: new Date().toISOString(),
-      shopUrl: TCGPLAYER_SHOP_URL,
-    })
-
-    console.log(`✅ Returned ${paginatedListings.length} TCGPlayer listings (page ${page})`)
-  } catch (error) {
-    console.error('❌ Error fetching TCGPlayer listings:', error.message)
-    res.status(500).json({
-      error: 'Failed to fetch listings',
-      message: error.message,
-      listings: [],
-    })
-  }
-})
-
-// Add a new listing
-app.post('/api/tcgplayer-listings', requireAdminAuth, async (req, res) => {
-  try {
-    const { name, setName, price, condition, foiling, quantityInStock, imageUrl, productUrl } =
-      req.body
-
-    if (!name || !setName || price === undefined) {
-      return res.status(400).json({ error: 'name, setName, and price are required' })
-    }
-
-    const newListing = {
-      id: `tcg-${crypto.randomUUID()}`,
-      name,
-      setName,
-      price: parseFloat(price),
-      priceDisplay: `$${parseFloat(price).toFixed(2)}`,
-      condition: condition || 'NM',
-      foiling: foiling || 'Normal',
-      quantityInStock: parseInt(quantityInStock) || 1,
-      imageUrl: imageUrl || null,
-      productUrl: productUrl || TCGPLAYER_SHOP_URL,
-      seller: 'The Outpost Games',
-      createdAt: new Date().toISOString(),
-    }
-
-    let listings = []
-
-    if (redisConnected) {
-      const data = await redisClient.get(TCGPLAYER_LISTINGS_KEY)
-      listings = data ? JSON.parse(data) : []
-      listings.push(newListing)
-      await redisClient.set(TCGPLAYER_LISTINGS_KEY, JSON.stringify(listings))
-    } else {
-      DEFAULT_LISTINGS.push(newListing)
-      listings = DEFAULT_LISTINGS
-    }
-
-    console.log(`✅ Added new TCGPlayer listing: ${newListing.name}`)
-    res.status(201).json(newListing)
-  } catch (error) {
-    console.error('❌ Error adding listing:', error.message)
-    res.status(500).json({ error: 'Failed to add listing', message: error.message })
-  }
-})
-
-// Update a listing
-app.put('/api/tcgplayer-listings/:id', requireAdminAuth, async (req, res) => {
-  try {
-    const { id } = req.params
-    const updates = req.body
-
-    let listings = []
-
-    if (redisConnected) {
-      const data = await redisClient.get(TCGPLAYER_LISTINGS_KEY)
-      listings = data ? JSON.parse(data) : []
-    } else {
-      listings = DEFAULT_LISTINGS
-    }
-
-    const index = listings.findIndex(l => l.id === id)
-    if (index === -1) {
-      return res.status(404).json({ error: 'Listing not found' })
-    }
-
-    listings[index] = {
-      ...listings[index],
-      ...updates,
-      id: listings[index].id, // Preserve ID
-      priceDisplay: updates.price
-        ? `$${parseFloat(updates.price).toFixed(2)}`
-        : listings[index].priceDisplay,
-      updatedAt: new Date().toISOString(),
-    }
-
-    if (redisConnected) {
-      await redisClient.set(TCGPLAYER_LISTINGS_KEY, JSON.stringify(listings))
-    }
-
-    console.log(`✅ Updated listing: ${listings[index].name}`)
-    res.json(listings[index])
-  } catch (error) {
-    console.error('❌ Error updating listing:', error.message)
-    res.status(500).json({ error: 'Failed to update listing', message: error.message })
-  }
-})
-
-// Delete a listing
-app.delete('/api/tcgplayer-listings/:id', requireAdminAuth, async (req, res) => {
-  try {
-    const { id } = req.params
-
-    let listings = []
-
-    if (redisConnected) {
-      const data = await redisClient.get(TCGPLAYER_LISTINGS_KEY)
-      listings = data ? JSON.parse(data) : []
-    } else {
-      listings = DEFAULT_LISTINGS
-    }
-
-    const filteredListings = listings.filter(l => l.id !== id)
-
-    if (filteredListings.length === listings.length) {
-      return res.status(404).json({ error: 'Listing not found' })
-    }
-
-    if (redisConnected) {
-      await redisClient.set(TCGPLAYER_LISTINGS_KEY, JSON.stringify(filteredListings))
-    } else {
-      DEFAULT_LISTINGS.length = 0
-      DEFAULT_LISTINGS.push(...filteredListings)
-    }
-
-    console.log(`✅ Deleted listing: ${id}`)
-    res.json({ message: 'Listing deleted successfully' })
-  } catch (error) {
-    console.error('❌ Error deleting listing:', error.message)
-    res.status(500).json({ error: 'Failed to delete listing', message: error.message })
-  }
-})
-
-// Clear all listings
-app.delete('/api/tcgplayer-listings', requireAdminAuth, async (req, res) => {
-  try {
-    if (redisConnected) {
-      await redisClient.del(TCGPLAYER_LISTINGS_KEY)
-    } else {
-      DEFAULT_LISTINGS.length = 0
-    }
-
-    console.log('✅ Cleared all TCGPlayer listings')
-    res.json({ message: 'All listings cleared successfully' })
-  } catch (error) {
-    console.error('❌ Error clearing listings:', error.message)
-    res.status(500).json({ error: 'Failed to clear listings', message: error.message })
-  }
-})
-
-// ─── Square POS Integration (sandbox-first) ─────────────────────────────────
-// This is an additive surface for validating Square POS credentials and catalog
-// access before any production rollout.
-
-app.get('/api/square/status', requireAdminAuth, async (req, res) => {
-  try {
-    const status = getSquareConfigurationStatus(process.env)
-    res.json({
-      ok: true,
-      ...status,
-      apiBaseUrl:
-        status.environment === 'production'
-          ? 'https://connect.squareup.com'
-          : 'https://connect.squareupsandbox.com',
-    })
-  } catch (error) {
-    console.error('❌ Error getting Square status:', error.message)
-    res.status(500).json({ error: 'Failed to read Square configuration' })
-  }
-})
-
-app.post('/api/square/test', requireAdminAuth, async (req, res) => {
-  try {
-    const status = getSquareConfigurationStatus(process.env)
-    if (!status.configured) {
-      return res.status(422).json({
-        ok: false,
-        error: 'Square credentials are incomplete',
-        message:
-          'The Square integration needs SQUARE_ACCESS_TOKEN, SQUARE_APPLICATION_ID, and SQUARE_LOCATION_ID.',
-        missingFields: status.missingFields,
-      })
-    }
-
-    const result = await testSquareConnection(process.env)
-    res.json({ ok: true, ...result })
-  } catch (error) {
-    console.error('❌ Square connection test failed:', error.message)
-    res.status(502).json({
-      ok: false,
-      error: 'Square connection test failed',
-      message: error.message,
-    })
-  }
-})
-
-app.get('/api/square/catalog', requireAdminAuth, async (req, res) => {
-  try {
-    const { createSquarePosClient, resolveSquareCredentials } = await import('./squarePosClient.js')
-    const client = createSquarePosClient(resolveSquareCredentials(process.env))
-    const payload = await client.request('/v2/catalog/list?types=ITEM')
-    res.json({ ok: true, environment: client.environment, items: payload.objects || [] })
-  } catch (error) {
-    console.error('❌ Square catalog fetch failed:', error.message)
-    res.status(502).json({
-      ok: false,
-      error: 'Square catalog fetch failed',
-      message: error.message,
-    })
-  }
-})
-
-app.get('/api/square/inventory-report', requireAdminAuth, async (req, res) => {
-  try {
-    const report = await getSquareInventoryReport(process.env)
-    res.json(report)
-  } catch (error) {
-    console.error('❌ Square inventory report failed:', error.message)
-    res.status(502).json({
-      ok: false,
-      error: 'Square inventory report failed',
-      message: error.message,
-    })
-  }
-})
-
-// Public, cached, read-only catalog for the customer-facing Products page —
-// deliberately not requireAdminAuth. Never calls Square directly on request;
-// always served from squarePublicCatalogCache's Redis/memory cache, which
-// refreshes itself in the background per its store-hours-aware TTL.
-app.get('/api/square/public-catalog', async (req, res) => {
-  try {
-    const cache = await getCachedPublicSquareCatalog()
-    res.json({ ok: true, ...cache })
-  } catch (error) {
-    console.error('❌ Square public catalog fetch failed:', error.message)
-    res.status(502).json({
-      ok: false,
-      error: 'Square public catalog fetch failed',
-      message: error.message,
-    })
-  }
-})
-
-// Fire-and-forget: called after every admin write that could change what the
-// public Products page shows (image, name, price, category, stock, deletion).
-// Without this, an admin's edit only reaches customers once the store-hours
-// TTL in squarePublicCatalogCache.js next expires (up to an hour open, a day
-// closed) — which reads as "the save didn't work" even though it did.
-const invalidatePublicCatalog = () => {
-  refreshSquarePublicCatalog().catch(() => {}) // failure is already logged inside refreshSquarePublicCatalog
-}
-
-app.post('/api/square/public-catalog/refresh', requireAdminAuth, async (req, res) => {
-  try {
-    const cache = await refreshSquarePublicCatalog()
-    res.json({ ok: true, ...cache })
-  } catch (error) {
-    console.error('❌ Square public catalog refresh failed:', error.message)
-    res.status(502).json({
-      ok: false,
-      error: 'Square public catalog refresh failed',
-      message: error.message,
-    })
-  }
-})
-
-app.get('/api/square/public-catalog/status', requireAdminAuth, (req, res) => {
-  res.json({ ok: true, ...getSquarePublicCatalogStatus() })
-})
-
-app.get('/api/square/categories', requireAdminAuth, async (req, res) => {
-  try {
-    const categories = await listSquareCategories(process.env)
-    res.json({ ok: true, categories })
-  } catch (error) {
-    console.error('❌ Square categories fetch failed:', error.message)
-    res
-      .status(502)
-      .json({ ok: false, error: 'Square categories fetch failed', message: error.message })
-  }
-})
-
-app.post('/api/square/categories', requireAdminAuth, async (req, res) => {
-  try {
-    const { name, parentCategoryId } = req.body || {}
-    if (!name || !name.trim()) {
-      return res.status(400).json({ error: 'Category name is required' })
-    }
-
-    const category = await createSquareCategory(
-      { name: name.trim(), parentCategoryId: parentCategoryId || null },
-      process.env
-    )
-    res.json({ ok: true, category })
-  } catch (error) {
-    console.error('❌ Square category creation failed:', error.message)
-    res
-      .status(502)
-      .json({ ok: false, error: 'Square category creation failed', message: error.message })
-  }
-})
-
-app.put('/api/square/categories/:categoryId', requireAdminAuth, async (req, res) => {
-  try {
-    const { name } = req.body || {}
-    if (!name || !name.trim()) {
-      return res.status(400).json({ error: 'Category name is required' })
-    }
-
-    const category = await renameSquareCategory(req.params.categoryId, name.trim(), process.env)
-    invalidatePublicCatalog()
-    res.json({ ok: true, category })
-  } catch (error) {
-    console.error('❌ Square category rename failed:', error.message)
-    res
-      .status(502)
-      .json({ ok: false, error: 'Square category rename failed', message: error.message })
-  }
-})
-
-app.put('/api/square/categories/:categoryId/parent', requireAdminAuth, async (req, res) => {
-  try {
-    const parentCategoryId = req.body?.parentCategoryId ?? null
-    const category = await reparentSquareCategory(
-      req.params.categoryId,
-      parentCategoryId,
-      process.env
-    )
-    invalidatePublicCatalog()
-    res.json({ ok: true, category })
-  } catch (error) {
-    console.error('❌ Square category re-parent failed:', error.message)
-    res
-      .status(502)
-      .json({ ok: false, error: 'Square category re-parent failed', message: error.message })
-  }
-})
-
-app.delete('/api/square/categories/:categoryId', requireAdminAuth, async (req, res) => {
-  try {
-    await deleteSquareCategory(req.params.categoryId, process.env)
-    invalidatePublicCatalog()
-    res.json({ ok: true })
-  } catch (error) {
-    // A refusal (still referenced / has children) is a normal, expected
-    // outcome here — surfaced as 409 with the guard's own message, not a 502.
-    console.error('❌ Square category delete refused/failed:', error.message)
-    res.status(409).json({ ok: false, error: error.message })
-  }
-})
-
-app.post('/api/square/categories/:fromCategoryId/merge', requireAdminAuth, async (req, res) => {
-  try {
-    const { toCategoryId } = req.body || {}
-    if (!toCategoryId) {
-      return res.status(400).json({ error: 'toCategoryId is required' })
-    }
-    if (toCategoryId === req.params.fromCategoryId) {
-      return res.status(400).json({ error: 'Cannot merge a category into itself' })
-    }
-
-    const result = await mergeSquareCategories(req.params.fromCategoryId, toCategoryId, process.env)
-    invalidatePublicCatalog()
-    res.json({ ok: true, mergedItemCount: result.mergedItemCount })
-  } catch (error) {
-    console.error('❌ Square category merge failed:', error.message)
-    res
-      .status(502)
-      .json({ ok: false, error: 'Square category merge failed', message: error.message })
-  }
-})
-
-app.get('/api/square/products/:itemId', requireAdminAuth, async (req, res) => {
-  try {
-    const item = await getSquareCatalogItem(req.params.itemId, process.env)
-    res.json({ ok: true, item })
-  } catch (error) {
-    console.error('❌ Square product fetch failed:', error.message)
-    res
-      .status(502)
-      .json({ ok: false, error: 'Square product fetch failed', message: error.message })
-  }
-})
-
-app.put('/api/square/products/:itemId', requireAdminAuth, async (req, res) => {
-  try {
-    const body = req.body || {}
-    const touchesSku =
-      Object.prototype.hasOwnProperty.call(body, 'sku') ||
-      (body.variations || []).some(variation =>
-        Object.prototype.hasOwnProperty.call(variation, 'sku')
-      )
-    if (touchesSku) {
-      return res.status(400).json({
-        error: 'SKU cannot be edited here — it is locked to protect in-store barcode scanning',
-      })
-    }
-    if (body.releasedAt != null && !/^\d{4}-\d{2}-\d{2}$/.test(body.releasedAt)) {
-      return res.status(400).json({ error: 'releasedAt must be an ISO date (YYYY-MM-DD)' })
-    }
-
-    const updated = await updateSquareCatalogItem(req.params.itemId, body, process.env)
-    invalidatePublicCatalog()
-    res.json({ ok: true, item: updated })
-  } catch (error) {
-    if (error instanceof SquareVersionMismatchError) {
-      return res.status(409).json({ error: error.message })
-    }
-    console.error('❌ Square product update failed:', error.message)
-    res
-      .status(502)
-      .json({ ok: false, error: 'Square product update failed', message: error.message })
-  }
-})
-
-app.delete('/api/square/products/:itemId', requireAdminAuth, async (req, res) => {
-  try {
-    const result = await deleteSquareCatalogItem(req.params.itemId, process.env)
-    invalidatePublicCatalog()
-    res.json({ ok: true, deletedIds: result.deleted_object_ids || [] })
-  } catch (error) {
-    console.error('❌ Square product delete failed:', error.message)
-    res
-      .status(502)
-      .json({ ok: false, error: 'Square product delete failed', message: error.message })
-  }
-})
-
-// Bulk actions (admin multi-select). AdminSquareCatalog.vue's list is one row
-// per variation, so selection is keyed by itemId — every route here operates
-// on whole ITEMs, chunked internally via Square's real batch endpoints.
-app.post('/api/square/products/batch-delete', requireAdminAuth, async (req, res) => {
-  try {
-    const itemIds = Array.isArray(req.body?.itemIds) ? req.body.itemIds : []
-    if (!itemIds.length) return res.status(400).json({ error: 'itemIds must be a non-empty array' })
-
-    const result = await deleteSquareCatalogItemsBatch(itemIds, process.env)
-    invalidatePublicCatalog()
-    res.json({ ok: true, deletedIds: result.deletedIds })
-  } catch (error) {
-    console.error('❌ Square bulk delete failed:', error.message)
-    res.status(502).json({ ok: false, error: 'Square bulk delete failed', message: error.message })
-  }
-})
-
-app.post('/api/square/products/batch-category', requireAdminAuth, async (req, res) => {
-  try {
-    const itemIds = Array.isArray(req.body?.itemIds) ? req.body.itemIds : []
-    if (!itemIds.length) return res.status(400).json({ error: 'itemIds must be a non-empty array' })
-    const categoryId = req.body?.categoryId ?? null
-
-    const result = await setSquareCatalogItemsCategoryBatch(itemIds, categoryId, process.env)
-    invalidatePublicCatalog()
-    res.json({ ok: true, updatedCount: result.objects.length })
-  } catch (error) {
-    console.error('❌ Square bulk category update failed:', error.message)
-    res
-      .status(502)
-      .json({ ok: false, error: 'Square bulk category update failed', message: error.message })
-  }
-})
-
-app.post('/api/square/products/batch-visibility', requireAdminAuth, async (req, res) => {
-  try {
-    const itemIds = Array.isArray(req.body?.itemIds) ? req.body.itemIds : []
-    if (!itemIds.length) return res.status(400).json({ error: 'itemIds must be a non-empty array' })
-    const { hiddenFromWeb, sellable } = req.body || {}
-    if (hiddenFromWeb === undefined && sellable === undefined) {
-      return res.status(400).json({ error: 'hiddenFromWeb and/or sellable is required' })
-    }
-
-    const result = await setSquareCatalogItemsVisibilityBatch(
-      itemIds,
-      { hiddenFromWeb, sellable },
-      process.env
-    )
-    invalidatePublicCatalog()
-    res.json({ ok: true, updatedCount: result.objects.length })
-  } catch (error) {
-    console.error('❌ Square bulk visibility update failed:', error.message)
-    res
-      .status(502)
-      .json({ ok: false, error: 'Square bulk visibility update failed', message: error.message })
-  }
-})
-
-app.post('/api/square/products/batch-released-at', requireAdminAuth, async (req, res) => {
-  try {
-    const itemIds = Array.isArray(req.body?.itemIds) ? req.body.itemIds : []
-    if (!itemIds.length) return res.status(400).json({ error: 'itemIds must be a non-empty array' })
-    const releasedAt = req.body?.releasedAt ?? null
-    if (releasedAt !== null && !/^\d{4}-\d{2}-\d{2}$/.test(releasedAt)) {
-      return res.status(400).json({ error: 'releasedAt must be an ISO date (YYYY-MM-DD) or null' })
-    }
-
-    const result = await setSquareCatalogItemsReleasedAtBatch(itemIds, releasedAt, process.env)
-    invalidatePublicCatalog()
-    res.json({ ok: true, updatedCount: result.objects.length })
-  } catch (error) {
-    console.error('❌ Square bulk released-at update failed:', error.message)
-    res
-      .status(502)
-      .json({ ok: false, error: 'Square bulk released-at update failed', message: error.message })
-  }
-})
-
-app.delete(
-  '/api/square/products/:itemId/variations/:variationId',
-  requireAdminAuth,
-  async (req, res) => {
-    try {
-      const result = await deleteSquareCatalogVariation(
-        req.params.itemId,
-        req.params.variationId,
-        process.env
-      )
-      invalidatePublicCatalog()
-      res.json({ ok: true, deletedIds: result.deleted_object_ids || [] })
-    } catch (error) {
-      console.error('❌ Square variation delete failed:', error.message)
-      res
-        .status(502)
-        .json({ ok: false, error: 'Square variation delete failed', message: error.message })
-    }
-  }
-)
-
-app.post('/api/square/products/:itemId/variations', requireAdminAuth, async (req, res) => {
-  try {
-    const { name, sku, priceCents, trackInventory, sellable } = req.body || {}
-    if (!name || !name.trim()) {
-      return res.status(400).json({ error: 'Variation name is required' })
-    }
-    if (
-      priceCents !== undefined &&
-      priceCents !== null &&
-      (!Number.isFinite(priceCents) || priceCents < 0)
-    ) {
-      return res.status(400).json({ error: 'priceCents must be a non-negative number' })
-    }
-
-    await addSquareCatalogVariation(
-      req.params.itemId,
-      {
-        name: name.trim(),
-        sku: sku?.trim() || undefined,
-        priceCents: priceCents ?? null,
-        trackInventory,
-        sellable,
-      },
-      process.env
-    )
-    const item = await getSquareCatalogItem(req.params.itemId, process.env)
-    invalidatePublicCatalog()
-    res.status(201).json({ ok: true, item })
-  } catch (error) {
-    console.error('❌ Square add variation failed:', error.message)
-    res
-      .status(502)
-      .json({ ok: false, error: 'Square add variation failed', message: error.message })
-  }
-})
-
-const imageUpload = multer({
-  storage: multer.memoryStorage(),
-  limits: { fileSize: 15 * 1024 * 1024 }, // Square's own max: 15MB
-  fileFilter: (req, file, cb) => {
-    if (!['image/jpeg', 'image/pjpeg', 'image/png', 'image/gif'].includes(file.mimetype)) {
-      return cb(new Error('Only JPEG, PNG, or GIF images are supported'))
-    }
-    cb(null, true)
-  },
-})
-
-app.post('/api/square/products/:itemId/image', requireAdminAuth, (req, res) => {
-  imageUpload.single('image')(req, res, async uploadError => {
-    if (uploadError) {
-      return res.status(400).json({ error: uploadError.message })
-    }
-    if (!req.file) {
-      return res.status(400).json({ error: 'An image file is required' })
-    }
-
-    try {
-      const result = await uploadSquareCatalogImage(
-        req.params.itemId,
-        {
-          buffer: req.file.buffer,
-          filename: req.file.originalname,
-          mimeType: req.file.mimetype,
-        },
-        process.env
-      )
-      invalidatePublicCatalog()
-      res.json({ ok: true, imageUrl: result.imageUrl })
-    } catch (error) {
-      console.error('❌ Square image upload failed:', error.message)
-      res
-        .status(502)
-        .json({ ok: false, error: 'Square image upload failed', message: error.message })
-    }
-  })
-})
-
-// A variation's own photo (distinct from the item's shared group photo) —
-// e.g. "Foil Enhanced" needing different art than "Regular". Square's
-// CreateCatalogImage endpoint accepts an ITEM_VARIATION id the same way it
-// does an ITEM id, so this reuses the identical upload/reorder logic.
-app.post(
-  '/api/square/products/:itemId/variations/:variationId/image',
-  requireAdminAuth,
-  (req, res) => {
-    imageUpload.single('image')(req, res, async uploadError => {
-      if (uploadError) {
-        return res.status(400).json({ error: uploadError.message })
-      }
-      if (!req.file) {
-        return res.status(400).json({ error: 'An image file is required' })
-      }
-
-      try {
-        const result = await uploadSquareCatalogImage(
-          req.params.variationId,
-          {
-            buffer: req.file.buffer,
-            filename: req.file.originalname,
-            mimeType: req.file.mimetype,
-          },
-          process.env
-        )
-        invalidatePublicCatalog()
-        res.json({ ok: true, imageUrl: result.imageUrl })
-      } catch (error) {
-        console.error('❌ Square variation image upload failed:', error.message)
-        res
-          .status(502)
-          .json({
-            ok: false,
-            error: 'Square variation image upload failed',
-            message: error.message,
-          })
-      }
-    })
-  }
-)
-
-app.post('/api/square/products/:itemId/inventory', requireAdminAuth, async (req, res) => {
-  try {
-    const quantity = Number(req.body?.quantity)
-    const { variationId } = req.body || {}
-    if (!Number.isFinite(quantity) || quantity < 0) {
-      return res.status(400).json({ error: 'quantity must be a non-negative number' })
-    }
-    if (!variationId) {
-      return res.status(400).json({ error: 'variationId is required' })
-    }
-
-    const item = await getSquareCatalogItem(req.params.itemId, process.env)
-    if (!item.variations.some(variation => variation.id === variationId)) {
-      return res.status(422).json({ error: 'That variation does not belong to this item' })
-    }
-
-    const { locationId } = resolveSquareCredentials(process.env)
-    await adjustSquareInventoryCount(variationId, { quantity, locationId }, process.env)
-    invalidatePublicCatalog()
-    res.json({ ok: true, quantity })
-  } catch (error) {
-    console.error('❌ Square inventory correction failed:', error.message)
-    res
-      .status(502)
-      .json({ ok: false, error: 'Square inventory correction failed', message: error.message })
-  }
-})
-
-app.post('/api/square/inventory/batch', requireAdminAuth, async (req, res) => {
-  try {
-    const changes = Array.isArray(req.body?.changes) ? req.body.changes : []
-    if (!changes.length) {
-      return res.status(400).json({ error: 'changes must be a non-empty array' })
-    }
-    for (const change of changes) {
-      const quantity = Number(change.quantity)
-      if (!change.variationId || !Number.isFinite(quantity) || quantity < 0) {
-        return res
-          .status(400)
-          .json({ error: 'Each change requires a variationId and a non-negative quantity' })
-      }
-    }
-
-    // Validate every variationId against a fresh report rather than trusting
-    // client-supplied ids blindly, matching the single-item inventory route.
-    const report = await getSquareInventoryReport(process.env)
-    const knownVariationIds = new Set(report.items.map(item => item.id))
-    const unknownIds = changes.map(c => c.variationId).filter(id => !knownVariationIds.has(id))
-    if (unknownIds.length) {
-      return res.status(422).json({ error: 'Unknown variation id(s)', unknownIds })
-    }
-
-    const result = await adjustSquareInventoryCountBatch(
-      changes.map(c => ({ variationId: c.variationId, quantity: Number(c.quantity) })),
-      process.env
-    )
-    invalidatePublicCatalog()
-    res.json({ ok: true, updatedCount: result.updatedCount })
-  } catch (error) {
-    console.error('❌ Square batch inventory correction failed:', error.message)
-    res.status(502).json({
-      ok: false,
-      error: 'Square batch inventory correction failed',
-      message: error.message,
-    })
-  }
-})
-
-// Quick Restock — persisted box-of-sealed-packs -> loose-pack pairings.
-// Square has no native "kit"/bundle concept for this (confirmed via Square's
-// own developer forum), so the relationship itself lives here in Redis, same
-// convention as outpost:tcgplayer:listings — plain flat CRUD, no TTL/
-// orchestration complexity, so no separate init*() module is warranted.
-const RESTOCK_MAPPINGS_KEY = 'outpost:square:restock-mappings'
-let memoryRestockMappings = [] // in-memory fallback; empty array is a valid default
-
-app.get('/api/square/restock-mappings', requireAdminAuth, async (req, res) => {
-  try {
-    if (!redisConnected) return res.json({ ok: true, mappings: memoryRestockMappings })
-    const data = await redisClient.get(RESTOCK_MAPPINGS_KEY)
-    res.json({ ok: true, mappings: data ? JSON.parse(data) : [] })
-  } catch (error) {
-    console.error('❌ Error fetching restock mappings:', error.message)
-    res.status(500).json({ ok: false, error: 'Failed to fetch restock mappings' })
-  }
-})
-
-app.post('/api/square/restock-mappings', requireAdminAuth, async (req, res) => {
-  try {
-    const { boxVariationId, boxName, packsVariationId, packsName, packsPerBox } = req.body || {}
-    if (!boxVariationId || !packsVariationId) {
-      return res.status(400).json({ error: 'boxVariationId and packsVariationId are required' })
-    }
-    if (boxVariationId === packsVariationId) {
-      return res.status(400).json({ error: 'Box and packs must be different variations' })
-    }
-    if (!Number.isInteger(packsPerBox) || packsPerBox <= 0) {
-      return res.status(400).json({ error: 'packsPerBox must be a positive integer' })
-    }
-
-    // Validate both ids are real, current variations rather than trusting
-    // client-supplied ids blindly, matching the existing batch-inventory route.
-    const report = await getSquareInventoryReport(process.env)
-    const knownVariationIds = new Set(report.items.map(item => item.id))
-    if (!knownVariationIds.has(boxVariationId) || !knownVariationIds.has(packsVariationId)) {
-      return res.status(422).json({ error: 'Unknown variation id(s)' })
-    }
-
-    const mapping = {
-      id: crypto.randomUUID(),
-      boxVariationId,
-      boxName: boxName || '',
-      packsVariationId,
-      packsName: packsName || '',
-      packsPerBox,
-    }
-
-    if (!redisConnected) {
-      memoryRestockMappings.push(mapping)
-      return res.status(201).json({ ok: true, mapping })
-    }
-
-    const data = await redisClient.get(RESTOCK_MAPPINGS_KEY)
-    const mappings = data ? JSON.parse(data) : []
-    mappings.push(mapping)
-    await redisClient.set(RESTOCK_MAPPINGS_KEY, JSON.stringify(mappings))
-    res.status(201).json({ ok: true, mapping })
-  } catch (error) {
-    console.error('❌ Error creating restock mapping:', error.message)
-    res.status(500).json({ ok: false, error: 'Failed to create restock mapping' })
-  }
-})
-
-app.delete('/api/square/restock-mappings/:id', requireAdminAuth, async (req, res) => {
-  try {
-    const { id } = req.params
-
-    if (!redisConnected) {
-      const originalLength = memoryRestockMappings.length
-      memoryRestockMappings = memoryRestockMappings.filter(m => m.id !== id)
-      if (memoryRestockMappings.length === originalLength) {
-        return res.status(404).json({ error: 'Restock mapping not found' })
-      }
-      return res.json({ ok: true })
-    }
-
-    const data = await redisClient.get(RESTOCK_MAPPINGS_KEY)
-    const mappings = data ? JSON.parse(data) : []
-    const filtered = mappings.filter(m => m.id !== id)
-    if (filtered.length === mappings.length) {
-      return res.status(404).json({ error: 'Restock mapping not found' })
-    }
-    await redisClient.set(RESTOCK_MAPPINGS_KEY, JSON.stringify(filtered))
-    res.json({ ok: true })
-  } catch (error) {
-    console.error('❌ Error deleting restock mapping:', error.message)
-    res.status(500).json({ ok: false, error: 'Failed to delete restock mapping' })
-  }
-})
-
-app.post('/api/square/restock-mappings/:id/apply', requireAdminAuth, async (req, res) => {
-  try {
-    const boxesOpened = Number(req.body?.boxesOpened)
-    if (!Number.isInteger(boxesOpened) || boxesOpened <= 0) {
-      return res.status(400).json({ error: 'boxesOpened must be a positive integer' })
-    }
-
-    let mappings
-    if (!redisConnected) {
-      mappings = memoryRestockMappings
-    } else {
-      const data = await redisClient.get(RESTOCK_MAPPINGS_KEY)
-      mappings = data ? JSON.parse(data) : []
-    }
-    const mapping = mappings.find(m => m.id === req.params.id)
-    if (!mapping) return res.status(404).json({ error: 'Restock mapping not found' })
-
-    const result = await applyBoxToPackRestock(
-      {
-        boxVariationId: mapping.boxVariationId,
-        packsVariationId: mapping.packsVariationId,
-        packsPerBox: mapping.packsPerBox,
-        boxesOpened,
-      },
-      process.env
-    )
-    invalidatePublicCatalog()
-    res.json({ ok: true, ...result })
-  } catch (error) {
-    console.error('❌ Square restock apply failed:', error.message)
-    res
-      .status(502)
-      .json({ ok: false, error: 'Square restock apply failed', message: error.message })
-  }
-})
-
-app.get('/api/square/sales', requireAdminAuth, async (req, res) => {
-  try {
-    const to = req.query.to ? new Date(req.query.to).toISOString() : new Date().toISOString()
-    const from = req.query.from
-      ? new Date(req.query.from).toISOString()
-      : new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString()
-    const granularity = ['week', 'month'].includes(req.query.granularity)
-      ? req.query.granularity
-      : 'day'
-
-    const report = await getSquareSalesReport({ from, to, granularity }, process.env)
-    res.json(report)
-  } catch (error) {
-    console.error('❌ Square sales report failed:', error.message)
-    res.status(502).json({ ok: false, error: 'Square sales report failed', message: error.message })
-  }
-})
-
-// Manual trigger for the monthly inventory export — lets an admin test the
-// email/xlsx pipeline on demand, or re-run it if the 1st was missed (e.g. the
-// server was down). The scheduler in inventoryExport.js otherwise fires this
-// automatically once per month.
-app.post('/api/admin/inventory-export/run', requireAdminAuth, async (req, res) => {
-  if (!isMailConfigured(process.env)) {
-    return res
-      .status(503)
-      .json({ ok: false, error: 'Email is not configured — set GMAIL_USER and GMAIL_APP_PASSWORD' })
-  }
-  try {
-    const result = await runMonthlyInventoryExport(process.env)
-    res.json({ ok: true, ...result })
-  } catch (error) {
-    if (error instanceof MailNotConfiguredError) {
-      return res.status(503).json({ ok: false, error: error.message })
-    }
-    console.error('❌ Manual inventory export failed:', error.message)
-    res.status(502).json({ ok: false, error: 'Inventory export failed', message: error.message })
-  }
-})
-
-// Legacy Squarespace routes are left in place only as documentation and can be
-// removed later once the Square integration is fully validated.
-app.get('/api/squarespace/products', async (req, res) => {
-  try {
-    const [{ fetchedAt, products }, assignments] = await Promise.all([
-      getSquarespaceCatalog(),
-      getAllAssignments(),
-    ])
-    const withAssignments = products.map(p => ({
-      ...p,
-      assignment: Object.hasOwn(assignments, p.id)
-        ? assignments[p.id]
-        : { typeId: null, setId: null },
-    }))
-    res.json({ fetchedAt, products: withAssignments })
-  } catch (error) {
-    console.error('❌ Error fetching Squarespace products:', error.message)
-    res.status(500).json({ error: 'Failed to fetch Squarespace products' })
-  }
-})
-
-// POST /api/squarespace/refresh — force a synchronous full refresh from Squarespace.
-app.post('/api/squarespace/refresh', requireAdminAuth, async (req, res) => {
-  try {
-    const cache = await refreshSquarespaceCatalog()
-    res.json({ fetchedAt: cache.fetchedAt, productCount: cache.products.length })
-  } catch (error) {
-    if (error instanceof SquarespaceNotConfiguredError) {
-      return res
-        .status(503)
-        .json({ error: 'Squarespace is not configured', message: error.message })
-    }
-    if (error instanceof SquarespaceNotAuthorizedError) {
-      return res.status(503).json({
-        error: 'Squarespace is not authorized',
-        message: error.message,
-        authorizeUrl: '/api/squarespace/oauth/authorize',
-      })
-    }
-    console.error('❌ Squarespace refresh failed:', error.message)
-    res.status(502).json({ error: 'Failed to refresh from Squarespace', message: error.message })
-  }
-})
-
-// GET /api/squarespace/status — merges cache/product status with OAuth status
-// (configured/authorized/token expiry) so both auth paths are visible at once.
-app.get('/api/squarespace/status', async (req, res) => {
-  const oauthStatus = await getOAuthStatus()
-  res.json({ ...getSquarespaceStatus(), oauth: oauthStatus })
-})
-
-// GET /api/squarespace/oauth/authorize — one-time human step: open this in a
-// browser after setting SQUARESPACE_CLIENT_ID/SECRET/REDIRECT_URI to grant
-// access on Squarespace's confirmation page. Only needed on plans without
-// Developer API Keys; skip entirely if using SQUARESPACE_API_KEY instead.
-app.get('/api/squarespace/oauth/authorize', (req, res) => {
-  try {
-    res.redirect(getAuthorizeUrl())
-  } catch (error) {
-    res
-      .status(503)
-      .json({ error: "Squarespace OAuth isn't configured yet", message: error.message })
-  }
-})
-
-// GET /api/squarespace/oauth/callback — this must be the exact redirect_uri
-// registered with Squarespace. Exchanges the one-time code for tokens.
-// Responds with JSON (not res.send of an interpolated string) deliberately —
-// query params here are attacker-controlled since this is a public GET route,
-// and JSON can't be interpreted as HTML/script by a browser the way a
-// text/html response with reflected input could.
-app.get('/api/squarespace/oauth/callback', async (req, res) => {
-  try {
-    await handleOAuthCallback({
-      code: req.query.code,
-      state: req.query.state,
-      error: req.query.error,
-    })
-    res.json({
-      success: true,
-      message: 'Squarespace connected successfully. You can close this tab.',
-    })
-  } catch (error) {
-    console.error('❌ Squarespace OAuth callback failed:', error.message)
-    res.status(400).json({ success: false, error: error.message })
-  }
-})
-
-// PUT /api/squarespace/products/:productId/assignment — tag a Squarespace product
-// with a typeId/setId (or null to unassign). typeId/setId are opaque, admin-chosen
-// strings — no catalog to validate them against since the manual product catalog
-// was retired.
-app.put('/api/squarespace/products/:productId/assignment', requireAdminAuth, async (req, res) => {
-  try {
-    const { productId } = req.params
-    const { typeId = null, setId = null } = req.body || {}
-
-    if (typeId === null && setId !== null) {
-      // A setId can't be scoped to anything without a typeId.
-      return res.status(400).json({ error: 'setId requires a typeId' })
-    }
-
-    const assignment = await setAssignment(productId, { typeId, setId })
-    res.json({ productId, assignment })
-  } catch (error) {
-    console.error('❌ Error setting Squarespace assignment:', error.message)
-    res.status(500).json({ error: 'Failed to set assignment' })
-  }
-})
+mountSquarespace(app)
 
 // ─── Warm-hours self-ping (belt-and-suspenders) ─────────────────────────────
 // The .github/workflows/warm-hours.yml cron is the primary mechanism that
@@ -1398,7 +225,7 @@ app.put('/api/squarespace/products/:productId/assignment', requireAdminAuth, asy
 // 127.0.0.1 would be invisible to it and wouldn't actually prevent idle-stop.
 // Off by default (WARM_WINDOW_SELF_PING unset) since the cron job above is
 // sufficient on its own; this only adds redundancy.
-const WARM_WINDOW_TIMEZONE = 'America/Chicago'
+const WARM_WINDOW_TIMEZONE = storeConfig.timeZone
 const WARM_WINDOW_START_HOUR = 12 // noon — keep in sync with the cron schedule in warm-hours.yml
 const SELF_PING_INTERVAL_MS = 2 * 60 * 1000 // well under Fly's ~5 min idle-stop timeout
 
@@ -1435,7 +262,9 @@ if (process.env.WARM_WINDOW_SELF_PING === 'true') {
   }
 }
 
-app.listen(PORT, '0.0.0.0', () => {
+app.use(errorHandler)
+
+const server = app.listen(PORT, '0.0.0.0', () => {
   console.log(`🚀 API server running on port ${PORT}`)
   console.log(`📊 Health check: http://localhost:${PORT}/api/health`)
   if (!redisConnected) {
@@ -1446,8 +275,10 @@ app.listen(PORT, '0.0.0.0', () => {
 // Graceful shutdown
 process.on('SIGTERM', async () => {
   console.log('SIGTERM signal received: closing HTTP server')
-  if (redisConnected) {
-    await redisClient.quit()
-  }
-  process.exit(0)
+  const timeout = setTimeout(() => process.exit(1), 10000).unref()
+  server.close(async () => {
+    if (redisClient.isOpen) await redisClient.quit().catch(console.error)
+    clearTimeout(timeout)
+    process.exit(0)
+  })
 })

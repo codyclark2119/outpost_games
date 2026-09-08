@@ -146,13 +146,19 @@
     <div class="section-divider container mx-auto"></div>
 
     <!-- Marketing Posters Carousel — auto-populated from public/wpn-assets/posters/ -->
+    <p v-if="postersLoading" class="container mx-auto py-4 text-gray-500">
+      Loading store highlights…
+    </p>
+    <p v-else-if="postersError" class="container mx-auto py-4 text-gray-500">
+      Store highlights are temporarily unavailable.
+    </p>
     <section
       v-if="posters.length > 0 && currentSlide"
       class="py-20 bg-outpost-navy relative overflow-hidden"
-      @mouseenter="pauseFeaturedInterval"
-      @mouseleave="startFeaturedInterval"
-      @focusin="pauseFeaturedInterval"
-      @focusout="startFeaturedInterval"
+      @mouseenter="setCarouselHover(true)"
+      @mouseleave="setCarouselHover(false)"
+      @focusin="pauseCarouselFocus"
+      @focusout="onCarouselFocusOut"
     >
       <div
         class="absolute inset-0 bg-gradient-radial from-outpost-gold/10 via-transparent to-transparent opacity-30"
@@ -350,6 +356,7 @@
 </template>
 
 <script setup lang="ts">
+import { apiFetch } from '../services/api'
 import { ref, computed, onMounted, onUnmounted, nextTick, defineAsyncComponent } from 'vue'
 import { useRoute } from 'vue-router'
 import { MapPinIcon, ClockIcon, EnvelopeIcon } from '@heroicons/vue/24/outline'
@@ -357,14 +364,7 @@ import { useEventsStore } from '../stores/events'
 import { useWeeklyOverridesStore } from '../stores/weeklyOverrides'
 import { STORE_INFO } from '../config/storeInfo'
 import { WEEKLY_SCHEDULE } from '../config/weeklySchedule'
-import {
-  addDaysToISODate,
-  eventDateToISO,
-  formatStoreDateLabel,
-  getStoreTodayISO,
-  hasEventStarted,
-  weekdayFromISODate,
-} from '../utils/eventDateTime'
+import { getFeaturedDay } from '../utils/eventOccurrences'
 import { scrollToSectionId, cancelPendingSectionScroll } from '../utils/scrollToSection'
 import { usePageMeta } from '../composables/usePageMeta'
 
@@ -399,69 +399,11 @@ const particles = Array.from({ length: 20 }, (_, id) => ({
 }))
 
 // ── Featured day ──────────────────────────────────────────────────────────────
-interface FeaturedDayEvent {
-  title: string
-  time: string
-  entry: string
-  description: string
-  gameTypeId?: string
-  gameTypeName?: string
-  isWeekly: boolean
-}
-interface FeaturedDay {
-  date: string
-  hasWeekly: boolean
-  hasSpecial: boolean
-  events: FeaturedDayEvent[]
-}
-const featuredDay = computed((): FeaturedDay | null => {
-  const now = new Date()
-  const todayISO = getStoreTodayISO(now)
-  for (let daysAhead = 0; daysAhead <= 7; daysAhead++) {
-    const targetDateISO = addDaysToISODate(todayISO, daysAhead)
-    const specials = eventsStore.upcomingEvents
-      .filter(
-        e =>
-          e.isVisible !== false &&
-          eventDateToISO(e.date) === targetDateISO &&
-          !hasEventStarted(targetDateISO, e.time, now)
-      )
-      .map(e => ({
-        title: e.title,
-        time: e.time,
-        entry: e.entry,
-        description: e.description,
-        gameTypeId: e.gameTypeId,
-        gameTypeName: e.gameTypeName,
-        isWeekly: false,
-      }))
-    const weekly = WEEKLY_SCHEDULE.filter(
-      entry =>
-        entry.jsDay === weekdayFromISODate(targetDateISO) &&
-        !weeklyOverridesStore.overrides.some(
-          o => o.weeklyEventId === entry.id && o.date === targetDateISO
-        ) &&
-        !hasEventStarted(targetDateISO, entry.time, now)
-    ).map(entry => ({
-      title: entry.eventName,
-      time: entry.time,
-      entry: '0.00',
-      description: entry.description,
-      gameTypeId: entry.gameTypeId,
-      gameTypeName: entry.gameType,
-      isWeekly: true,
-    }))
-    const events = [...specials, ...weekly].sort((a, b) => a.time.localeCompare(b.time))
-    if (events.length)
-      return {
-        date: formatStoreDateLabel(targetDateISO),
-        hasWeekly: weekly.length > 0,
-        hasSpecial: specials.length > 0,
-        events,
-      }
-  }
-  return null
-})
+const featuredDay = computed(() =>
+  weeklyOverridesStore.error
+    ? null
+    : getFeaturedDay(eventsStore.upcomingEvents, WEEKLY_SCHEDULE, weeklyOverridesStore.overrides)
+)
 
 // ── Marketing posters carousel — auto-populated from public/wpn-assets/posters/,
 // no admin step: drop an image in the folder and it shows up here.
@@ -476,6 +418,22 @@ const currentFeaturedIndex = ref(0)
 const currentSlide = computed(
   () => posters.value[currentFeaturedIndex.value] ?? posters.value[0] ?? null
 )
+const hoverPaused = ref(false)
+const focusPaused = ref(false)
+let disposed = false
+const setCarouselHover = (paused: boolean) => {
+  hoverPaused.value = paused
+  startFeaturedInterval()
+}
+const pauseCarouselFocus = () => {
+  focusPaused.value = true
+  pauseFeaturedInterval()
+}
+const onCarouselFocusOut = (event: FocusEvent) => {
+  if ((event.currentTarget as HTMLElement).contains(event.relatedTarget as Node | null)) return
+  focusPaused.value = false
+  startFeaturedInterval()
+}
 let featuredInterval: number | null = null
 const reducedMotionQuery = window.matchMedia('(prefers-reduced-motion: reduce)')
 const pauseFeaturedInterval = () => {
@@ -495,7 +453,14 @@ const previousFeaturedSlide = () => {
 }
 const startFeaturedInterval = () => {
   pauseFeaturedInterval()
-  if (posters.value.length > 1 && !document.hidden && !reducedMotionQuery.matches)
+  if (
+    !disposed &&
+    !hoverPaused.value &&
+    !focusPaused.value &&
+    posters.value.length > 1 &&
+    !document.hidden &&
+    !reducedMotionQuery.matches
+  )
     featuredInterval = window.setInterval(nextFeaturedSlide, 6000)
 }
 const handleCarouselVisibilityChange = () =>
@@ -506,15 +471,19 @@ const goToSlide = (index: number) => {
   startFeaturedInterval()
 }
 
+const postersLoading = ref(true)
+const postersError = ref(false)
 const fetchMarketingPosters = async () => {
+  postersLoading.value = true
+  postersError.value = false
   try {
-    const API_BASE_URL = import.meta.env.VITE_API_URL || '/api'
-    const response = await fetch(`${API_BASE_URL}/marketing-posters`)
-    if (!response.ok) throw new Error(`HTTP ${response.status}`)
-    const data = await response.json()
+    const data = await apiFetch<{ posters: MarketingPoster[] }>('/marketing-posters')
     posters.value = data.posters || []
   } catch (error) {
     console.error('Marketing posters fetch error:', error)
+    postersError.value = true
+  } finally {
+    postersLoading.value = false
   }
 }
 
@@ -523,12 +492,14 @@ onMounted(async () => {
   weeklyOverridesStore.fetchOverrides()
 
   await fetchMarketingPosters()
+  if (disposed) return
   document.addEventListener('visibilitychange', handleCarouselVisibilityChange)
   reducedMotionQuery.addEventListener('change', handleCarouselVisibilityChange)
   startFeaturedInterval()
 })
 
 onUnmounted(() => {
+  disposed = true
   pauseFeaturedInterval()
   document.removeEventListener('visibilitychange', handleCarouselVisibilityChange)
   reducedMotionQuery.removeEventListener('change', handleCarouselVisibilityChange)

@@ -34,7 +34,10 @@ test('sortForExport puts in-stock items before out-of-stock/not-tracked items', 
     item({ displayName: 'In stock', inStock: true, quantity: 5 }),
   ]
   const sorted = sortForExport(items)
-  assert.deepEqual(sorted.map(i => i.displayName), ['In stock', 'Out of stock'])
+  assert.deepEqual(
+    sorted.map(i => i.displayName),
+    ['In stock', 'Out of stock']
+  )
 })
 
 test('sortForExport groups by category name alphabetically within the same stock status', () => {
@@ -43,7 +46,10 @@ test('sortForExport groups by category name alphabetically within the same stock
     item({ displayName: 'Magic item', categoryName: 'Magic', inStock: true }),
   ]
   const sorted = sortForExport(items)
-  assert.deepEqual(sorted.map(i => i.displayName), ['Magic item', 'Pokemon item'])
+  assert.deepEqual(
+    sorted.map(i => i.displayName),
+    ['Magic item', 'Pokemon item']
+  )
 })
 
 test('sortForExport sorts lowest quantity first within a category', () => {
@@ -52,16 +58,27 @@ test('sortForExport sorts lowest quantity first within a category', () => {
     item({ displayName: 'Low stock', categoryName: 'Magic', quantity: 2 }),
   ]
   const sorted = sortForExport(items)
-  assert.deepEqual(sorted.map(i => i.displayName), ['Low stock', 'High stock'])
+  assert.deepEqual(
+    sorted.map(i => i.displayName),
+    ['Low stock', 'High stock']
+  )
 })
 
 test('sortForExport treats untracked (null) quantity as highest, sorting it last', () => {
   const items = [
-    item({ displayName: 'Not tracked', categoryName: 'Magic', quantity: null, trackInventory: false }),
+    item({
+      displayName: 'Not tracked',
+      categoryName: 'Magic',
+      quantity: null,
+      trackInventory: false,
+    }),
     item({ displayName: 'Tracked low', categoryName: 'Magic', quantity: 1 }),
   ]
   const sorted = sortForExport(items)
-  assert.deepEqual(sorted.map(i => i.displayName), ['Tracked low', 'Not tracked'])
+  assert.deepEqual(
+    sorted.map(i => i.displayName),
+    ['Tracked low', 'Not tracked']
+  )
 })
 
 test('EXCLUDED_EXPORT_CATEGORIES contains Snacks so it can be filtered out of the export', () => {

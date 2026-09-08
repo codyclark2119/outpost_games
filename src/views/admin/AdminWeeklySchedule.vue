@@ -16,8 +16,11 @@
           </router-link>
         </div>
 
+        <p v-if="!loaded" class="py-10 text-center text-gray-600" role="status">
+          Loading schedule…
+        </p>
         <!-- Error -->
-        <div v-if="overridesStore.error" class="card text-center py-10">
+        <div v-else-if="overridesStore.error" class="card text-center py-10">
           <p class="text-red-600 mb-4">{{ overridesStore.error }}</p>
           <button class="btn-primary px-6 py-2" @click="overridesStore.fetchOverrides()">
             Retry
@@ -36,7 +39,7 @@
               class="flex-shrink-0 bg-outpost-navy text-white rounded-lg px-4 py-3 text-center min-w-[90px]"
             >
               <div class="text-xs uppercase tracking-wide opacity-70">Next</div>
-              <div class="font-cinzel font-bold text-sm leading-tight">
+              <div class="font-bold text-sm leading-tight">
                 {{ entry.dayName }}
               </div>
               <div class="text-xs opacity-70">{{ entry.nextDateLabel }}</div>
@@ -133,6 +136,7 @@ import { nextOccurrenceOf, toISODate } from '../../utils/weeklySchedule'
 import { useWeeklyOverridesStore, type WeeklyOverride } from '../../stores/weeklyOverrides'
 
 const overridesStore = useWeeklyOverridesStore()
+const loaded = ref(false)
 
 interface ScheduleEntryWithStatus extends WeeklyScheduleEntry {
   nextDateISO: string
@@ -147,7 +151,11 @@ const scheduleWithStatus = computed((): ScheduleEntryWithStatus[] =>
     return {
       ...entry,
       nextDateISO,
-      nextDateLabel: nextDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
+      nextDateLabel: nextDate.toLocaleDateString('en-US', {
+        month: 'short',
+        day: 'numeric',
+        timeZone: 'UTC',
+      }),
       override: overridesStore.overrides.find(
         o => o.weeklyEventId === entry.id && o.date === nextDateISO
       ),
@@ -202,8 +210,9 @@ const restoreOccurrence = async (override: WeeklyOverride | undefined) => {
   await overridesStore.removeOverride(override.id).catch(() => {})
 }
 
-onMounted(() => {
-  overridesStore.fetchOverrides()
+onMounted(async () => {
+  await overridesStore.fetchOverrides()
+  loaded.value = true
 })
 </script>
 
