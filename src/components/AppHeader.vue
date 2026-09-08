@@ -1,15 +1,18 @@
 <template>
-  <header class="bg-gray-800 text-white shadow-lg sticky top-0 z-50">
+  <header
+    class="bg-gray-800 text-white shadow-lg sticky top-0 z-50"
+    @keydown.esc="showMobileMenu = false"
+  >
     <nav class="container mx-auto px-4 py-4">
       <div class="hidden md:flex md:justify-between items-center">
         <!-- Logo and Brand -->
-        <div class="flex items-center space-x-4">
+        <router-link to="/" class="flex items-center space-x-4" aria-label="The Outpost Games home">
           <img
             src="/src/assets/outpost_text_only.png"
             alt="The Outpost Games Logo"
             class="h-12 w-auto max-w-[220px] object-contain"
           />
-        </div>
+        </router-link>
 
         <!-- Desktop Navigation - Right aligned -->
         <div class="flex space-x-10">
@@ -18,7 +21,7 @@
               v-if="link.path"
               :to="link.path"
               class="hover:text-outpost-gold transition-colors duration-200 font-semibold text-lg"
-              :class="{ 'text-outpost-gold': route.path === link.path }"
+              :class="{ 'text-outpost-gold': isActiveRoute(link.path) }"
             >
               {{ link.name }}
             </router-link>
@@ -38,20 +41,21 @@
       <!-- Mobile Layout -->
       <div class="md:hidden flex flex-col items-center gap-4">
         <!-- Logo and Brand -->
-        <div class="flex items-center space-x-4">
+        <router-link to="/" class="flex items-center space-x-4" aria-label="The Outpost Games home">
           <img
             src="/src/assets/outpost_text_only.png"
             alt="The Outpost Games Logo"
             class="h-12 w-auto max-w-[220px] object-contain"
             fetchpriority="high"
           />
-        </div>
+        </router-link>
 
         <!-- Mobile Menu Button -->
         <button
           class="absolute right-4 top-4 hover:text-outpost-gold transition-colors duration-200"
           :aria-label="showMobileMenu ? 'Close menu' : 'Open menu'"
           :aria-expanded="showMobileMenu"
+          aria-controls="mobile-navigation"
           @click="toggleMobileMenu"
         >
           <Bars3Icon v-if="!showMobileMenu" class="w-6 h-6" />
@@ -62,6 +66,7 @@
       <!-- Mobile Navigation -->
       <div
         v-if="showMobileMenu"
+        id="mobile-navigation"
         class="md:hidden absolute left-0 right-0 top-full bg-gray-800 border-t border-gray-600 shadow-xl z-40"
       >
         <div class="flex flex-col space-y-3 px-4 py-4">
@@ -70,7 +75,7 @@
               v-if="link.path"
               :to="link.path"
               class="hover:text-outpost-gold transition-colors duration-200 font-medium py-2"
-              :class="{ 'text-outpost-gold': route.path === link.path }"
+              :class="{ 'text-outpost-gold': isActiveRoute(link.path) }"
               @click="showMobileMenu = false"
             >
               {{ link.name }}
@@ -93,11 +98,10 @@
 
 <script setup lang="ts">
 import { ref, watch, onMounted, onBeforeUnmount, nextTick } from 'vue'
-import { useRouter, useRoute } from 'vue-router'
+import { useRoute } from 'vue-router'
 import { Bars3Icon, XMarkIcon } from '@heroicons/vue/24/outline'
 import { useSectionNav } from '../composables/useSectionNav'
 
-const router = useRouter()
 const route = useRoute()
 const { goToSection } = useSectionNav()
 
@@ -126,10 +130,18 @@ const goToMobileSection = (sectionId: string | undefined) => {
   showMobileMenu.value = false
 }
 
-// Close mobile menu when route changes
-router.beforeEach(() => {
-  showMobileMenu.value = false
-})
+const isActiveRoute = (path?: string) =>
+  path
+    ? path === '/'
+      ? route.path === '/'
+      : route.path === path || route.path.startsWith(`${path}/`)
+    : false
+watch(
+  () => route.fullPath,
+  () => {
+    showMobileMenu.value = false
+  }
+)
 
 // ── Scroll-spy: highlights the in-page section nav link matching whatever
 // section is currently in view on the one-page Home. Only meaningful on '/' —

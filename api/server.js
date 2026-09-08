@@ -179,11 +179,12 @@ const redisClient = createClient({
   },
 })
 
-redisClient.on('error', err => console.error('Redis Client Error:', err.message))
+redisClient.on('error', err => { console.error('Redis Client Error:', err.message); if (!redisClient.isReady) redisConnected = false })
 redisClient.on('connect', () => console.log('✅ Connected to Redis'))
 redisClient.on('reconnecting', () => console.log('🔄 Reconnecting to Redis...'))
 
 let redisConnected = false
+const requireProductionPersistence = Boolean(process.env.FLY_APP_NAME)
 
 // Wire the Squarespace cache + OAuth token store to server.js's single Redis
 // client + the live connection flag (passed as a getter so it always reads
@@ -202,8 +203,8 @@ initInventoryExport({ redisClient, isRedisConnected: () => redisConnected })
     await initializeEvents()
     await initializeListings()
   } catch (err) {
-    console.warn('⚠️  Redis not available, running without persistence:', err.message)
-    console.log('📝 Events will be stored in memory only')
+    redisConnected = false
+    console.warn(requireProductionPersistence ? '⚠️  Redis unavailable: production persistence is degraded:' : '⚠️  Redis unavailable: development memory fallback is active:', err.message)
   } finally {
     // Kick off the initial Squarespace refresh once the Redis state is settled
     // (connected or not). No-ops with a one-time warning if no API key is set.
@@ -215,60 +216,34 @@ initInventoryExport({ redisClient, isRedisConnected: () => redisConnected })
   }
 })()
 
-// In-memory fallback storage
+// In-memory fallback exists only for local development/test. Production mutations
+// fail closed when Redis is unavailable.
 let memoryEvents = []
-
-// Default events data
-const DEFAULT_EVENTS = [
-  {
-    id: '1',
-    title: 'Prerelease Tournament',
-    date: 'February 15, 2026',
-    time: '12:00 PM',
-    entry: '30.00',
-    description:
-      'Get your hands on the latest set before official release! Sealed format with 6 booster packs and prize support.',
-  },
-  {
-    id: '2',
-    title: 'Commander Night',
-    date: 'February 20, 2026',
-    time: '6:00 PM',
-    entry: '5.00',
-    description:
-      'Casual Commander games with rotating pods. Great for new and experienced players alike!',
-  },
-  {
-    id: '3',
-    title: 'Modern Championship',
-    date: 'March 1, 2026',
-    time: '1:00 PM',
-    entry: '25.00',
-    description:
-      'Competitive Modern format tournament. Top 8 players receive prize support and store credit.',
-  },
-]
-
 const EVENTS_KEY = 'outpost:events'
-
-// Initialize Redis with default events if empty
 const initializeEvents = async () => {
-  try {
-    if (!redisConnected) {
-      memoryEvents = [...DEFAULT_EVENTS]
-      console.log('Initialized in-memory storage with default events')
-      return
-    }
+  if (!redisConnected) return
+  const exists = await redisClient.exists(EVENTS_KEY)
+  if (!exists) await redisClient.set(EVENTS_KEY, '[]')
+}
 
-    const exists = await redisClient.exists(EVENTS_KEY)
-    if (!exists) {
-      await redisClient.set(EVENTS_KEY, JSON.stringify(DEFAULT_EVENTS))
-      console.log('Initialized Redis with default events')
-    }
-  } catch (error) {
-    console.warn('Redis initialization failed, using memory:', error.message)
-    memoryEvents = [...DEFAULT_EVENTS]
-  }
+const persistenceUnavailable = res => res.status(503).json({ error: 'Persistence temporarily unavailable', retryable: true })
+const validIsoDate = value => {
+  if (typeof value !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(value)) return false
+  const [y,m,d]=value.split('-').map(Number), dt=new Date(Date.UTC(y,m-1,d))
+  return dt.getUTCFullYear()===y && dt.getUTCMonth()===m-1 && dt.getUTCDate()===d
+}
+const validEventDate = value => typeof value === 'string' && (validIsoDate(value) || !Number.isNaN(Date.parse(`${value.trim()} 12:00:00 UTC`)))
+const validEventTime = value => { const m=typeof value==='string' && value.trim().match(/^(\d{1,2}):(\d{2})\s*(AM|PM)$/i); return Boolean(m && +m[1]>=1 && +m[1]<=12 && +m[2]<=59) }
+const EVENT_FIELDS = new Set(['title','date','time','entry','description','gameTypeId','gameTypeName','isVisible'])
+const validateEvent = (body, partial=false) => {
+  if (!body || typeof body!=='object' || Array.isArray(body)) return {error:'Request body must be a JSON object'}
+  const unknown=Object.keys(body).filter(k=>!EVENT_FIELDS.has(k)); if(unknown.length) return {error:`Unknown event fields: ${unknown.join(', ')}`}
+  for(const f of ['title','entry','description']) if(f in body && (typeof body[f]!=='string'||!body[f].trim())) return {error:`${f} must be a non-empty string`}
+  if(!partial){for(const f of ['title','date','time','entry','description']) if(!(f in body)) return {error:`${f} is required`}} else if(!Object.keys(body).length) return {error:'At least one field is required'}
+  if('date' in body && !validEventDate(body.date)) return {error:'date is invalid'}
+  if('time' in body && !validEventTime(body.time)) return {error:'time must use h:mm AM/PM format'}
+  if('isVisible' in body && typeof body.isVisible!=='boolean') return {error:'isVisible must be a boolean'}
+  return {value:Object.fromEntries(Object.entries(body).map(([k,v])=>[k,typeof v==='string'?v.trim():v]))}
 }
 
 // Health check endpoint
@@ -276,7 +251,8 @@ app.get('/api/health', (req, res) => {
   res.json({
     status: 'ok',
     message: 'API is running',
-    redis: redisConnected ? 'connected' : 'disconnected (using memory)',
+    redis: redisConnected ? 'connected' : requireProductionPersistence ? 'unavailable' : 'disconnected (development memory fallback)',
+    persistent: redisConnected,
     timestamp: new Date().toISOString(),
   })
 })
@@ -330,232 +306,20 @@ app.get('/api/marketing-posters', async (req, res) => {
   }
 })
 
-// Get all events
-app.get('/api/events', async (req, res) => {
-  try {
-    if (!redisConnected) {
-      return res.json(memoryEvents)
-    }
-
-    const eventsData = await redisClient.get(EVENTS_KEY)
-    const events = eventsData ? JSON.parse(eventsData) : []
-    res.json(events)
-  } catch (error) {
-    console.error('Error fetching events:', error)
-    // Fallback to memory if Redis fails
-    res.json(memoryEvents)
-  }
+// Event and weekly override routes
+app.get('/api/events', async (_req,res)=>{
+  if(!redisConnected){ if(requireProductionPersistence) return persistenceUnavailable(res); return res.json(memoryEvents) }
+  try{ const d=await redisClient.get(EVENTS_KEY); res.json(d?JSON.parse(d):[]) } catch(e){ console.error('Error fetching events:',e); return requireProductionPersistence?persistenceUnavailable(res):res.json(memoryEvents) }
 })
+app.post('/api/events', requireAdminAuth, async (req,res)=>{ const parsed=validateEvent(req.body); if(parsed.error)return res.status(400).json({error:parsed.error}); if(!redisConnected&&requireProductionPersistence)return persistenceUnavailable(res); const event={id:crypto.randomUUID(),...parsed.value}; try{ if(redisConnected){const d=await redisClient.get(EVENTS_KEY),xs=d?JSON.parse(d):[];xs.push(event);await redisClient.set(EVENTS_KEY,JSON.stringify(xs))}else memoryEvents.push(event); res.status(201).json(event)}catch(e){console.error('Error adding event:',e);return requireProductionPersistence?persistenceUnavailable(res):res.status(500).json({error:'Failed to add event'})} })
+app.put('/api/events/:id', requireAdminAuth, async (req,res)=>{ const parsed=validateEvent(req.body,true); if(parsed.error)return res.status(400).json({error:parsed.error}); if(!redisConnected&&requireProductionPersistence)return persistenceUnavailable(res); try{ let xs;if(redisConnected){const d=await redisClient.get(EVENTS_KEY);xs=d?JSON.parse(d):[]}else xs=memoryEvents; const i=xs.findIndex(e=>e.id===req.params.id); if(i<0)return res.status(404).json({error:'Event not found'}); xs[i]={...xs[i],...parsed.value,id:xs[i].id}; if(redisConnected)await redisClient.set(EVENTS_KEY,JSON.stringify(xs)); else memoryEvents=xs; res.json(xs[i]) }catch(e){console.error('Error updating event:',e);return requireProductionPersistence?persistenceUnavailable(res):res.status(500).json({error:'Failed to update event'})} })
+app.delete('/api/events/:id', requireAdminAuth, async (req,res)=>{ if(!redisConnected&&requireProductionPersistence)return persistenceUnavailable(res); try{ let xs;if(redisConnected){const d=await redisClient.get(EVENTS_KEY);xs=d?JSON.parse(d):[]}else xs=memoryEvents; const filtered=xs.filter(e=>e.id!==req.params.id); if(filtered.length===xs.length)return res.status(404).json({error:'Event not found'}); if(redisConnected)await redisClient.set(EVENTS_KEY,JSON.stringify(filtered)); else memoryEvents=filtered; res.json({message:'Event deleted successfully'}) }catch(e){console.error('Error deleting event:',e);return requireProductionPersistence?persistenceUnavailable(res):res.status(500).json({error:'Failed to delete event'})} })
 
-// Add new event
-app.post('/api/events', requireAdminAuth, async (req, res) => {
-  try {
-    const { title, date, time, entry, description, gameTypeId, gameTypeName } = req.body
-
-    if (!title || !date || !time || !entry || !description) {
-      return res.status(400).json({ error: 'All fields are required' })
-    }
-
-    const newEvent = {
-      id: Date.now().toString(),
-      title,
-      date,
-      time,
-      entry,
-      description,
-      ...(gameTypeId && { gameTypeId }),
-      ...(gameTypeName && { gameTypeName }),
-    }
-
-    if (!redisConnected) {
-      memoryEvents.push(newEvent)
-      return res.status(201).json(newEvent)
-    }
-
-    const eventsData = await redisClient.get(EVENTS_KEY)
-    const events = eventsData ? JSON.parse(eventsData) : []
-
-    events.push(newEvent)
-    await redisClient.set(EVENTS_KEY, JSON.stringify(events))
-
-    res.status(201).json(newEvent)
-  } catch (error) {
-    console.error('Error adding event:', error)
-    res.status(500).json({ error: 'Failed to add event' })
-  }
-})
-
-// Update event
-app.put('/api/events/:id', requireAdminAuth, async (req, res) => {
-  try {
-    const { id } = req.params
-    const updates = req.body
-
-    if (!redisConnected) {
-      const index = memoryEvents.findIndex(e => e.id === id)
-      if (index === -1) {
-        return res.status(404).json({ error: 'Event not found' })
-      }
-      memoryEvents[index] = { ...memoryEvents[index], ...updates, id: memoryEvents[index].id }
-      return res.json(memoryEvents[index])
-    }
-
-    const eventsData = await redisClient.get(EVENTS_KEY)
-    const events = eventsData ? JSON.parse(eventsData) : []
-
-    const index = events.findIndex(e => e.id === id)
-    if (index === -1) {
-      return res.status(404).json({ error: 'Event not found' })
-    }
-
-    events[index] = {
-      ...events[index],
-      ...updates,
-      id: events[index].id, // Preserve the original id
-    }
-
-    await redisClient.set(EVENTS_KEY, JSON.stringify(events))
-    res.json(events[index])
-  } catch (error) {
-    console.error('Error updating event:', error)
-    res.status(500).json({ error: 'Failed to update event' })
-  }
-})
-
-// Delete event
-app.delete('/api/events/:id', requireAdminAuth, async (req, res) => {
-  try {
-    const { id } = req.params
-
-    if (!redisConnected) {
-      const originalLength = memoryEvents.length
-      memoryEvents = memoryEvents.filter(e => e.id !== id)
-      if (memoryEvents.length === originalLength) {
-        return res.status(404).json({ error: 'Event not found' })
-      }
-      return res.json({ message: 'Event deleted successfully' })
-    }
-
-    const eventsData = await redisClient.get(EVENTS_KEY)
-    const events = eventsData ? JSON.parse(eventsData) : []
-
-    const filteredEvents = events.filter(e => e.id !== id)
-
-    if (filteredEvents.length === events.length) {
-      return res.status(404).json({ error: 'Event not found' })
-    }
-
-    await redisClient.set(EVENTS_KEY, JSON.stringify(filteredEvents))
-    res.json({ message: 'Event deleted successfully' })
-  } catch (error) {
-    console.error('Error deleting event:', error)
-    res.status(500).json({ error: 'Failed to delete event' })
-  }
-})
-
-// Reset to default events
-app.post('/api/events/reset', requireAdminAuth, async (req, res) => {
-  try {
-    if (!redisConnected) {
-      memoryEvents = [...DEFAULT_EVENTS]
-      return res.json(DEFAULT_EVENTS)
-    }
-    await redisClient.set(EVENTS_KEY, JSON.stringify(DEFAULT_EVENTS))
-    res.json(DEFAULT_EVENTS)
-  } catch (error) {
-    console.error('Error resetting events:', error)
-    res.status(500).json({ error: 'Failed to reset events' })
-  }
-})
-
-// ─── Weekly recurring event overrides ────────────────────────────────────────
-// Hides one specific occurrence of a WEEKLY_SCHEDULE entry (src/config/weeklySchedule.ts)
-// without touching the recurring definition itself — e.g. a holiday cancellation,
-// or a special event overriding that day. Hiding = create a record here;
-// un-hiding = delete it. No seed data — an empty list is the valid default.
-let memoryWeeklyOverrides = []
-
-const WEEKLY_OVERRIDES_KEY = 'outpost:weeklyOverrides'
-
-// Get all weekly overrides
-app.get('/api/weekly-overrides', async (req, res) => {
-  try {
-    if (!redisConnected) {
-      return res.json(memoryWeeklyOverrides)
-    }
-
-    const data = await redisClient.get(WEEKLY_OVERRIDES_KEY)
-    const overrides = data ? JSON.parse(data) : []
-    res.json(overrides)
-  } catch (error) {
-    console.error('Error fetching weekly overrides:', error)
-    res.json(memoryWeeklyOverrides)
-  }
-})
-
-// Hide one occurrence of a recurring weekly event
-app.post('/api/weekly-overrides', requireAdminAuth, async (req, res) => {
-  try {
-    const { weeklyEventId, date, reason } = req.body
-
-    if (!weeklyEventId || !date) {
-      return res.status(400).json({ error: 'weeklyEventId and date are required' })
-    }
-
-    const newOverride = {
-      id: Date.now().toString(),
-      weeklyEventId,
-      date,
-      ...(reason && { reason }),
-    }
-
-    if (!redisConnected) {
-      memoryWeeklyOverrides.push(newOverride)
-      return res.status(201).json(newOverride)
-    }
-
-    const data = await redisClient.get(WEEKLY_OVERRIDES_KEY)
-    const overrides = data ? JSON.parse(data) : []
-
-    overrides.push(newOverride)
-    await redisClient.set(WEEKLY_OVERRIDES_KEY, JSON.stringify(overrides))
-
-    res.status(201).json(newOverride)
-  } catch (error) {
-    console.error('Error adding weekly override:', error)
-    res.status(500).json({ error: 'Failed to add weekly override' })
-  }
-})
-
-// Un-hide — delete the override record
-app.delete('/api/weekly-overrides/:id', requireAdminAuth, async (req, res) => {
-  try {
-    const { id } = req.params
-
-    if (!redisConnected) {
-      const originalLength = memoryWeeklyOverrides.length
-      memoryWeeklyOverrides = memoryWeeklyOverrides.filter(o => o.id !== id)
-      if (memoryWeeklyOverrides.length === originalLength) {
-        return res.status(404).json({ error: 'Weekly override not found' })
-      }
-      return res.json({ message: 'Weekly override deleted successfully' })
-    }
-
-    const data = await redisClient.get(WEEKLY_OVERRIDES_KEY)
-    const overrides = data ? JSON.parse(data) : []
-
-    const filtered = overrides.filter(o => o.id !== id)
-    if (filtered.length === overrides.length) {
-      return res.status(404).json({ error: 'Weekly override not found' })
-    }
-
-    await redisClient.set(WEEKLY_OVERRIDES_KEY, JSON.stringify(filtered))
-    res.json({ message: 'Weekly override deleted successfully' })
-  } catch (error) {
-    console.error('Error deleting weekly override:', error)
-    res.status(500).json({ error: 'Failed to delete weekly override' })
-  }
-})
+let memoryWeeklyOverrides=[]
+const WEEKLY_OVERRIDES_KEY='outpost:weeklyOverrides'
+app.get('/api/weekly-overrides',async(_req,res)=>{if(!redisConnected){if(requireProductionPersistence)return persistenceUnavailable(res);return res.json(memoryWeeklyOverrides)}try{const d=await redisClient.get(WEEKLY_OVERRIDES_KEY);res.json(d?JSON.parse(d):[])}catch(e){console.error(e);return requireProductionPersistence?persistenceUnavailable(res):res.json(memoryWeeklyOverrides)}})
+app.post('/api/weekly-overrides',requireAdminAuth,async(req,res)=>{const {weeklyEventId,date,reason}=req.body||{};if(typeof weeklyEventId!=='string'||!weeklyEventId.trim()||!validIsoDate(date))return res.status(400).json({error:'weeklyEventId and a real YYYY-MM-DD date are required'});if(!redisConnected&&requireProductionPersistence)return persistenceUnavailable(res);const item={id:crypto.randomUUID(),weeklyEventId:weeklyEventId.trim(),date,...(typeof reason==='string'&&reason.trim()?{reason:reason.trim()}:{})};try{if(redisConnected){const d=await redisClient.get(WEEKLY_OVERRIDES_KEY),xs=d?JSON.parse(d):[];xs.push(item);await redisClient.set(WEEKLY_OVERRIDES_KEY,JSON.stringify(xs))}else memoryWeeklyOverrides.push(item);res.status(201).json(item)}catch(e){console.error(e);return requireProductionPersistence?persistenceUnavailable(res):res.status(500).json({error:'Failed to add weekly override'})}})
+app.delete('/api/weekly-overrides/:id',requireAdminAuth,async(req,res)=>{if(!redisConnected&&requireProductionPersistence)return persistenceUnavailable(res);try{let xs;if(redisConnected){const d=await redisClient.get(WEEKLY_OVERRIDES_KEY);xs=d?JSON.parse(d):[]}else xs=memoryWeeklyOverrides;const f=xs.filter(o=>o.id!==req.params.id);if(f.length===xs.length)return res.status(404).json({error:'Weekly override not found'});if(redisConnected)await redisClient.set(WEEKLY_OVERRIDES_KEY,JSON.stringify(f));else memoryWeeklyOverrides=f;res.json({message:'Weekly override deleted successfully'})}catch(e){console.error(e);return requireProductionPersistence?persistenceUnavailable(res):res.status(500).json({error:'Failed to delete weekly override'})}})
 
 // TCGPlayer listings endpoint - Manual Management
 const TCGPLAYER_LISTINGS_KEY = 'outpost:tcgplayer:listings'
@@ -650,7 +414,7 @@ app.post('/api/tcgplayer-listings', requireAdminAuth, async (req, res) => {
     }
 
     const newListing = {
-      id: `tcg-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+      id: `tcg-${crypto.randomUUID()}`,
       name,
       setName,
       price: parseFloat(price),

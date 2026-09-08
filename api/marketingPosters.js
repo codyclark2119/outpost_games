@@ -53,6 +53,19 @@ const comparePosterFilenames = (a, b) => {
   return a.localeCompare(b)
 }
 
+const readMetadata = async (dir, filename) => {
+  const base = path.basename(filename, path.extname(filename))
+  try {
+    const raw = await fs.readFile(path.join(dir, `${base}.json`), 'utf8')
+    const parsed = JSON.parse(raw)
+    return parsed && typeof parsed === 'object' ? parsed : {}
+  } catch (error) {
+    if (error.code === 'ENOENT') return {}
+    if (error instanceof SyntaxError) { console.warn(`⚠️  Ignoring malformed poster metadata for ${filename}: ${error.message}`); return {} }
+    throw error
+  }
+}
+
 let warnedMissingDir = false
 
 export const listMarketingPosters = async (env = process.env) => {
@@ -72,14 +85,15 @@ export const listMarketingPosters = async (env = process.env) => {
     throw error
   }
 
-  return entries
+  const filenames = entries
     .filter(filename => IMAGE_EXTENSIONS.has(path.extname(filename).toLowerCase()))
     .sort(comparePosterFilenames)
-    .map(filename => ({
-      // id keeps any numeric prefix (it's only ever used as a Vue :key, never
-      // displayed) — title is the one place the prefix is stripped.
-      id: path.basename(filename, path.extname(filename)),
-      title: titleFromFilename(filename),
-      imageUrl: `/wpn-assets/posters/${filename}`,
-    }))
+
+  return Promise.all(filenames.map(async filename => {
+    const metadata = await readMetadata(dir, filename)
+    const fallbackTitle = titleFromFilename(filename)
+    const title = typeof metadata.title === 'string' && metadata.title.trim() ? metadata.title.trim() : fallbackTitle
+    const alt = typeof metadata.alt === 'string' && metadata.alt.trim() ? metadata.alt.trim() : title
+    return { id:path.basename(filename,path.extname(filename)), title, alt, imageUrl:`/wpn-assets/posters/${filename}` }
+  }))
 }

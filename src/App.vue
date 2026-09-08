@@ -1,19 +1,17 @@
 <template>
-  <div id="app" class="min-h-screen bg-gray-50">
-    <!-- Navigation Header -->
-    <AppHeader />
-
-    <!-- Main Content -->
-    <main>
-      <router-view />
-    </main>
-
-    <!-- Footer -->
-    <AppFooter />
-  </div>
+  <component :is="layoutComponent">
+    <router-view />
+  </component>
 </template>
 
 <script setup lang="ts">
-import AppHeader from './components/AppHeader.vue'
-import AppFooter from './components/AppFooter.vue'
+import { computed } from 'vue'
+import { useRoute } from 'vue-router'
+import { ADMIN_BASE_PATH } from './config/adminPath'
+import PublicLayout from './layouts/PublicLayout.vue'
+import AdminLayout from './layouts/AdminLayout.vue'
+const route = useRoute()
+const layoutComponent = computed(() =>
+  route.path.startsWith(ADMIN_BASE_PATH) ? AdminLayout : PublicLayout
+)
 </script>

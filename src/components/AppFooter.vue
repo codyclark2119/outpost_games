@@ -22,6 +22,8 @@
             <a
               :href="socialLinks.facebook"
               target="_blank"
+              rel="noopener noreferrer"
+              aria-label="The Outpost Games on Facebook"
               class="text-gray-300 hover:text-outpost-gold transition-colors duration-200"
               title="Facebook"
             >
@@ -34,6 +36,8 @@
             <a
               :href="socialLinks.discord"
               target="_blank"
+              rel="noopener noreferrer"
+              aria-label="The Outpost Games Discord"
               class="text-gray-300 hover:text-outpost-gold transition-colors duration-200"
               title="Discord"
             >

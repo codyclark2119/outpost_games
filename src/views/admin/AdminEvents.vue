@@ -6,7 +6,7 @@
         <div class="flex flex-wrap justify-between items-center mb-8 gap-4">
           <div>
             <h1 class="font-cinzel text-4xl font-bold text-gray-800">Manage Events</h1>
-            <p class="text-gray-600 mt-1">Edit, delete, and review upcoming events</p>
+            <p class="text-gray-600 mt-1">Edit, delete, and review current and historical events</p>
           </div>
           <div class="flex gap-3">
             <router-link :to="{ name: 'AdminEventsAdd' }" class="btn-primary px-4 py-2">
@@ -36,19 +36,12 @@
         </div>
 
         <template v-else>
-          <!-- Event count + reset -->
           <div class="flex justify-between items-center mb-4">
             <p class="text-gray-600 text-sm">
               {{ upcomingEventsFiltered.length }} upcoming event{{
                 upcomingEventsFiltered.length !== 1 ? 's' : ''
               }}
             </p>
-            <button
-              class="text-sm text-red-500 hover:text-red-700 font-medium transition-colors"
-              @click="resetEvents"
-            >
-              Reset to Defaults
-            </button>
           </div>
 
           <!-- Empty state -->
@@ -126,6 +119,34 @@
                 >
                   Delete
                 </button>
+              </div>
+            </div>
+          </div>
+
+          <div v-if="pastEventsFiltered.length" class="mt-10">
+            <h2 class="font-cinzel text-xl font-bold text-gray-800 mb-3">Past Events</h2>
+            <p class="text-sm text-gray-500 mb-4">
+              History is retained until you explicitly delete an event.
+            </p>
+            <div class="space-y-3 opacity-80">
+              <div
+                v-for="event in pastEventsFiltered"
+                :key="event.id"
+                class="bg-white rounded-xl border border-gray-200 p-4 flex items-center justify-between gap-4"
+              >
+                <div>
+                  <p class="font-semibold text-gray-800">{{ event.title }}</p>
+                  <p class="text-sm text-gray-500">{{ event.date }} · {{ event.time }}</p>
+                </div>
+                <div class="flex gap-2">
+                  <button class="btn-secondary px-3 py-2" @click="openEdit(event)">Edit</button>
+                  <button
+                    class="bg-red-500 hover:bg-red-600 text-white px-3 py-2 rounded-lg"
+                    @click="confirmDelete(event)"
+                  >
+                    Delete
+                  </button>
+                </div>
               </div>
             </div>
           </div>
@@ -264,6 +285,7 @@ import { ref, reactive, computed, onMounted } from 'vue'
 import { EyeIcon, EyeSlashIcon } from '@heroicons/vue/24/outline'
 import { useEventsStore, type SpecialEvent } from '../../stores/events'
 import { useSquareCatalogStore } from '../../stores/squareCatalog'
+import { eventDateToISO, getStoreTodayISO } from '../../utils/eventDateTime'
 
 const eventsStore = useEventsStore()
 const catalogStore = useSquareCatalogStore()
@@ -277,54 +299,39 @@ const catalogTypes = computed(() =>
 )
 
 // ── Date helpers ──────────────────────────────────────────────────────────────
-const parseEventDate = (dateString: string): Date => {
-  if (/^\d{4}-\d{2}-\d{2}$/.test(dateString)) return new Date(dateString + 'T12:00:00')
-  const parsed = new Date(dateString)
-  return isNaN(parsed.getTime()) ? new Date() : parsed
+const dateForDisplay = (date: string): Date | null => {
+  const iso = eventDateToISO(date)
+  return iso ? new Date(`${iso}T12:00:00Z`) : null
 }
-
 const monthOf = (date: string) =>
-  parseEventDate(date).toLocaleDateString('en-US', { month: 'short' })
-const dayOf = (date: string) => parseEventDate(date).toLocaleDateString('en-US', { day: 'numeric' })
+  dateForDisplay(date)?.toLocaleDateString('en-US', { month: 'short', timeZone: 'UTC' }) ?? '—'
+const dayOf = (date: string) =>
+  dateForDisplay(date)?.toLocaleDateString('en-US', { day: 'numeric', timeZone: 'UTC' }) ?? '—'
 const yearOf = (date: string) =>
-  parseEventDate(date).toLocaleDateString('en-US', { year: 'numeric' })
-
-const formatDateToReadable = (isoDate: string): string =>
-  new Date(isoDate + 'T12:00:00').toLocaleDateString('en-US', {
+  dateForDisplay(date)?.toLocaleDateString('en-US', { year: 'numeric', timeZone: 'UTC' }) ??
+  'Invalid'
+const formatDateToReadable = (iso: string) =>
+  new Date(`${iso}T12:00:00Z`).toLocaleDateString('en-US', {
     year: 'numeric',
     month: 'long',
     day: 'numeric',
+    timeZone: 'UTC',
   })
+const parseReadableDateToISO = (date: string) => eventDateToISO(date) ?? ''
 
-const parseReadableDateToISO = (readableDate: string): string => {
-  const d = new Date(readableDate)
-  return isNaN(d.getTime()) ? '' : (d.toISOString().split('T')[0] ?? '')
-}
-
-// ── Filtered list ─────────────────────────────────────────────────────────────
-const upcomingEventsFiltered = computed(() => {
-  const today = new Date()
-  today.setHours(0, 0, 0, 0)
-  return eventsStore.upcomingEvents.filter(e => {
-    const d = parseEventDate(e.date)
-    d.setHours(0, 0, 0, 0)
-    return d >= today
+const todayISO = computed(() => getStoreTodayISO())
+const upcomingEventsFiltered = computed(() =>
+  eventsStore.upcomingEvents.filter(e => {
+    const d = eventDateToISO(e.date)
+    return d !== null && d >= todayISO.value
   })
-})
-
-// ── Auto-clean past events ────────────────────────────────────────────────────
-const autoCleanPastEvents = async () => {
-  const today = new Date()
-  today.setHours(0, 0, 0, 0)
-  const past = eventsStore.upcomingEvents.filter(e => {
-    const d = parseEventDate(e.date)
-    d.setHours(0, 0, 0, 0)
-    return d < today
+)
+const pastEventsFiltered = computed(() =>
+  eventsStore.upcomingEvents.filter(e => {
+    const d = eventDateToISO(e.date)
+    return d !== null && d < todayISO.value
   })
-  for (const e of past) {
-    await eventsStore.deleteEvent(e.id).catch(() => {})
-  }
-}
+)
 
 // ── Options ───────────────────────────────────────────────────────────────────
 const timeOptions = computed(() => {
@@ -444,15 +451,8 @@ const executeDelete = async () => {
   }
 }
 
-// ── Reset ─────────────────────────────────────────────────────────────────────
-const resetEvents = async () => {
-  if (!confirm('Reset all events to defaults? Custom events will be removed.')) return
-  await eventsStore.resetToDefaults().catch(() => {})
-}
-
 onMounted(async () => {
   await eventsStore.fetchEvents()
-  await autoCleanPastEvents()
   if (catalogStore.items.length === 0) await catalogStore.fetchCatalog()
 })
 </script>

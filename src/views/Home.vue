@@ -52,10 +52,16 @@
             <div class="flex-grow w-full">
               <div class="flex items-center gap-3 mb-2">
                 <p class="text-outpost-gold text-xs font-bold uppercase tracking-widest">
-                  {{ featuredDay.isWeekly ? 'Next Weekly Events' : 'Next Special Event' }}
+                  {{
+                    featuredDay.hasWeekly && featuredDay.hasSpecial
+                      ? 'Next Events'
+                      : featuredDay.hasWeekly
+                        ? 'Next Weekly Events'
+                        : 'Next Special Event'
+                  }}
                 </p>
                 <span
-                  v-if="featuredDay.isWeekly"
+                  v-if="featuredDay.hasWeekly"
                   class="inline-flex items-center gap-1 text-xs text-outpost-gold/60 border border-outpost-gold/30 rounded-full px-2 py-0.5"
                 >
                   <svg class="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
@@ -81,7 +87,7 @@
                   </h2>
                   <div class="flex flex-wrap gap-4 text-gray-300 text-sm mb-1">
                     <span>🕐 {{ event.time }}</span>
-                    <span v-if="!featuredDay.isWeekly">💰 ${{ event.entry }} entry</span>
+                    <span v-if="!event.isWeekly">💰 ${{ event.entry }} entry</span>
                     <span
                       v-if="event.gameTypeName"
                       class="inline-block px-2 py-0.5 rounded-full text-xs font-semibold"
@@ -143,6 +149,10 @@
     <section
       v-if="posters.length > 0 && currentSlide"
       class="py-20 bg-outpost-navy relative overflow-hidden"
+      @mouseenter="pauseFeaturedInterval"
+      @mouseleave="startFeaturedInterval"
+      @focusin="pauseFeaturedInterval"
+      @focusout="startFeaturedInterval"
     >
       <div
         class="absolute inset-0 bg-gradient-radial from-outpost-gold/10 via-transparent to-transparent opacity-30"
@@ -165,7 +175,7 @@
                 ></div>
                 <img
                   :src="currentSlide.imageUrl"
-                  :alt="currentSlide.title"
+                  :alt="currentSlide.alt || currentSlide.title"
                   class="w-full h-full object-contain transform transition-all duration-500 group-hover:scale-105"
                   loading="lazy"
                   width="1920"
@@ -181,20 +191,43 @@
           </div>
         </transition>
 
-        <!-- Dot indicators — only shown when there are multiple slides -->
-        <div v-if="posters.length > 1" class="flex justify-center gap-3 mt-10">
+        <div v-if="posters.length > 1" class="flex items-center justify-center gap-2 mt-10">
           <button
-            v-for="(slide, i) in posters"
-            :key="slide.id"
-            class="transition-all duration-300 rounded-full"
-            :class="
-              i === currentFeaturedIndex
-                ? 'w-6 h-2 bg-outpost-gold'
-                : 'w-2 h-2 bg-outpost-gold/30 hover:bg-outpost-gold/60'
-            "
-            :aria-label="`Go to slide ${i + 1}: ${slide.title}`"
-            @click="goToSlide(i)"
-          />
+            type="button"
+            class="w-11 h-11 rounded-full border border-outpost-gold/30 text-outpost-gold"
+            aria-label="Previous poster"
+            @click="previousFeaturedSlide"
+          >
+            ‹
+          </button>
+          <div class="flex items-center">
+            <button
+              v-for="(slide, i) in posters"
+              :key="slide.id"
+              type="button"
+              class="w-11 h-11 flex items-center justify-center rounded-full"
+              :aria-label="`Go to slide ${i + 1}: ${slide.title}`"
+              :aria-current="i === currentFeaturedIndex ? 'true' : undefined"
+              @click="goToSlide(i)"
+            >
+              <span
+                class="block h-2 rounded-full transition-all duration-300"
+                :class="
+                  i === currentFeaturedIndex
+                    ? 'w-6 bg-outpost-gold'
+                    : 'w-2 bg-outpost-gold/30 hover:bg-outpost-gold/60'
+                "
+              ></span>
+            </button>
+          </div>
+          <button
+            type="button"
+            class="w-11 h-11 rounded-full border border-outpost-gold/30 text-outpost-gold"
+            aria-label="Next poster"
+            @click="nextFeaturedSlide"
+          >
+            ›
+          </button>
         </div>
       </div>
     </section>
@@ -324,7 +357,14 @@ import { useEventsStore } from '../stores/events'
 import { useWeeklyOverridesStore } from '../stores/weeklyOverrides'
 import { STORE_INFO } from '../config/storeInfo'
 import { WEEKLY_SCHEDULE } from '../config/weeklySchedule'
-import { toISODate } from '../utils/weeklySchedule'
+import {
+  addDaysToISODate,
+  eventDateToISO,
+  formatStoreDateLabel,
+  getStoreTodayISO,
+  hasEventStarted,
+  weekdayFromISODate,
+} from '../utils/eventDateTime'
 import { scrollToSectionId, cancelPendingSectionScroll } from '../utils/scrollToSection'
 import { usePageMeta } from '../composables/usePageMeta'
 
@@ -358,19 +398,7 @@ const particles = Array.from({ length: 20 }, (_, id) => ({
   },
 }))
 
-// ── Date helper ───────────────────────────────────────────────────────────────
-const parseEventDate = (dateString: string): Date => {
-  if (/^\d{4}-\d{2}-\d{2}$/.test(dateString)) return new Date(dateString + 'T12:00:00')
-  const parsed = new Date(dateString)
-  return isNaN(parsed.getTime()) ? new Date() : parsed
-}
-
-// ── Featured day: the soonest upcoming day with anything happening ────────────
-// Walks forward day-by-day (starting today) and, for the first day that has
-// either a special event or a recurring slot, shows everything for that one
-// day: a special event on that exact date overrides the recurring slot
-// entirely, otherwise every recurring event for that weekday is shown
-// together (e.g. Friday's Nexus Night + FNM both appear, not just one).
+// ── Featured day ──────────────────────────────────────────────────────────────
 interface FeaturedDayEvent {
   title: string
   time: string
@@ -378,77 +406,59 @@ interface FeaturedDayEvent {
   description: string
   gameTypeId?: string
   gameTypeName?: string
+  isWeekly: boolean
 }
-
 interface FeaturedDay {
   date: string
-  isWeekly: boolean
+  hasWeekly: boolean
+  hasSpecial: boolean
   events: FeaturedDayEvent[]
 }
-
 const featuredDay = computed((): FeaturedDay | null => {
   const now = new Date()
-  const eventStartedToday = now.getHours() >= 18
-
+  const todayISO = getStoreTodayISO(now)
   for (let daysAhead = 0; daysAhead <= 7; daysAhead++) {
-    const targetDate = new Date()
-    targetDate.setDate(targetDate.getDate() + daysAhead)
-    targetDate.setHours(0, 0, 0, 0)
-
-    const specialsForDay = eventsStore.upcomingEvents.filter(e => {
-      if (e.isVisible === false) return false
-      const d = parseEventDate(e.date)
-      d.setHours(0, 0, 0, 0)
-      return d.getTime() === targetDate.getTime()
-    })
-
-    const dateLabel = targetDate.toLocaleDateString('en-US', {
-      weekday: 'long',
-      month: 'long',
-      day: 'numeric',
-    })
-
-    if (specialsForDay.length > 0) {
-      return {
-        date: dateLabel,
+    const targetDateISO = addDaysToISODate(todayISO, daysAhead)
+    const specials = eventsStore.upcomingEvents
+      .filter(
+        e =>
+          e.isVisible !== false &&
+          eventDateToISO(e.date) === targetDateISO &&
+          !hasEventStarted(targetDateISO, e.time, now)
+      )
+      .map(e => ({
+        title: e.title,
+        time: e.time,
+        entry: e.entry,
+        description: e.description,
+        gameTypeId: e.gameTypeId,
+        gameTypeName: e.gameTypeName,
         isWeekly: false,
-        events: specialsForDay.map(e => ({
-          title: e.title,
-          time: e.time,
-          entry: e.entry,
-          description: e.description,
-          gameTypeId: e.gameTypeId,
-          gameTypeName: e.gameTypeName,
-        })),
-      }
-    }
-
-    // Nothing special today — skip today's recurring slot once it's already
-    // started rather than showing it stale for the rest of the day.
-    if (daysAhead === 0 && eventStartedToday) continue
-
-    const targetDateISO = toISODate(targetDate)
-    const weeklyForDay = WEEKLY_SCHEDULE.filter(
+      }))
+    const weekly = WEEKLY_SCHEDULE.filter(
       entry =>
-        entry.jsDay === targetDate.getDay() &&
+        entry.jsDay === weekdayFromISODate(targetDateISO) &&
         !weeklyOverridesStore.overrides.some(
           o => o.weeklyEventId === entry.id && o.date === targetDateISO
-        )
-    )
-    if (weeklyForDay.length > 0) {
+        ) &&
+        !hasEventStarted(targetDateISO, entry.time, now)
+    ).map(entry => ({
+      title: entry.eventName,
+      time: entry.time,
+      entry: '0.00',
+      description: entry.description,
+      gameTypeId: entry.gameTypeId,
+      gameTypeName: entry.gameType,
+      isWeekly: true,
+    }))
+    const events = [...specials, ...weekly].sort((a, b) => a.time.localeCompare(b.time))
+    if (events.length)
       return {
-        date: dateLabel,
-        isWeekly: true,
-        events: weeklyForDay.map(entry => ({
-          title: entry.eventName,
-          time: entry.time,
-          entry: '0.00',
-          description: entry.description,
-          gameTypeId: entry.gameTypeId,
-          gameTypeName: entry.gameType,
-        })),
+        date: formatStoreDateLabel(targetDateISO),
+        hasWeekly: weekly.length > 0,
+        hasSpecial: specials.length > 0,
+        events,
       }
-    }
   }
   return null
 })
@@ -458,6 +468,7 @@ const featuredDay = computed((): FeaturedDay | null => {
 interface MarketingPoster {
   id: string
   title: string
+  alt?: string
   imageUrl: string
 }
 const posters = ref<MarketingPoster[]>([])
@@ -466,15 +477,29 @@ const currentSlide = computed(
   () => posters.value[currentFeaturedIndex.value] ?? posters.value[0] ?? null
 )
 let featuredInterval: number | null = null
-
-const startFeaturedInterval = () => {
-  if (featuredInterval) clearInterval(featuredInterval)
-  if (posters.value.length > 1) {
-    featuredInterval = window.setInterval(() => {
-      currentFeaturedIndex.value = (currentFeaturedIndex.value + 1) % posters.value.length
-    }, 6000)
+const reducedMotionQuery = window.matchMedia('(prefers-reduced-motion: reduce)')
+const pauseFeaturedInterval = () => {
+  if (featuredInterval !== null) {
+    clearInterval(featuredInterval)
+    featuredInterval = null
   }
 }
+const nextFeaturedSlide = () => {
+  if (posters.value.length)
+    currentFeaturedIndex.value = (currentFeaturedIndex.value + 1) % posters.value.length
+}
+const previousFeaturedSlide = () => {
+  if (posters.value.length)
+    currentFeaturedIndex.value =
+      (currentFeaturedIndex.value - 1 + posters.value.length) % posters.value.length
+}
+const startFeaturedInterval = () => {
+  pauseFeaturedInterval()
+  if (posters.value.length > 1 && !document.hidden && !reducedMotionQuery.matches)
+    featuredInterval = window.setInterval(nextFeaturedSlide, 6000)
+}
+const handleCarouselVisibilityChange = () =>
+  document.hidden ? pauseFeaturedInterval() : startFeaturedInterval()
 
 const goToSlide = (index: number) => {
   currentFeaturedIndex.value = index
@@ -498,11 +523,15 @@ onMounted(async () => {
   weeklyOverridesStore.fetchOverrides()
 
   await fetchMarketingPosters()
+  document.addEventListener('visibilitychange', handleCarouselVisibilityChange)
+  reducedMotionQuery.addEventListener('change', handleCarouselVisibilityChange)
   startFeaturedInterval()
 })
 
 onUnmounted(() => {
-  if (featuredInterval) clearInterval(featuredInterval)
+  pauseFeaturedInterval()
+  document.removeEventListener('visibilitychange', handleCarouselVisibilityChange)
+  reducedMotionQuery.removeEventListener('change', handleCarouselVisibilityChange)
   // A hash-scroll chain started on mount can still be pending when the
   // visitor navigates away — leaving it running would scroll the page they
   // just landed on.

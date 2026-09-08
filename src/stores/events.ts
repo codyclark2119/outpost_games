@@ -1,6 +1,6 @@
 import { defineStore } from 'pinia'
 import { ref } from 'vue'
-
+import { apiFetch } from '../services/api'
 export interface SpecialEvent {
   id: string
   title: string
@@ -10,29 +10,17 @@ export interface SpecialEvent {
   description: string
   gameTypeId?: string
   gameTypeName?: string
-  // Optional/undefined means visible — existing Redis records predate this
-  // field, so treat anything other than an explicit `false` as visible.
   isVisible?: boolean
 }
-
-const API_BASE_URL = import.meta.env.VITE_API_URL || '/api'
-
 export const useEventsStore = defineStore('events', () => {
   const upcomingEvents = ref<SpecialEvent[]>([])
   const loading = ref(false)
   const error = ref<string | null>(null)
-
-  // Fetch all events from API
   const fetchEvents = async () => {
     loading.value = true
     error.value = null
     try {
-      const response = await fetch(`${API_BASE_URL}/events`)
-      if (!response.ok) {
-        throw new Error('Failed to fetch events')
-      }
-      const data = await response.json()
-      upcomingEvents.value = data
+      upcomingEvents.value = await apiFetch<SpecialEvent[]>('/events')
     } catch (e) {
       console.error('Error fetching events:', e)
       error.value = e instanceof Error ? e.message : 'Failed to fetch events'
@@ -40,113 +28,53 @@ export const useEventsStore = defineStore('events', () => {
       loading.value = false
     }
   }
-
-  // Add new event
   const addEvent = async (event: Omit<SpecialEvent, 'id'>) => {
     loading.value = true
     error.value = null
     try {
-      const response = await fetch(`${API_BASE_URL}/events`, {
+      const n = await apiFetch<SpecialEvent>('/events', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
         body: JSON.stringify(event),
       })
-      if (!response.ok) {
-        throw new Error('Failed to add event')
-      }
-      const newEvent = await response.json()
-      upcomingEvents.value.push(newEvent)
+      upcomingEvents.value.push(n)
+      return n
     } catch (e) {
-      console.error('Error adding event:', e)
       error.value = e instanceof Error ? e.message : 'Failed to add event'
       throw e
     } finally {
       loading.value = false
     }
   }
-
-  // Update existing event
   const updateEvent = async (id: string, updatedEvent: Partial<SpecialEvent>) => {
     loading.value = true
     error.value = null
     try {
-      const response = await fetch(`${API_BASE_URL}/events/${id}`, {
+      const u = await apiFetch<SpecialEvent>(`/events/${encodeURIComponent(id)}`, {
         method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-        },
         body: JSON.stringify(updatedEvent),
       })
-      if (!response.ok) {
-        throw new Error('Failed to update event')
-      }
-      const updated = await response.json()
-      const index = upcomingEvents.value.findIndex(e => e.id === id)
-      if (index !== -1) {
-        upcomingEvents.value[index] = updated
-      }
+      const i = upcomingEvents.value.findIndex(e => e.id === id)
+      if (i !== -1) upcomingEvents.value[i] = u
+      return u
     } catch (e) {
-      console.error('Error updating event:', e)
       error.value = e instanceof Error ? e.message : 'Failed to update event'
       throw e
     } finally {
       loading.value = false
     }
   }
-
-  // Delete event
   const deleteEvent = async (id: string) => {
     loading.value = true
     error.value = null
     try {
-      const response = await fetch(`${API_BASE_URL}/events/${id}`, {
-        method: 'DELETE',
-      })
-      if (!response.ok) {
-        throw new Error('Failed to delete event')
-      }
+      await apiFetch(`/events/${encodeURIComponent(id)}`, { method: 'DELETE' })
       upcomingEvents.value = upcomingEvents.value.filter(e => e.id !== id)
     } catch (e) {
-      console.error('Error deleting event:', e)
       error.value = e instanceof Error ? e.message : 'Failed to delete event'
       throw e
     } finally {
       loading.value = false
     }
   }
-
-  // Reset to default events
-  const resetToDefaults = async () => {
-    loading.value = true
-    error.value = null
-    try {
-      const response = await fetch(`${API_BASE_URL}/events/reset`, {
-        method: 'POST',
-      })
-      if (!response.ok) {
-        throw new Error('Failed to reset events')
-      }
-      const data = await response.json()
-      upcomingEvents.value = data
-    } catch (e) {
-      console.error('Error resetting events:', e)
-      error.value = e instanceof Error ? e.message : 'Failed to reset events'
-      throw e
-    } finally {
-      loading.value = false
-    }
-  }
-
-  return {
-    upcomingEvents,
-    loading,
-    error,
-    fetchEvents,
-    addEvent,
-    updateEvent,
-    deleteEvent,
-    resetToDefaults,
-  }
+  return { upcomingEvents, loading, error, fetchEvents, addEvent, updateEvent, deleteEvent }
 })

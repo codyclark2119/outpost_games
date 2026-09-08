@@ -8,6 +8,7 @@
   --color-outpost-gold: #d4af37;
   --color-outpost-gold-light: #e6c85c;
   --color-outpost-gold-dark: #b8962e;
+  --color-outpost-gold-text: #765d08;
   --color-outpost-navy: #16304a;
   --color-outpost-navy-light: #1b3a52;
   --color-outpost-navy-dark: #0f2436;
@@ -190,19 +191,7 @@ body {
   min-height: 100vh;
 }
 
-/* Section transitions and animations */
-section {
-  animation: fadeInUp 0.8s ease-out;
-  animation-fill-mode: both;
-}
-
-section:nth-child(even) {
-  animation-delay: 0.1s;
-}
-
-section:nth-child(odd) {
-  animation-delay: 0.2s;
-}
+/* Section motion is opt-in; utility/catalog sections should not animate by DOM position. */
 
 /* Fantasy-themed keyframe animations - GPU accelerated */
 @keyframes fadeInUp {

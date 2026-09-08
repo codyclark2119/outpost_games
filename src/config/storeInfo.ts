@@ -10,6 +10,7 @@ export const STORE_INFO = {
     full: '605 W. Main Street, Suite 4, Rio Grande City, TX 78582',
   },
   email: 'theoutpostgamingrgv@gmail.com',
+  timeZone: 'America/Chicago',
   // Every open day keeps identical hours, so these are grouped rather than
   // listed per-day — both consumers (AppFooter, Home's contact section) just
   // iterate this object in insertion order.

@@ -3,8 +3,11 @@
     <!-- Sidebar Toggle — mobile/tablet only; the sidebar is always open on
          desktop (lg:) where there's no need to hide it behind a drawer -->
     <button
-      class="fixed top-20 left-4 z-40 bg-outpost-gold text-outpost-black p-3 rounded-full shadow-lg hover:bg-outpost-gold-light transition-colors lg:hidden"
-      aria-label="Toggle Navigation"
+      type="button"
+      class="fixed top-20 left-4 z-40 flex items-center gap-2 bg-outpost-gold text-outpost-black px-4 py-2.5 rounded-lg shadow-lg hover:bg-outpost-gold-light transition-colors lg:hidden"
+      :aria-label="sidebarOpen ? 'Close product categories' : 'Browse product categories'"
+      :aria-expanded="sidebarOpen"
+      aria-controls="product-categories"
       @click="sidebarOpen = !sidebarOpen"
     >
       <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -15,16 +18,19 @@
           d="M4 6h16M4 12h16M4 18h16"
         />
       </svg>
+      <span class="text-sm font-semibold">{{ sidebarOpen ? 'Close' : 'Browse Games' }}</span>
     </button>
 
     <!-- Overlay — mobile/tablet only; without lg:hidden this would sit on top
          of the whole page (including "View All" links) if sidebarOpen were
          ever true at desktop width, e.g. after resizing from a narrower one -->
-    <div
+    <button
       v-if="sidebarOpen"
+      type="button"
       class="fixed inset-0 bg-black/50 z-20 lg:hidden"
+      aria-label="Close product categories"
       @click="sidebarOpen = false"
-    ></div>
+    ></button>
 
     <div class="container mx-auto px-4">
       <div class="max-w-6xl mx-auto">
@@ -51,6 +57,7 @@
              of floating over it (position:fixed has no scroll boundary,
              position:sticky naturally lets go once this flex row ends) -->
         <aside
+          id="product-categories"
           class="fixed top-20 left-0 h-[calc(100vh-5rem)] bg-white shadow-xl z-30 transition-transform duration-300 w-64 overflow-y-auto lg:sticky lg:top-24 lg:h-auto lg:max-h-[calc(100vh-6rem)] lg:w-64 lg:flex-shrink-0 lg:rounded-xl lg:border lg:border-gray-200 lg:translate-x-0"
           :class="{ '-translate-x-full': !sidebarOpen, 'translate-x-0': sidebarOpen }"
         >

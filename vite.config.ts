@@ -34,10 +34,6 @@ export default defineConfig({
             // Other node_modules go into vendor-libs
             return 'vendor-libs'
           }
-          // Admin components in separate chunk (lazy loaded)
-          if (id.includes('/views/admin/')) {
-            return 'admin'
-          }
         },
         // Asset file naming with content hash for cache busting
         assetFileNames: (assetInfo) => {

@@ -14,14 +14,15 @@
     "format": "prettier --write \"src/**/*.{js,jsx,ts,tsx,vue,json,css,scss,md}\"",
     "format:check": "prettier --check \"src/**/*.{js,jsx,ts,tsx,vue,json,css,scss,md}\"",
     "type-check": "vue-tsc --noEmit",
-    "pre-deploy": "npm run format:check && npm run lint && npm run type-check",
+    "pre-deploy": "npm run verify",
     "docker:up": "cd local-dev && docker-compose up -d",
     "docker:rebuild": "cd local-dev && docker-compose up --build -d",
     "docker:rebuild:web": "cd local-dev && docker-compose up --build -d web",
     "docker:down": "cd local-dev && docker-compose down",
     "docker:logs": "cd local-dev && docker-compose logs -f",
     "docker:restart": "cd local-dev && docker-compose restart",
-    "docker:setup": "cd local-dev && ./quick-start.sh"
+    "docker:setup": "cd local-dev && ./quick-start.sh",
+    "verify": "npm run format:check && npm run lint && npm run type-check && npm run build && npm --prefix api test"
   },
   "dependencies": {
     "@headlessui/vue": "^1.7.23",

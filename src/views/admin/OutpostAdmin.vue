@@ -150,14 +150,6 @@
               <h2 class="font-cinzel text-2xl font-bold text-gray-800">
                 Current Events ({{ upcomingEventsFiltered.length }})
               </h2>
-              <button
-                :disabled="eventsStore.loading"
-                class="text-sm text-red-600 hover:text-red-700 font-medium disabled:opacity-50"
-                aria-label="Reset all events to default values"
-                @click="resetEvents"
-              >
-                Reset to Defaults
-              </button>
             </div>
 
             <!-- Loading State -->
@@ -446,17 +438,6 @@ const deleteEvent = async (id: string) => {
     } catch (error) {
       console.error('Error deleting event:', error)
       alert('Failed to delete event. Please try again.')
-    }
-  }
-}
-
-const resetEvents = async () => {
-  if (confirm('Reset all events to default values? This will remove any custom events.')) {
-    try {
-      await eventsStore.resetToDefaults()
-    } catch (error) {
-      console.error('Error resetting events:', error)
-      alert('Failed to reset events. Please try again.')
     }
   }
 }
