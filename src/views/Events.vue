@@ -1,197 +1,116 @@
 <template>
-  <div class="min-h-screen bg-gradient-to-br from-gray-50 via-white to-gray-100 py-12">
-    <div class="container mx-auto px-4">
-      <div class="max-w-6xl mx-auto">
-        <div class="text-center mb-12 hero-content">
-          <h1
-            class="font-cinzel text-4xl md:text-5xl font-bold mb-4 text-gray-800 section-heading inline-block"
-          >
-            Events & Tournaments
-          </h1>
-          <p class="text-gray-600 text-lg">Join us for weekly battles and special tournaments</p>
-        </div>
+  <div class="pb-14">
+    <PageHeader
+      eyebrow="Events"
+      title="Play with us"
+      subtitle="League nights and tournaments every week. Sign-ups, pairings, and announcements happen on our Discord."
+    >
+      <a
+        :href="STORE_INFO.social.discord"
+        target="_blank"
+        rel="noopener noreferrer"
+        class="btn-primary mt-5"
+      >
+        <SocialIcon name="discord" class="h-5 w-5" />
+        Join our Discord
+      </a>
+    </PageHeader>
 
-        <!-- Upcoming Special Events — shown first so one-off tournaments are
-             immediately visible rather than buried under the recurring
-             weekly schedule -->
-        <div class="card relative overflow-hidden special-events-card mb-16">
-          <div
-            class="absolute top-0 left-0 w-20 h-20 bg-gradient-to-br from-outpost-gold/20 to-transparent rounded-br-full"
-          ></div>
-          <div
-            class="absolute bottom-0 right-0 w-20 h-20 bg-gradient-to-tl from-outpost-gold/20 to-transparent rounded-tl-full"
-          ></div>
-
-          <div class="relative z-10">
-            <h2 class="font-cinzel text-2xl font-bold mb-6 text-gray-800">
-              Upcoming Special Events
-            </h2>
-
-            <div v-if="eventsStore.loading" class="text-center py-8">
-              <div
-                class="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-outpost-navy"
-              ></div>
-            </div>
-
-            <p v-else-if="eventsStore.error" class="py-8 text-gray-600" role="status">
-              Event updates are temporarily unavailable.
-              <button class="underline" @click="eventsStore.fetchEvents">Try again</button>
-            </p>
-            <div
-              v-else-if="visibleSpecialEvents.length === 0"
-              class="text-center py-8 text-gray-500"
-            >
-              No upcoming special events right now. Check back soon!
-            </div>
-
-            <div v-else class="space-y-4">
-              <div
-                v-for="(event, index) in visibleSpecialEvents"
-                :key="event.id"
-                class="flex items-start space-x-4 p-4 bg-gradient-to-r from-gray-50 to-white rounded-lg shadow-sm hover:shadow-md transition-all duration-300 border border-transparent hover:border-outpost-gold/30 special-event-item"
-                :style="{ animationDelay: `${index * 0.1}s` }"
-              >
-                <!-- Icon / game type indicator -->
-                <div
-                  class="flex-shrink-0 w-12 h-12 rounded-lg bg-gradient-to-br from-outpost-gold to-outpost-gold-dark flex items-center justify-center shadow-md"
-                >
-                  <CalendarDaysIcon class="w-6 h-6 text-white" />
-                </div>
-
-                <div class="flex-grow min-w-0">
-                  <div class="flex flex-wrap items-center gap-2 mb-1">
-                    <h3 class="font-semibold text-lg text-gray-800">{{ event.title }}</h3>
-                    <!-- Game type badge -->
-                    <span
-                      v-if="event.gameTypeName"
-                      class="inline-block text-xs px-2.5 py-0.5 rounded-full font-medium"
-                      :class="gameTypeBadgeClass(event.gameTypeId)"
-                    >
-                      {{ event.gameTypeName }}
-                    </span>
-                  </div>
-                  <p class="text-outpost-gold-dark font-medium mb-1">
-                    {{ event.date }} at {{ event.time }}
-                  </p>
-                  <p class="text-gray-600 text-sm mb-2">{{ event.description }}</p>
-                  <a
-                    :href="STORE_INFO.social.discord"
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    class="inline-flex items-center gap-1 text-xs font-semibold text-outpost-gold-dark hover:text-outpost-gold-dark transition-colors"
-                  >
-                    Join us on Discord
-                    <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path
-                        stroke-linecap="round"
-                        stroke-linejoin="round"
-                        stroke-width="2"
-                        d="M13 7l5 5m0 0l-5 5m5-5H6"
-                      />
-                    </svg>
-                  </a>
-                </div>
-
-                <div class="text-right flex-shrink-0">
-                  <p class="font-bold text-xl text-outpost-navy">${{ event.entry }}</p>
-                  <p class="text-xs text-gray-600">Entry Fee</p>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <!-- Weekly Schedule -->
-        <h2 class="font-cinzel text-2xl font-bold text-center mb-2 text-gray-800">
-          Weekly Schedule
-        </h2>
-        <p class="text-center text-gray-500 text-sm mb-8">
-          These events run every week. No signup required.
+    <div class="page-shell space-y-12">
+      <!-- The next seven days: weekly nights and specials together, day by day -->
+      <section>
+        <h2 class="section-title">This week</h2>
+        <div
+          v-if="loading && !agenda.length"
+          class="mt-4 h-64 animate-pulse rounded-2xl bg-slate-200/60"
+          role="status"
+          aria-label="Loading events"
+        ></div>
+        <p v-else-if="loadError" class="mt-4 text-slate-600" role="status">
+          Event updates are temporarily unavailable.
+          <button type="button" class="font-semibold underline" @click="reload">Try again</button>
         </p>
+        <AgendaList v-else-if="agenda.length" :days="agenda" detailed class="mt-4" />
+        <p v-else class="mt-4 text-slate-600">Nothing scheduled this week — check back soon.</p>
+      </section>
 
-        <!-- flex-wrap + justify-center (rather than a plain grid) so a
-             remainder row centers itself instead of left-aligning — with the
-             5 day-groups this currently has, 3 fit per row at lg: and the
-             trailing 2 center on their own row underneath, forming the
-             requested "upside-down pyramid" shape rather than grid's default
-             left-aligned last row. -->
-        <div class="flex flex-wrap justify-center gap-6 mb-16">
-          <div
-            v-for="(group, index) in groupedWeeklySchedule"
-            :key="group.dayName"
-            class="card text-center event-card group relative w-full sm:w-[calc(50%-0.75rem)] lg:w-[calc(33.333%-1rem)]"
-            :style="{ animationDelay: `${index * 0.1}s` }"
+      <!-- Specials beyond the agenda window -->
+      <section v-if="laterSpecials.length">
+        <h2 class="section-title">Later on</h2>
+        <ul class="mt-4 grid gap-3 sm:grid-cols-2">
+          <li
+            v-for="event in laterSpecials"
+            :key="event.id"
+            class="flex gap-4 rounded-2xl border border-slate-200 bg-white p-4"
           >
-            <!-- Recurring badge -->
-            <div class="flex justify-center mb-3">
-              <span
-                class="inline-flex items-center gap-1 text-xs font-semibold px-2.5 py-1 rounded-full bg-outpost-gold/15 text-outpost-gold-dark border border-outpost-gold/30"
-              >
-                <svg class="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
-                  <path
-                    fill-rule="evenodd"
-                    d="M4 2a1 1 0 011 1v2.101a7.002 7.002 0 0111.601 2.566 1 1 0 11-1.885.666A5.002 5.002 0 005.999 7H9a1 1 0 010 2H4a1 1 0 01-1-1V3a1 1 0 011-1zm.008 9.057a1 1 0 011.276.61A5.002 5.002 0 0014.001 13H11a1 1 0 110-2h5a1 1 0 011 1v5a1 1 0 11-2 0v-2.101a7.002 7.002 0 01-11.601-2.566 1 1 0 01.61-1.276z"
-                    clip-rule="evenodd"
-                  />
-                </svg>
-                Recurring Weekly
+            <div
+              class="flex h-14 w-12 shrink-0 flex-col items-center justify-center rounded-xl bg-slate-100 text-slate-700"
+            >
+              <span class="text-[10px] font-semibold tracking-wider uppercase opacity-80">
+                {{ storeDateParts(event.iso).month }}
+              </span>
+              <span class="text-lg leading-none font-bold">
+                {{ storeDateParts(event.iso).day }}
               </span>
             </div>
-
-            <div
-              class="w-16 h-16 bg-gradient-to-br from-outpost-navy to-outpost-navy-light rounded-full flex items-center justify-center mx-auto mb-4 shadow-lg group-hover:shadow-outpost-gold/50 transition-all duration-300 group-hover:scale-110"
-            >
-              <CalendarDaysIcon class="w-8 h-8 text-outpost-gold" />
+            <div class="min-w-0">
+              <p class="font-semibold text-slate-800">{{ event.title }}</p>
+              <p class="mt-0.5 text-xs text-slate-500">
+                {{ storeDateParts(event.iso).weekday }} · {{ event.time }}
+                <span v-if="event.entry"> · ${{ event.entry }} entry</span>
+                <span v-if="event.gameTypeName"> · {{ event.gameTypeName }}</span>
+              </p>
+              <p v-if="event.description" class="mt-1.5 line-clamp-3 text-sm text-slate-600">
+                {{ event.description }}
+              </p>
             </div>
-            <h3 class="font-cinzel font-semibold text-xl mb-3 text-outpost-navy">
-              {{ group.dayName }}
-            </h3>
+          </li>
+        </ul>
+      </section>
 
-            <!-- Stacked events for this day -->
-            <div class="divide-y divide-gray-100">
+      <!-- The standing weekly schedule, for reference -->
+      <section>
+        <h2 class="section-title">Every week</h2>
+        <p class="mt-1 text-slate-600">No signup required — just show up.</p>
+        <dl
+          class="mt-4 divide-y divide-slate-100 overflow-hidden rounded-2xl border border-slate-200 bg-white"
+        >
+          <div
+            v-for="group in weeklyByDay"
+            :key="group.dayName"
+            class="grid gap-2 p-4 sm:grid-cols-[8rem_1fr] sm:gap-6"
+          >
+            <dt class="font-semibold text-outpost-navy">{{ group.dayName }}</dt>
+            <dd class="space-y-2">
               <div
-                v-for="(event, eventIndex) in group.events"
-                :key="event.eventName"
-                :class="eventIndex > 0 ? 'pt-4 mt-4' : ''"
+                v-for="entry in group.entries"
+                :key="entry.id"
+                class="flex flex-wrap items-baseline gap-x-2 gap-y-0.5"
               >
-                <p class="text-gray-800 font-medium text-lg mb-2">{{ event.eventName }}</p>
-                <p class="text-outpost-gold font-semibold mb-2">{{ event.time }}</p>
-                <p class="text-gray-600 text-sm mt-2">{{ event.description }}</p>
-
-                <!-- Game type badge -->
-                <div class="mt-3 flex justify-center">
+                <span class="text-sm font-semibold text-slate-500 tabular-nums">{{
+                  entry.time
+                }}</span>
+                <span class="font-medium text-slate-800">{{ entry.eventName }}</span>
+                <span class="inline-flex items-center gap-1.5 text-xs text-slate-500">
                   <span
-                    class="inline-block text-xs px-2.5 py-1 rounded-full bg-outpost-navy/10 text-outpost-navy font-medium"
-                  >
-                    {{ event.gameType }}
-                  </span>
-                </div>
+                    class="h-2 w-2 rounded-full"
+                    :style="{ backgroundColor: gameMeta(entry.gameTypeId, entry.gameType).accent }"
+                    aria-hidden="true"
+                  ></span>
+                  {{ entry.gameType }}
+                </span>
+                <span
+                  v-if="isOffThisWeek(entry)"
+                  class="rounded-full bg-red-50 px-2 py-0.5 text-[11px] font-semibold text-red-700"
+                >
+                  Off this week
+                </span>
+                <p class="w-full text-sm text-slate-600">{{ entry.description }}</p>
               </div>
-            </div>
-
-            <a
-              :href="STORE_INFO.social.discord"
-              target="_blank"
-              rel="noopener noreferrer"
-              class="relative z-10 mt-4 inline-flex items-center gap-1 text-xs font-semibold text-outpost-gold-dark hover:text-outpost-gold-dark transition-colors"
-            >
-              Join us on Discord
-              <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path
-                  stroke-linecap="round"
-                  stroke-linejoin="round"
-                  stroke-width="2"
-                  d="M13 7l5 5m0 0l-5 5m5-5H6"
-                />
-              </svg>
-            </a>
-
-            <div
-              class="absolute inset-0 bg-gradient-to-br from-outpost-gold/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300 rounded-xl pointer-events-none"
-            ></div>
+            </dd>
           </div>
-        </div>
-      </div>
+        </dl>
+      </section>
     </div>
   </div>
 </template>
@@ -199,14 +118,26 @@
 <script setup lang="ts">
 import { computed, onMounted } from 'vue'
 import { useHead } from '@unhead/vue'
-import { CalendarDaysIcon } from '@heroicons/vue/24/outline'
+import { useNow } from '@vueuse/core'
 import { useEventsStore } from '../stores/events'
 import { useWeeklyOverridesStore } from '../stores/weeklyOverrides'
 import { WEEKLY_SCHEDULE, type WeeklyScheduleEntry } from '../config/weeklySchedule'
+import { getAgenda } from '../utils/eventOccurrences'
+import {
+  addDaysToISODate,
+  eventDateToISO,
+  eventStartISO,
+  getStoreTodayISO,
+  hasEventStarted,
+  storeDateParts,
+} from '../utils/eventDateTime'
 import { nextOccurrenceOf, toISODate } from '../utils/weeklySchedule'
 import { usePageMeta, SITE_URL } from '../composables/usePageMeta'
-import { eventDateToISO, hasEventStarted, eventStartISO } from '../utils/eventDateTime'
 import { STORE_INFO } from '../config/storeInfo'
+import { gameMeta } from '../config/games'
+import PageHeader from '../components/PageHeader.vue'
+import AgendaList from '../components/AgendaList.vue'
+import SocialIcon from '../components/SocialIcon.vue'
 
 usePageMeta({
   title: 'Events & Tournaments — The Outpost Games',
@@ -215,59 +146,75 @@ usePageMeta({
   path: '/events',
 })
 
+// One week: the recurring nights would otherwise repeat in a second week that
+// "Every week" below already covers; specials beyond it land in "Later on".
+const AGENDA_DAYS = 7
+
 const eventsStore = useEventsStore()
 const weeklyOverridesStore = useWeeklyOverridesStore()
+const now = useNow({ interval: 60_000 })
 
-const visibleSpecialEvents = computed(() =>
-  eventsStore.upcomingEvents.filter(e => {
-    const iso = eventDateToISO(e.date)
-    return e.isVisible !== false && iso !== null && !hasEventStarted(iso, e.time)
-  })
-)
-
-// A weekly slot's "date" for override purposes is the next upcoming occurrence
-// of that weekday — matches Home.vue's day-walk so a hidden occurrence
-// disappears for exactly the week it was hidden and reappears automatically
-// once that date has passed.
-const visibleWeeklySchedule = computed(() =>
-  WEEKLY_SCHEDULE.filter(entry => {
-    const nextDateISO = toISODate(nextOccurrenceOf(entry.jsDay))
-    return !weeklyOverridesStore.overrides.some(
-      o => o.weeklyEventId === entry.id && o.date === nextDateISO
-    )
-  })
-)
-
-// Groups same-day entries (e.g. Friday's Nexus Night + FNM) into a single
-// stacked card instead of one card per event — preserves WEEKLY_SCHEDULE's
-// own day ordering since that's the order the cards should read in.
-interface WeeklyDayGroup {
-  dayName: string
-  events: WeeklyScheduleEntry[]
+const loading = computed(() => eventsStore.loading || weeklyOverridesStore.loading)
+const loadError = computed(() => eventsStore.error || weeklyOverridesStore.error)
+const reload = () => {
+  eventsStore.fetchEvents()
+  weeklyOverridesStore.fetchOverrides()
 }
 
-const groupedWeeklySchedule = computed((): WeeklyDayGroup[] => {
-  const groups: WeeklyDayGroup[] = []
-  for (const entry of visibleWeeklySchedule.value) {
+const agenda = computed(() =>
+  getAgenda(eventsStore.upcomingEvents, WEEKLY_SCHEDULE, weeklyOverridesStore.overrides, {
+    days: AGENDA_DAYS,
+    now: now.value,
+  })
+)
+
+// Visible specials that haven't started yet, soonest first. The store's
+// upcomingEvents is the raw list, so finished events are dropped here.
+const upcomingSpecials = computed(() =>
+  eventsStore.upcomingEvents
+    .filter(event => event.isVisible !== false)
+    .map(event => ({ ...event, iso: eventDateToISO(event.date) }))
+    .filter((event): event is typeof event & { iso: string } =>
+      Boolean(event.iso && !hasEventStarted(event.iso, event.time, now.value))
+    )
+    .sort((a, b) => a.iso.localeCompare(b.iso))
+)
+
+// The ones beyond the agenda window, which the agenda itself doesn't show.
+const laterSpecials = computed(() => {
+  const windowEndISO = addDaysToISODate(getStoreTodayISO(now.value), AGENDA_DAYS)
+  return upcomingSpecials.value.filter(event => event.iso >= windowEndISO)
+})
+
+// A weekly entry hidden (via an admin override) on its next occurrence.
+const isOffThisWeek = (entry: WeeklyScheduleEntry) => {
+  const nextISO = toISODate(nextOccurrenceOf(entry.jsDay, now.value))
+  return weeklyOverridesStore.overrides.some(
+    o => o.weeklyEventId === entry.id && o.date === nextISO
+  )
+}
+
+// Same-day entries (e.g. Friday's FNM + Pokémon) grouped under one day row,
+// in WEEKLY_SCHEDULE's own order.
+const weeklyByDay = computed(() => {
+  const groups: { dayName: string; entries: WeeklyScheduleEntry[] }[] = []
+  for (const entry of WEEKLY_SCHEDULE) {
     let group = groups.find(g => g.dayName === entry.dayName)
     if (!group) {
-      group = { dayName: entry.dayName, events: [] }
+      group = { dayName: entry.dayName, entries: [] }
       groups.push(group)
     }
-    group.events.push(entry)
+    group.entries.push(entry)
   }
   return groups
 })
 
-onMounted(() => {
-  eventsStore.fetchEvents()
-  weeklyOverridesStore.fetchOverrides()
-})
+onMounted(reload)
 
-// Dynamic Event structured data — unlike the site-wide static LocalBusiness
-// JSON-LD in index.html, this genuinely needs to reflect live store data.
+// Dynamic Event structured data for upcoming specials — unlike the site-wide
+// static LocalBusiness JSON-LD in index.html, this reflects live store data.
 const eventsJsonLd = computed(() =>
-  visibleSpecialEvents.value.map(event => ({
+  upcomingSpecials.value.map(event => ({
     '@context': 'https://schema.org',
     '@type': 'Event',
     name: event.title,
@@ -301,53 +248,4 @@ useHead(() => ({
       ? [{ type: 'application/ld+json', innerHTML: JSON.stringify(eventsJsonLd.value) }]
       : [],
 }))
-
-// Color map for known game type IDs
-const gameTypeBadgeClass = (gameTypeId?: string): string => {
-  switch (gameTypeId) {
-    case 'magic':
-      return 'bg-outpost-navy/10 text-outpost-navy'
-    case 'pokemon':
-      return 'bg-yellow-100 text-yellow-800'
-    case 'one-piece':
-      return 'bg-red-100 text-red-700'
-    default:
-      return 'bg-gray-100 text-gray-700'
-  }
-}
 </script>
-
-<style scoped>
-.hero-content {
-  animation: fadeInUp 0.8s ease-out;
-}
-
-@keyframes fadeInUp {
-  from {
-    opacity: 0;
-    transform: translate3d(0, 30px, 0);
-  }
-  to {
-    opacity: 1;
-    transform: translate3d(0, 0, 0);
-  }
-}
-
-.event-card {
-  position: relative;
-  animation: fadeInUp 0.6s ease-out both;
-}
-
-.special-event-item {
-  animation: fadeInUp 0.5s ease-out both;
-}
-
-@media (prefers-reduced-motion: reduce) {
-  *,
-  *::before,
-  *::after {
-    animation-duration: 0.01ms !important;
-    transition-duration: 0.01ms !important;
-  }
-}
-</style>

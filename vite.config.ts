@@ -87,8 +87,15 @@ export default defineConfig({
     strictPort: false,
     proxy: {
       '/api': {
-        target: 'http://localhost:3001',
+        // Override to point a second dev server at another API instance,
+        // e.g. API_PROXY_TARGET=http://localhost:3003 npx vite --port 5174
+        target: process.env.API_PROXY_TARGET || 'http://localhost:3001',
         changeOrigin: true,
+        // The frontend imports api/storeConfig.json as a module, which Vite
+        // serves at /api/storeConfig.json?import — the same prefix as real API
+        // calls. Without this the import was forwarded to the API, 404'd, and
+        // the dev app never mounted (production bundles it, so only dev broke).
+        bypass: req => (/[?&]import\b/.test(req.url ?? '') ? req.url : undefined),
       },
     },
   },

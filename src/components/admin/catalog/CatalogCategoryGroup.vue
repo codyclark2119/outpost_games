@@ -18,7 +18,7 @@
         <span class="text-lg transition-transform duration-200" :class="expanded ? 'rotate-90' : ''"
           >▶</span
         >
-        <span class="font-cinzel font-bold text-lg flex-1">{{ group.name }}</span>
+        <span class="font-display font-bold text-lg flex-1">{{ group.name }}</span>
         <span class="text-xs text-white/60"
           >{{ group.rows.length }} item{{ group.rows.length !== 1 ? 's' : '' }}</span
         >

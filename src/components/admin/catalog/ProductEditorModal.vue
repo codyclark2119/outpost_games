@@ -14,7 +14,7 @@
         >
           ✕
         </button>
-        <h2 class="font-cinzel text-xl font-bold mb-5 text-gray-800">Edit Square Product</h2>
+        <h2 class="font-display text-xl font-bold mb-5 text-gray-800">Edit Square Product</h2>
 
         <div v-if="editLoading" class="text-center py-10 text-gray-500">Loading…</div>
 
@@ -258,7 +258,7 @@
   <!-- Delete item confirm modal -->
   <AdminDialog :open="deleteModal.open" title="Catalog editor" @close="closeDeleteConfirm">
     <div class="bg-white rounded-2xl shadow-2xl w-full max-w-sm p-6" @click.stop>
-      <h2 class="font-cinzel text-lg font-bold mb-2 text-gray-800">
+      <h2 class="font-display text-lg font-bold mb-2 text-gray-800">
         Delete "{{ editForm.name }}"?
       </h2>
       <p class="text-gray-600 text-sm mb-4">

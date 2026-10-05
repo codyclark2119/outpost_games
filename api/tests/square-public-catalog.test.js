@@ -120,7 +120,7 @@ test('getPublicSquareCatalog leaves setId/setName null for an item assigned dire
   })
 })
 
-test('getPublicSquareCatalog excludes items in the Accessories category, same as Snacks', async () => {
+test('getPublicSquareCatalog excludes items in the Accessories and Tournaments categories, same as Snacks', async () => {
   const responses = [
     {
       ok: true,
@@ -128,6 +128,7 @@ test('getPublicSquareCatalog excludes items in the Accessories category, same as
         objects: [
           itemObject('ITEM1', { name: 'Playmat', categoryId: 'CAT_ACCESSORIES' }),
           itemObject('ITEM2', { name: 'Booster Pack', categoryId: 'CAT_MAGIC' }),
+          itemObject('ITEM3', { name: 'FNM Entry', categoryId: 'CAT_TOURNAMENTS' }),
         ],
       },
     },
@@ -137,6 +138,7 @@ test('getPublicSquareCatalog excludes items in the Accessories category, same as
         objects: [
           categoryObject('CAT_ACCESSORIES', { name: 'Accessories' }),
           categoryObject('CAT_MAGIC', { name: 'Magic' }),
+          categoryObject('CAT_TOURNAMENTS', { name: 'Tournaments' }),
         ],
       },
     },
@@ -254,5 +256,84 @@ test("getPublicSquareCatalog prefers the admin-set releasedAt over Square's own 
     )
     assert.equal(items[0].releasedAt, '2026-08-01')
     assert.equal(items[2].releasedAt, '2025-01-01')
+  })
+})
+
+test('getPublicSquareCatalog pins the headline games first (One Piece and Gundam as their own sections), tolerating stray whitespace in category names', async () => {
+  const responses = [
+    {
+      ok: true,
+      body: {
+        objects: [
+          itemObject('ITEM1', { name: 'Warhammer Starter', categoryId: 'CAT_WARHAMMER' }),
+          itemObject('ITEM2', { name: 'Gundam Booster', categoryId: 'CAT_GUNDAM' }),
+          itemObject('ITEM3', { name: 'OP Booster', categoryId: 'CAT_ONE_PIECE' }),
+          itemObject('ITEM4', { name: 'Chips', categoryId: 'CAT_SNACKS' }),
+          itemObject('ITEM5', { name: 'Bloomburrow Box', categoryId: 'CAT_MAGIC' }),
+        ],
+      },
+    },
+    {
+      ok: true,
+      body: {
+        objects: [
+          categoryObject('CAT_WARHAMMER', { name: 'Warhammer ' }),
+          categoryObject('CAT_GUNDAM', { name: 'Gundam' }),
+          categoryObject('CAT_ONE_PIECE', { name: 'One Piece' }),
+          categoryObject('CAT_SNACKS', { name: 'Snacks ' }),
+          categoryObject('CAT_MAGIC', { name: 'Magic ' }),
+        ],
+      },
+    },
+  ]
+
+  await withMockedFetch(responses, async () => {
+    const { items } = await getPublicSquareCatalog(FAKE_ENV)
+    assert.deepEqual(
+      items.map(item => item.name),
+      ['Bloomburrow Box', 'OP Booster', 'Gundam Booster', 'Warhammer Starter']
+    )
+  })
+})
+
+test('getPublicSquareCatalog hides singles: anything under a Single(s) category and the catch-all singles items, but not sealed "Single Booster Pack" products', async () => {
+  const responses = [
+    {
+      ok: true,
+      body: {
+        objects: [
+          itemObject('ITEM1', { name: 'Magic singles', categoryId: 'CAT_MAGIC' }),
+          itemObject('ITEM2', { name: 'Charizard ex', categoryId: 'CAT_POKEMON_SINGLE' }),
+          itemObject('ITEM3', {
+            name: 'Twilight Masquerade Single Booster Pack',
+            categoryId: 'CAT_POKEMON',
+          }),
+          itemObject('ITEM4', { name: 'Rift Singles', categoryId: 'CAT_RIFTBOUND' }),
+          itemObject('ITEM5', { name: 'Origins Booster Box', categoryId: 'CAT_RIFTBOUND' }),
+        ],
+      },
+    },
+    {
+      ok: true,
+      body: {
+        objects: [
+          categoryObject('CAT_MAGIC', { name: 'Magic' }),
+          categoryObject('CAT_POKEMON', { name: 'Pokemon' }),
+          categoryObject('CAT_POKEMON_SINGLE', {
+            name: 'Pokemon Single',
+            parentCategoryId: 'CAT_POKEMON',
+          }),
+          categoryObject('CAT_RIFTBOUND', { name: 'Riftbound' }),
+        ],
+      },
+    },
+  ]
+
+  await withMockedFetch(responses, async () => {
+    const { items } = await getPublicSquareCatalog(FAKE_ENV)
+    assert.deepEqual(items.map(item => item.name).sort(), [
+      'Origins Booster Box',
+      'Twilight Masquerade Single Booster Pack',
+    ])
   })
 })

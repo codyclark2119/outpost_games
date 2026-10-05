@@ -5,7 +5,7 @@
         <!-- Header -->
         <div class="flex flex-wrap justify-between items-center mb-8 gap-4">
           <div>
-            <h1 class="font-cinzel text-4xl font-bold text-gray-800">Square Catalog Editor</h1>
+            <h1 class="font-display text-4xl font-bold text-gray-800">Square Catalog Editor</h1>
             <p class="text-gray-600 mt-1">Edit product details directly in Square POS</p>
           </div>
           <router-link :to="{ name: 'AdminDashboard' }" class="btn-secondary px-4 py-2">
@@ -94,7 +94,7 @@
       @close="!bulkAction.running && (bulkDeleteModal.open = false)"
     >
       <div class="bg-white rounded-2xl shadow-2xl w-full max-w-lg p-6">
-        <h2 class="font-cinzel text-xl font-bold mb-4 text-gray-800">
+        <h2 class="font-display text-xl font-bold mb-4 text-gray-800">
           Delete {{ selectedItemIds.size }} item(s)?
         </h2>
         <ul class="text-sm text-gray-700 list-disc pl-5 mb-3 max-h-40 overflow-y-auto">

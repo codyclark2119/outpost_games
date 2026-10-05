@@ -1,45 +1,46 @@
 <template>
-  <div class="card text-center py-12">
+  <div class="card mx-auto max-w-xl text-center">
     <div
-      class="w-20 h-20 bg-outpost-navy rounded-full flex items-center justify-center mx-auto mb-6"
+      class="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-outpost-navy text-outpost-gold"
     >
-      <svg
-        class="w-10 h-10 text-outpost-gold"
-        fill="none"
-        stroke="currentColor"
-        viewBox="0 0 24 24"
-      >
-        <path
-          stroke-linecap="round"
-          stroke-linejoin="round"
-          stroke-width="2"
-          d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"
-        />
-      </svg>
+      <ArchiveBoxIcon class="h-7 w-7" aria-hidden="true" />
     </div>
-    <h2 class="font-cinzel text-2xl font-bold mb-4 text-gray-800">{{ title }}</h2>
-    <p class="text-gray-600 text-lg mb-6 max-w-xl mx-auto">{{ message }}</p>
-    <div class="bg-gray-100 rounded-lg p-6 max-w-md mx-auto">
-      <h3 class="font-semibold mb-2">Visit Our Store:</h3>
-      <p class="text-sm text-gray-600">
-        605 W. Main Street, Suite 4<br />
-        Rio Grande City, TX 78582<br /><br />
-        <strong>Hours:</strong> Tuesday–Saturday, 5:30 PM – 10:00 PM
+    <h2 class="mt-5 font-display text-xl font-bold text-outpost-navy">{{ title }}</h2>
+    <p class="mx-auto mt-2 max-w-md text-slate-600">{{ message }}</p>
+    <div class="mt-6 rounded-xl bg-slate-50 p-4 text-left text-sm text-slate-600">
+      <p class="font-semibold text-slate-800">Visit us</p>
+      <p class="mt-1">{{ STORE_INFO.address.full }}</p>
+      <p class="mt-1">
+        <span v-for="(label, days) in STORE_INFO.hours" :key="days" class="block">
+          {{ days }}: {{ label }}
+        </span>
       </p>
     </div>
+    <a
+      :href="STORE_INFO.mapsUrl"
+      target="_blank"
+      rel="noopener noreferrer"
+      class="btn-primary mt-5 w-full sm:w-auto"
+    >
+      <MapPinIcon class="h-5 w-5" aria-hidden="true" />
+      Get directions
+    </a>
   </div>
 </template>
 
 <script setup lang="ts">
+import { ArchiveBoxIcon, MapPinIcon } from '@heroicons/vue/24/outline'
+import { STORE_INFO } from '../config/storeInfo'
+
 withDefaults(
   defineProps<{
     title?: string
     message?: string
   }>(),
   {
-    title: 'Our Online Catalog is Getting a Refresh',
+    title: 'Nothing listed online right now',
     message:
-      "We're updating how products are listed here, so this page is paused for now. Everything is still fully stocked in store — come see the full selection in person!",
+      'Our online catalog mirrors what is on our shelves, and we are mid-restock. Stop by the shop to see the full selection in person.',
   }
 )
 </script>

@@ -3,7 +3,7 @@
     <div class="container mx-auto px-4">
       <div class="max-w-4xl mx-auto">
         <div class="flex justify-between items-center mb-12">
-          <h1 class="font-cinzel text-4xl font-bold text-gray-800">Admin Dashboard</h1>
+          <h1 class="font-display text-4xl font-bold text-gray-800">Admin Dashboard</h1>
           <div class="flex items-center gap-3">
             <span v-if="auth.username" class="text-sm text-gray-500"
               >Signed in as {{ auth.username }}</span
@@ -15,11 +15,40 @@
         <!-- Square POS -->
         <div class="mb-10">
           <h2
-            class="font-cinzel text-sm font-bold uppercase tracking-widest text-gray-400 mb-4 pl-1"
+            class="font-display text-sm font-bold uppercase tracking-widest text-gray-400 mb-4 pl-1"
           >
             Square POS
           </h2>
           <div class="grid grid-cols-1 sm:grid-cols-2 gap-5">
+            <router-link
+              :to="{ name: 'AdminSquareScan' }"
+              class="card hover:shadow-xl transition-all duration-300"
+            >
+              <div class="text-center">
+                <div
+                  class="w-14 h-14 bg-outpost-navy rounded-full flex items-center justify-center mx-auto mb-3"
+                >
+                  <svg
+                    class="w-7 h-7 text-white"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                      stroke-width="2"
+                      d="M4 7V5a1 1 0 011-1h2M17 4h2a1 1 0 011 1v2M20 17v2a1 1 0 01-1 1h-2M7 20H5a1 1 0 01-1-1v-2M8 8v8M11 8v8M14 8v8M17 8v8"
+                    />
+                  </svg>
+                </div>
+                <h3 class="font-display font-semibold text-lg mb-1">Scan Barcode</h3>
+                <p class="text-gray-500 text-sm">
+                  Look up, count, or link a barcode with your camera
+                </p>
+              </div>
+            </router-link>
+
             <router-link
               :to="{ name: 'AdminSquareStock' }"
               class="card hover:shadow-xl transition-all duration-300"
@@ -42,7 +71,7 @@
                     />
                   </svg>
                 </div>
-                <h3 class="font-cinzel font-semibold text-lg mb-1">Stock Report</h3>
+                <h3 class="font-display font-semibold text-lg mb-1">Stock Report</h3>
                 <p class="text-gray-500 text-sm">View and export live Square inventory</p>
               </div>
             </router-link>
@@ -69,7 +98,7 @@
                     />
                   </svg>
                 </div>
-                <h3 class="font-cinzel font-semibold text-lg mb-1">Catalog Editor</h3>
+                <h3 class="font-display font-semibold text-lg mb-1">Catalog Editor</h3>
                 <p class="text-gray-500 text-sm">Edit product details in Square POS</p>
               </div>
             </router-link>
@@ -96,7 +125,7 @@
                     />
                   </svg>
                 </div>
-                <h3 class="font-cinzel font-semibold text-lg mb-1">Sales Over Time</h3>
+                <h3 class="font-display font-semibold text-lg mb-1">Sales Over Time</h3>
                 <p class="text-gray-500 text-sm">Chart revenue trends and top products</p>
               </div>
             </router-link>
@@ -123,7 +152,7 @@
                     />
                   </svg>
                 </div>
-                <h3 class="font-cinzel font-semibold text-lg mb-1">Mass Inventory Update</h3>
+                <h3 class="font-display font-semibold text-lg mb-1">Mass Inventory Update</h3>
                 <p class="text-gray-500 text-sm">Correct many stock counts in one save</p>
               </div>
             </router-link>
@@ -150,7 +179,7 @@
                     />
                   </svg>
                 </div>
-                <h3 class="font-cinzel font-semibold text-lg mb-1">Quick Restock</h3>
+                <h3 class="font-display font-semibold text-lg mb-1">Quick Restock</h3>
                 <p class="text-gray-500 text-sm">Open a box, restock loose packs in one click</p>
               </div>
             </router-link>
@@ -160,7 +189,7 @@
         <!-- Events -->
         <div class="mb-10">
           <h2
-            class="font-cinzel text-sm font-bold uppercase tracking-widest text-gray-400 mb-4 pl-1"
+            class="font-display text-sm font-bold uppercase tracking-widest text-gray-400 mb-4 pl-1"
           >
             Events
           </h2>
@@ -187,7 +216,7 @@
                     />
                   </svg>
                 </div>
-                <h3 class="font-cinzel font-semibold text-lg mb-1">Manage Events</h3>
+                <h3 class="font-display font-semibold text-lg mb-1">Manage Events</h3>
                 <p class="text-gray-500 text-sm">Edit and delete tournament events</p>
               </div>
             </router-link>
@@ -214,7 +243,7 @@
                     />
                   </svg>
                 </div>
-                <h3 class="font-cinzel font-semibold text-lg mb-1">Add Event</h3>
+                <h3 class="font-display font-semibold text-lg mb-1">Add Event</h3>
                 <p class="text-gray-500 text-sm">Create a new tournament or special event</p>
               </div>
             </router-link>
@@ -241,7 +270,7 @@
                     />
                   </svg>
                 </div>
-                <h3 class="font-cinzel font-semibold text-lg mb-1">Weekly Schedule</h3>
+                <h3 class="font-display font-semibold text-lg mb-1">Weekly Schedule</h3>
                 <p class="text-gray-500 text-sm">Hide a recurring event for one specific date</p>
               </div>
             </router-link>
@@ -251,7 +280,7 @@
         <!-- Single Card Listings -->
         <div class="mb-10">
           <h2
-            class="font-cinzel text-sm font-bold uppercase tracking-widest text-gray-400 mb-4 pl-1"
+            class="font-display text-sm font-bold uppercase tracking-widest text-gray-400 mb-4 pl-1"
           >
             Single Card Listings
           </h2>
@@ -278,7 +307,7 @@
                     />
                   </svg>
                 </div>
-                <h3 class="font-cinzel font-semibold text-lg mb-1">Manage Listings</h3>
+                <h3 class="font-display font-semibold text-lg mb-1">Manage Listings</h3>
                 <p class="text-gray-500 text-sm">Edit and delete featured single cards</p>
               </div>
             </router-link>
@@ -305,7 +334,7 @@
                     />
                   </svg>
                 </div>
-                <h3 class="font-cinzel font-semibold text-lg mb-1">Add Listing</h3>
+                <h3 class="font-display font-semibold text-lg mb-1">Add Listing</h3>
                 <p class="text-gray-500 text-sm">Add a new single card to the listings</p>
               </div>
             </router-link>

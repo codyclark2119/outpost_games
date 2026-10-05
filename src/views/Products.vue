@@ -1,491 +1,225 @@
 <template>
-  <div class="min-h-screen bg-gradient-to-br from-gray-50 via-white to-gray-100 py-12">
-    <!-- Sidebar Toggle — mobile/tablet only; the sidebar is always open on
-         desktop (lg:) where there's no need to hide it behind a drawer -->
-    <button
-      ref="sidebarToggle"
-      type="button"
-      class="fixed top-20 left-4 z-40 flex items-center gap-2 bg-outpost-gold text-outpost-black px-4 py-2.5 rounded-lg shadow-lg hover:bg-outpost-gold-light transition-colors lg:hidden"
-      :aria-label="sidebarOpen ? 'Close product categories' : 'Browse product categories'"
-      :aria-expanded="sidebarOpen"
-      aria-controls="product-categories"
-      @click="sidebarOpen = !sidebarOpen"
+  <div class="pb-14">
+    <PageHeader
+      eyebrow="Products"
+      title="In stock now"
+      subtitle="Live from our shelves — what you see here is in the shop today."
     >
-      <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-        <path
-          stroke-linecap="round"
-          stroke-linejoin="round"
-          stroke-width="2"
-          d="M4 6h16M4 12h16M4 18h16"
+      <label v-if="hasCatalog" class="relative mt-5 block max-w-xl">
+        <span class="sr-only">Search products</span>
+        <MagnifyingGlassIcon
+          class="pointer-events-none absolute top-1/2 left-3.5 h-5 w-5 -translate-y-1/2 text-slate-400"
+          aria-hidden="true"
         />
-      </svg>
-      <span class="text-sm font-semibold">{{ sidebarOpen ? 'Close' : 'Browse Games' }}</span>
-    </button>
+        <input
+          v-model="query"
+          type="search"
+          placeholder="Search booster boxes, decks, sets…"
+          class="form-input pl-11"
+          enterkeyhint="search"
+        />
+      </label>
+    </PageHeader>
 
-    <!-- Overlay — mobile/tablet only; without lg:hidden this would sit on top
-         of the whole page (including "View All" links) if sidebarOpen were
-         ever true at desktop width, e.g. after resizing from a narrower one -->
-    <button
-      v-if="sidebarOpen"
-      type="button"
-      class="fixed inset-0 bg-black/50 z-20 lg:hidden"
-      aria-label="Close product categories"
-      @click="sidebarOpen = false"
-    ></button>
+    <div v-if="!PRODUCTS_CATALOG_LIVE" class="page-shell py-4">
+      <ComingSoonPanel
+        title="Our online catalog is getting a refresh"
+        message="Live inventory isn't online just yet. Everything is still stocked in store — come see the full selection in person."
+      />
+    </div>
 
-    <div class="container mx-auto px-4">
-      <div class="max-w-6xl mx-auto">
-        <div class="text-center mb-12 hero-content">
-          <h1
-            class="font-cinzel text-4xl md:text-5xl font-bold mb-4 text-gray-800 section-heading inline-block"
-          >
-            Available Products
-          </h1>
-          <p class="text-center text-gray-600 text-lg">
-            Live inventory, straight from what's on our shelves right now
-          </p>
-        </div>
-      </div>
-
-      <!-- Sidebar + content row deliberately sits directly in the wider
-           "container" rather than nested inside the max-w-6xl block above
-           (which is only meant to keep the hero text at a readable width) —
-           nesting it in max-w-6xl doubled up the centering/margins and left
-           too little room for the 5-column product grid. -->
-      <div class="flex flex-col lg:flex-row gap-8">
-        <!-- Sidebar — off-canvas drawer on mobile/tablet; a normal sticky
-             flex sibling on desktop so it stops before the footer instead
-             of floating over it (position:fixed has no scroll boundary,
-             position:sticky naturally lets go once this flex row ends) -->
-        <aside
-          id="product-categories"
-          ref="sidebar"
-          :inert="!desktop && !sidebarOpen"
-          :role="!desktop && sidebarOpen ? 'dialog' : undefined"
-          :aria-modal="!desktop && sidebarOpen ? true : undefined"
-          aria-label="Product categories"
-          class="fixed top-20 left-0 h-[calc(100vh-5rem)] bg-white shadow-xl z-30 transition-transform duration-300 w-64 overflow-y-auto lg:sticky lg:top-24 lg:h-auto lg:max-h-[calc(100vh-6rem)] lg:w-64 lg:flex-shrink-0 lg:rounded-xl lg:border lg:border-gray-200 lg:translate-x-0"
-          :class="{ '-translate-x-full': !sidebarOpen, 'translate-x-0': sidebarOpen }"
-        >
-          <div class="p-6">
-            <button
-              type="button"
-              class="lg:hidden min-h-11 mb-3 underline"
-              @click="sidebarOpen = false"
-            >
-              Close categories
-            </button>
-            <h2 class="font-cinzel text-xl font-bold text-gray-800 mb-6">Quick Navigation</h2>
-            <nav class="space-y-1">
-              <button
-                v-for="section in catalogStore.sections"
-                :key="section.slug"
-                class="w-full text-left px-4 py-3 rounded-lg hover:bg-outpost-gold/10 transition-colors font-semibold text-gray-700 hover:text-outpost-gold-dark text-sm"
-                @click="scrollToSection(section.slug)"
-              >
-                {{ section.name }}
-              </button>
-              <button
-                v-if="SINGLE_CARD_LISTINGS_LIVE"
-                class="w-full text-left px-4 py-3 rounded-lg hover:bg-outpost-gold/10 transition-colors font-semibold text-gray-700 hover:text-outpost-gold-dark text-sm"
-                @click="scrollToSection('single-cards')"
-              >
-                Featured Single Cards
-              </button>
-            </nav>
-          </div>
-        </aside>
-
-        <div class="flex-1 min-w-0">
-          <ComingSoonPanel
-            v-if="!PRODUCTS_CATALOG_LIVE"
-            class="mb-20"
-            title="Our Online Catalog is Getting a Refresh"
-            message="Live inventory isn't available online just yet. Everything is still fully stocked in store — come see the full selection in person!"
-          />
-
-          <p v-else-if="catalogStore.error" class="py-12 text-gray-600">
-            Products are temporarily unavailable.
-            <button class="underline" @click="catalogStore.fetchCatalog">Try again</button>
-          </p>
-          <template v-else>
-            <!-- Loading -->
-            <div
-              v-if="catalogStore.loading && catalogStore.items.length === 0"
-              class="text-center py-20"
-            >
-              <div
-                class="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-outpost-gold"
-              ></div>
-              <p class="mt-4 text-gray-600">Loading products…</p>
-            </div>
-
-            <ComingSoonPanel
-              v-else-if="catalogStore.sections.length === 0"
-              class="mb-20"
-              title="Our Online Catalog is Getting a Refresh"
-              message="Live inventory isn't available online just yet. Everything is still fully stocked in store — come see the full selection in person!"
-            />
-
-            <!-- Game type sections -->
-            <template v-else>
-              <section
-                v-for="section in catalogStore.sections"
-                :id="section.slug"
-                :key="section.slug"
-                class="mb-20 scroll-mt-24"
-              >
-                <!-- Section header with View All link -->
-                <div class="flex items-end justify-between mb-8">
-                  <h2
-                    class="font-cinzel text-3xl md:text-4xl font-bold text-gray-800 section-heading"
-                  >
-                    {{ section.name }}
-                  </h2>
-                  <router-link
-                    :to="`/products/${section.slug}`"
-                    class="text-outpost-gold-dark hover:text-outpost-gold-dark font-semibold text-sm flex items-center gap-1 transition-colors mb-2"
-                  >
-                    View All
-                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path
-                        stroke-linecap="round"
-                        stroke-linejoin="round"
-                        stroke-width="2"
-                        d="M9 5l7 7-7 7"
-                      />
-                    </svg>
-                  </router-link>
-                </div>
-
-                <!-- Carousel -->
-                <div class="relative">
-                  <!-- Prev arrow -->
-                  <button
-                    v-if="getCarouselPage(section.slug) > 0"
-                    class="absolute left-0 top-1/2 -translate-y-1/2 -translate-x-4 z-10 w-11 h-11 bg-white border border-gray-200 rounded-full shadow-lg flex items-center justify-center hover:border-outpost-gold hover:text-outpost-gold-dark transition-all"
-                    aria-label="Previous"
-                    @click="carouselPrev(section.slug)"
-                  >
-                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path
-                        stroke-linecap="round"
-                        stroke-linejoin="round"
-                        stroke-width="2"
-                        d="M15 19l-7-7 7-7"
-                      />
-                    </svg>
-                  </button>
-
-                  <!-- Item cards window -->
-                  <transition name="carousel-slide" mode="out-in">
-                    <div
-                      :key="`${section.slug}-${getCarouselPage(section.slug)}`"
-                      class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-5"
-                    >
-                      <div
-                        v-for="(item, si) in section.items.slice(
-                          getCarouselPage(section.slug) * CAROUSEL_SIZE,
-                          getCarouselPage(section.slug) * CAROUSEL_SIZE + CAROUSEL_SIZE
-                        )"
-                        :key="item.id"
-                        class="product-card"
-                        :style="{ animationDelay: `${si * 0.06}s` }"
-                      >
-                        <div
-                          class="bg-white rounded-xl shadow-lg p-5 hover:shadow-2xl transition-all duration-500 flex flex-col h-full relative overflow-hidden group border border-transparent hover:border-outpost-gold"
-                        >
-                          <div
-                            class="shimmer-overlay absolute inset-0 bg-gradient-to-r from-transparent via-outpost-gold/10 to-transparent -translate-x-full group-hover:translate-x-full"
-                          ></div>
-
-                          <div
-                            class="aspect-square flex items-center justify-center mb-3 flex-shrink-0 relative z-10"
-                          >
-                            <img
-                              v-if="item.imageUrl"
-                              :src="item.imageUrl"
-                              :alt="item.name"
-                              class="product-image w-28 h-28 object-contain"
-                              loading="lazy"
-                              width="160"
-                              height="160"
-                            />
-                            <div
-                              v-else
-                              class="w-28 h-28 bg-gray-100 rounded-xl flex items-center justify-center text-gray-400"
-                            >
-                              <svg
-                                class="w-12 h-12"
-                                fill="none"
-                                stroke="currentColor"
-                                viewBox="0 0 24 24"
-                              >
-                                <path
-                                  stroke-linecap="round"
-                                  stroke-linejoin="round"
-                                  stroke-width="1.5"
-                                  d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"
-                                />
-                              </svg>
-                            </div>
-                          </div>
-
-                          <div class="flex-grow flex flex-col justify-center relative z-10">
-                            <h3
-                              class="font-semibold text-center text-gray-800 text-xs md:text-sm group-hover:text-outpost-gold-dark transition-colors duration-300 leading-tight"
-                            >
-                              {{ item.name }}
-                            </h3>
-                            <p
-                              class="text-center text-xs font-medium mt-2 px-2 py-1 rounded-full inline-block mx-auto text-outpost-gold-dark bg-outpost-gold/10"
-                            >
-                              {{ formatPrice(item) }}
-                            </p>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  </transition>
-
-                  <!-- Next arrow -->
-                  <button
-                    v-if="getCarouselPage(section.slug) < lastPage(section.items.length)"
-                    class="absolute right-0 top-1/2 -translate-y-1/2 translate-x-4 z-10 w-11 h-11 bg-white border border-gray-200 rounded-full shadow-lg flex items-center justify-center hover:border-outpost-gold hover:text-outpost-gold-dark transition-all"
-                    aria-label="Next"
-                    @click="carouselNext(section.slug, section.items.length)"
-                  >
-                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path
-                        stroke-linecap="round"
-                        stroke-linejoin="round"
-                        stroke-width="2"
-                        d="M9 5l7 7-7 7"
-                      />
-                    </svg>
-                  </button>
-
-                  <!-- Dot indicators (shown only when carousel is active) -->
-                  <div
-                    v-if="section.items.length > CAROUSEL_SIZE"
-                    class="flex justify-center gap-1.5 mt-4"
-                  >
-                    <button
-                      v-for="page in lastPage(section.items.length) + 1"
-                      :key="page"
-                      class="w-2 h-2 rounded-full transition-all"
-                      :class="
-                        getCarouselPage(section.slug) === page - 1
-                          ? 'bg-outpost-gold w-5'
-                          : 'bg-gray-300'
-                      "
-                      :aria-label="`Page ${page}`"
-                      @click="carouselGoTo(section.slug, page - 1)"
-                    ></button>
-                  </div>
-                </div>
-              </section>
-            </template>
-          </template>
-
-          <!-- Featured Single Cards Section — independent of the Square catalog.
-               Hidden for now (see SINGLE_CARD_LISTINGS_LIVE) until there's a
-               real plan for tracking individual card listings/prices
-               consistently between the site and Square. -->
-          <section v-if="SINGLE_CARD_LISTINGS_LIVE" id="single-cards" class="mb-20 scroll-mt-24">
-            <div class="text-center mb-12">
-              <h2
-                class="font-cinzel text-3xl md:text-4xl font-bold mb-4 text-gray-800 section-heading inline-block"
-              >
-                Featured Single Cards
-              </h2>
-              <p class="text-gray-600 text-lg">Premium cards available for online purchase</p>
-            </div>
-
-            <div v-if="loadingListings" class="text-center py-12">
-              <div
-                class="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-outpost-gold"
-              ></div>
-            </div>
-
-            <div v-else-if="listingsError" class="text-center py-12">
-              <p class="text-red-600 mb-4">{{ listingsError }}</p>
-              <button class="btn-primary px-6 py-3" @click="fetchTCGPlayerListings">
-                Try Again
-              </button>
-            </div>
-
-            <div v-else-if="cardListings.length === 0" class="text-center py-12">
-              <p class="text-gray-600">No listings available at this time.</p>
-            </div>
-
-            <div v-else class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-              <a
-                v-for="(card, index) in cardListings"
-                :key="card.id"
-                :href="card.productUrl"
-                target="_blank"
-                rel="noopener noreferrer"
-                class="card-listing block"
-                :style="{ animationDelay: `${index * 0.05}s` }"
-              >
-                <div
-                  class="bg-white rounded-xl shadow-lg overflow-hidden hover:shadow-2xl transition-all duration-300 flex flex-col h-full border border-gray-200 hover:border-outpost-gold group"
-                >
-                  <div class="card-image-container relative overflow-hidden bg-gray-100">
-                    <img
-                      v-if="card.imageUrl"
-                      :src="card.imageUrl"
-                      :alt="card.name"
-                      class="card-image w-full object-cover object-top"
-                      loading="lazy"
-                    />
-                    <div
-                      v-if="card.imageUrl && card.quantityInStock"
-                      class="absolute top-2 right-2 bg-black/70 text-white text-xs px-2 py-1 rounded"
-                    >
-                      {{ card.quantityInStock }}
-                      {{ card.quantityInStock === 1 ? 'left' : 'in stock' }}
-                    </div>
-                    <div
-                      v-if="!card.imageUrl"
-                      class="absolute inset-0 flex items-center justify-center bg-gray-200"
-                    >
-                      <span class="text-gray-400 text-sm">No Image</span>
-                    </div>
-                  </div>
-                  <div class="p-4 flex flex-col flex-grow">
-                    <h3 class="font-bold text-gray-900 text-lg mb-1 line-clamp-2">
-                      {{ card.name }}
-                    </h3>
-                    <p class="text-gray-600 text-sm mb-3 line-clamp-1" :title="card.setName">
-                      {{ card.setName }}
-                    </p>
-                    <div class="mb-3">
-                      <span
-                        class="condition-badge inline-block px-3 py-1 rounded-full text-white text-sm font-semibold"
-                        :class="{
-                          'bg-green-500': card.condition === 'NM',
-                          'bg-blue-500': card.condition === 'LP',
-                          'bg-orange-500': card.condition === 'MP',
-                          'bg-red-500': card.condition === 'HP',
-                        }"
-                      >
-                        {{ card.foiling }} / {{ card.condition }}
-                      </span>
-                    </div>
-                    <div class="flex justify-between items-center mb-4">
-                      <span class="text-2xl font-bold text-gray-900">
-                        {{ card.priceDisplay || `$${card.price.toFixed(2)}` }}
-                      </span>
-                    </div>
-                    <div
-                      class="tcgplayer-button block w-full text-center bg-outpost-navy hover:bg-outpost-navy/90 text-white font-semibold py-2 px-4 rounded-lg transition-colors duration-300 mt-auto"
-                    >
-                      View on TCGPlayer →
-                    </div>
-                  </div>
-                </div>
-              </a>
-            </div>
-          </section>
-        </div>
+    <div v-else-if="catalogStore.error && !hasCatalog" class="page-shell py-4">
+      <div class="card text-center">
+        <p class="text-slate-600">Products are temporarily unavailable.</p>
+        <button type="button" class="btn-secondary mt-4" @click="catalogStore.fetchCatalog">
+          Try again
+        </button>
       </div>
     </div>
+
+    <div v-else-if="catalogStore.loading && !hasCatalog" class="page-shell py-4">
+      <ProductGridSkeleton />
+    </div>
+
+    <div v-else-if="!hasCatalog" class="page-shell py-4">
+      <ComingSoonPanel />
+    </div>
+
+    <template v-else>
+      <GameNav :sections="catalogStore.sections" />
+
+      <div class="page-shell">
+        <!-- Search across every game -->
+        <section v-if="searchTerm" class="py-6" aria-live="polite">
+          <p class="text-sm text-slate-600">
+            {{ searchResults.length }} result{{ searchResults.length === 1 ? '' : 's' }} for
+            <span class="font-semibold text-slate-800">“{{ searchTerm }}”</span>
+          </p>
+          <div
+            v-if="searchResults.length"
+            class="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-3 sm:gap-4 lg:grid-cols-5"
+          >
+            <ProductCard
+              v-for="item in searchResults"
+              :key="item.id"
+              :item="item"
+              :subtitle="gameMeta(slugify(item.categoryName), item.categoryName).label"
+            />
+          </div>
+          <div v-else class="card mt-4 text-center">
+            <p class="font-medium text-slate-800">Nothing in stock matches that.</p>
+            <p class="mt-1 text-sm text-slate-600">
+              We may still be able to get it — ask us in store or on Discord.
+            </p>
+            <button type="button" class="btn-secondary mt-4" @click="query = ''">
+              Clear search
+            </button>
+          </div>
+        </section>
+
+        <!-- One preview row per game -->
+        <template v-else>
+          <section
+            v-for="section in catalogStore.sections"
+            :key="section.slug"
+            class="border-b border-slate-200 py-8 last:border-0"
+          >
+            <div class="flex items-end justify-between gap-4">
+              <h2 class="flex items-center gap-3">
+                <span
+                  class="h-6 w-1.5 rounded-full"
+                  :style="{ backgroundColor: gameMeta(section.slug, section.name).accent }"
+                  aria-hidden="true"
+                ></span>
+                <span class="section-title">{{ gameMeta(section.slug, section.name).label }}</span>
+              </h2>
+              <router-link :to="`/products/${section.slug}`" class="text-link shrink-0">
+                View all {{ section.items.length }}
+                <ArrowRightIcon class="h-4 w-4" aria-hidden="true" />
+              </router-link>
+            </div>
+
+            <!-- Swipeable row on phones/tablets; a plain 5-up grid on desktop -->
+            <div class="scroll-row mt-4 lg:mx-0 lg:grid lg:grid-cols-5 lg:gap-4 lg:px-0">
+              <ProductCard
+                v-for="(item, index) in section.items.slice(0, PREVIEW_COUNT)"
+                :key="item.id"
+                :item="item"
+                :subtitle="item.setName"
+                class="w-40 shrink-0 snap-start sm:w-48 lg:w-auto"
+                :class="{ 'lg:hidden': index >= DESKTOP_PREVIEW_COUNT }"
+              />
+              <router-link
+                v-if="section.items.length > PREVIEW_COUNT"
+                :to="`/products/${section.slug}`"
+                class="flex w-32 shrink-0 snap-start flex-col items-center justify-center gap-2 rounded-2xl border border-dashed border-slate-300 text-sm font-semibold text-outpost-navy lg:hidden"
+              >
+                <ArrowRightIcon class="h-5 w-5" aria-hidden="true" />
+                See all {{ section.items.length }}
+              </router-link>
+            </div>
+          </section>
+        </template>
+
+        <!-- Featured single cards (TCGPlayer) — independent of the Square
+             catalog and hidden until SINGLE_CARD_LISTINGS_LIVE is flipped. -->
+        <section v-if="SINGLE_CARD_LISTINGS_LIVE" class="border-t border-slate-200 py-8">
+          <h2 class="section-title">Featured single cards</h2>
+          <p class="mt-1 text-slate-600">Premium singles available through TCGPlayer.</p>
+
+          <ProductGridSkeleton v-if="loadingListings" class="mt-4" :count="5" />
+          <p v-else-if="listingsError" class="mt-4 text-slate-600">
+            {{ listingsError }}
+            <button type="button" class="underline" @click="fetchTCGPlayerListings">
+              Try again
+            </button>
+          </p>
+          <p v-else-if="cardListings.length === 0" class="mt-4 text-slate-600">
+            No listings available right now.
+          </p>
+          <div v-else class="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-3 sm:gap-4 lg:grid-cols-5">
+            <a
+              v-for="card in cardListings"
+              :key="card.id"
+              :href="card.productUrl"
+              target="_blank"
+              rel="noopener noreferrer"
+              class="flex flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white hover:border-outpost-navy/40"
+            >
+              <div class="aspect-[5/7] bg-slate-100">
+                <img
+                  v-if="card.imageUrl"
+                  :src="card.imageUrl"
+                  :alt="card.name"
+                  class="h-full w-full object-cover"
+                  loading="lazy"
+                />
+              </div>
+              <div class="flex flex-1 flex-col gap-1 p-3">
+                <p class="truncate text-[11px] font-semibold text-slate-500 uppercase">
+                  {{ card.setName }}
+                </p>
+                <h3 class="line-clamp-2 text-sm font-medium text-slate-800">{{ card.name }}</h3>
+                <p class="text-xs text-slate-500">{{ card.foiling }} · {{ card.condition }}</p>
+                <p class="mt-auto pt-1 font-semibold text-outpost-navy">
+                  {{ card.priceDisplay || `$${card.price.toFixed(2)}` }}
+                </p>
+              </div>
+            </a>
+          </div>
+        </section>
+      </div>
+    </template>
   </div>
 </template>
 
 <script setup lang="ts">
+import { ref, computed, watch, onMounted } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
+import { MagnifyingGlassIcon, ArrowRightIcon } from '@heroicons/vue/24/outline'
 import { apiFetch } from '../services/api'
-import { ref, onMounted, computed, watch, nextTick } from 'vue'
-import { useSquareCatalogStore, type SquarePublicItem } from '../stores/squareCatalog'
-import { useMediaQuery, useEventListener } from '@vueuse/core'
-import ComingSoonPanel from '../components/ComingSoonPanel.vue'
+import { useSquareCatalogStore, matchesSearch, slugify } from '../stores/squareCatalog'
+import { gameMeta } from '../config/games'
 import { usePageMeta } from '../composables/usePageMeta'
 import { PRODUCTS_CATALOG_LIVE, SINGLE_CARD_LISTINGS_LIVE } from '../config/featureFlags'
+import PageHeader from '../components/PageHeader.vue'
+import GameNav from '../components/GameNav.vue'
+import ProductCard from '../components/ProductCard.vue'
+import ProductGridSkeleton from '../components/ProductGridSkeleton.vue'
+import ComingSoonPanel from '../components/ComingSoonPanel.vue'
 
 usePageMeta({
   title: 'Products — The Outpost Games',
   description:
-    'Singles and sealed product for Magic, Pokémon, One Piece, Gundam, and Riftbound at The Outpost Games in Rio Grande City, TX.',
+    'In-stock singles and sealed product for Magic, Pokémon, One Piece, Gundam, and Riftbound at The Outpost Games in Rio Grande City, TX.',
   path: '/products',
 })
 
+// Items per game in the overview: the swipe row shows PREVIEW_COUNT, the
+// desktop grid one row of DESKTOP_PREVIEW_COUNT. "View all" covers the rest.
+const PREVIEW_COUNT = 10
+const DESKTOP_PREVIEW_COUNT = 5
+
+const route = useRoute()
+const router = useRouter()
 const catalogStore = useSquareCatalogStore()
 
-const formatPrice = (item: SquarePublicItem) =>
-  item.priceCents != null ? `$${(item.priceCents / 100).toFixed(2)}` : 'See in store'
+const hasCatalog = computed(() => catalogStore.sections.length > 0)
 
-// Carousel state — tracks the current PAGE (0-based) per section, not a raw
-// item index. Page-based state means "which page is active" and "what to
-// slice" can never drift apart (the previous index-based version clamped
-// Next/Prev to a valid item-index but let dot clicks set an unclamped
-// index directly, so for any item count that wasn't a multiple of
-// CAROUSEL_SIZE the active dot could silently fall out of sync with what was
-// actually on screen — and by construction here every page always slices
-// through to the true last item, so the final item can never become
-// unreachable).
-const desktop = useMediaQuery('(min-width: 1024px)')
-const tablet = useMediaQuery('(min-width: 768px)')
-const CAROUSEL_SIZE = computed(() => (desktop.value ? 5 : tablet.value ? 3 : 2))
-const carouselPages = ref<Record<string, number>>({})
-watch(CAROUSEL_SIZE, () => {
-  carouselPages.value = {}
+// Search lives in ?q= so a result list survives back-navigation and can be shared.
+const query = ref(typeof route.query.q === 'string' ? route.query.q : '')
+const searchTerm = computed(() => query.value.trim())
+watch(searchTerm, value => {
+  const next = { ...route.query }
+  if (value) next.q = value
+  else delete next.q
+  router.replace({ query: next })
 })
+const searchResults = computed(() =>
+  searchTerm.value ? catalogStore.items.filter(item => matchesSearch(item, searchTerm.value)) : []
+)
 
-const lastPage = (totalItems: number) =>
-  Math.max(0, Math.ceil(totalItems / CAROUSEL_SIZE.value) - 1)
-const getCarouselPage = (slug: string) => carouselPages.value[slug] ?? 0
-
-const carouselPrev = (slug: string) => {
-  carouselPages.value[slug] = Math.max(0, getCarouselPage(slug) - 1)
-}
-const carouselNext = (slug: string, totalItems: number) => {
-  carouselPages.value[slug] = Math.min(lastPage(totalItems), getCarouselPage(slug) + 1)
-}
-const carouselGoTo = (slug: string, page: number) => {
-  carouselPages.value[slug] = page
-}
-
-// Sidebar
-const sidebarOpen = ref(false)
-const sidebar = ref<HTMLElement | null>(null)
-const sidebarToggle = ref<HTMLButtonElement | null>(null)
-watch(sidebarOpen, async open => {
-  await nextTick()
-  if (open && !desktop.value) sidebar.value?.querySelector<HTMLButtonElement>('button')?.focus()
-  else if (!desktop.value) sidebarToggle.value?.focus()
-})
-watch(desktop, () => {
-  sidebarOpen.value = false
-})
-useEventListener(window, 'keydown', (event: KeyboardEvent) => {
-  if (!sidebarOpen.value || desktop.value) return
-  if (event.key === 'Escape') {
-    sidebarOpen.value = false
-    event.preventDefault()
-  }
-  if (event.key !== 'Tab') return
-  const buttons = [...(sidebar.value?.querySelectorAll<HTMLElement>('button, a[href]') ?? [])]
-  const first = buttons[0],
-    last = buttons[buttons.length - 1]
-  if (event.shiftKey && document.activeElement === first) {
-    event.preventDefault()
-    last?.focus()
-  } else if (!event.shiftKey && document.activeElement === last) {
-    event.preventDefault()
-    first?.focus()
-  }
-})
-const scrollToSection = (id: string) => {
-  // Behavior deliberately unset — see the note in utils/scrollToSection.ts:
-  // html { scroll-behavior: smooth } owns this, so prefers-reduced-motion is
-  // honoured instead of being overridden from JS.
-  document.getElementById(id)?.scrollIntoView({ block: 'start' })
-  sidebarOpen.value = false
-}
-
-// TCGPlayer listings
+// TCGPlayer listings (only fetched while SINGLE_CARD_LISTINGS_LIVE is on)
 interface CardListing {
   id: string
   name: string
@@ -521,156 +255,3 @@ onMounted(() => {
   if (SINGLE_CARD_LISTINGS_LIVE) fetchTCGPlayerListings()
 })
 </script>
-
-<style scoped>
-.scroll-mt-24 {
-  scroll-margin-top: 6rem;
-}
-
-.carousel-slide-enter-active,
-.carousel-slide-leave-active {
-  transition: opacity 0.25s ease;
-}
-.carousel-slide-enter-from,
-.carousel-slide-leave-to {
-  opacity: 0;
-}
-
-aside {
-  border-right: 2px solid #f3f4f6;
-}
-
-/* No will-change on any of the rules below: it is a hint for a change that is
-   imminent, not a permanent flag. Here it was pinning a compositor layer for
-   a one-shot 0.8s intro (this rule) and one per product card for a transform
-   that only ever runs on hover (.card-image / .product-image). Plain
-   transform transitions are composited without the hint. */
-.hero-content {
-  animation: fadeInUp 0.8s ease-out;
-}
-
-@keyframes fadeInUp {
-  from {
-    opacity: 0;
-    transform: translate3d(0, 30px, 0);
-  }
-  to {
-    opacity: 1;
-    transform: translate3d(0, 0, 0);
-  }
-}
-
-.product-card {
-  animation: fadeInUp 0.6s ease-out both;
-  backface-visibility: hidden;
-}
-.product-card:hover {
-  transform: translate3d(0, -8px, 0);
-}
-
-.card-listing {
-  animation: fadeInUp 0.6s ease-out both;
-  backface-visibility: hidden;
-}
-.card-listing:hover {
-  transform: translate3d(0, -4px, 0);
-}
-
-.card-image-container {
-  aspect-ratio: 5 / 4;
-  position: relative;
-}
-.card-image {
-  height: 150%;
-  object-position: top center;
-  transition: transform 0.4s cubic-bezier(0.4, 0, 0.2, 1);
-}
-.group:hover .card-image {
-  transform: scale(1.05);
-}
-
-.condition-badge {
-  transition: transform 0.3s ease;
-}
-.card-listing:hover .condition-badge {
-  transform: scale(1.05);
-}
-
-.tcgplayer-button {
-  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-}
-.tcgplayer-button:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
-}
-
-.shimmer-overlay {
-  pointer-events: none;
-  transition: transform 1s cubic-bezier(0.4, 0, 0.2, 1);
-}
-.group:hover .shimmer-overlay {
-  transform: translate3d(100%, 0, 0);
-}
-
-.product-image {
-  transition: transform 0.5s cubic-bezier(0.4, 0, 0.2, 1);
-}
-@media (hover: hover) and (pointer: fine) {
-  .group:hover .product-image {
-    transform: scale(1.1) rotate(3deg);
-  }
-}
-
-.modal-enter-active {
-  transition: opacity 0.3s ease-out;
-}
-.modal-leave-active {
-  transition: opacity 0.25s ease-in;
-}
-.modal-enter-from,
-.modal-leave-to {
-  opacity: 0;
-}
-
-.modal-header {
-  animation: slideDown 0.4s ease-out;
-}
-.modal-footer {
-  animation: fadeInUp 0.5s ease-out 0.1s both;
-}
-
-@keyframes slideDown {
-  from {
-    opacity: 0;
-    transform: translate3d(0, -15px, 0);
-  }
-  to {
-    opacity: 1;
-    transform: translate3d(0, 0, 0);
-  }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  *,
-  *::before,
-  *::after {
-    animation-duration: 0.01ms !important;
-    animation-iteration-count: 1 !important;
-    transition-duration: 0.01ms !important;
-  }
-  .shimmer-overlay {
-    display: none;
-  }
-}
-
-@media (max-width: 768px) {
-  .hero-content,
-  .product-card,
-  .card-listing {
-    animation-duration: 0.4s;
-  }
-  .shimmer-overlay {
-    display: none;
-  }
-}
-</style>

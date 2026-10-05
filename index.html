@@ -30,7 +30,7 @@
     <link rel="canonical" href="https://outpostgamesrgv.com/" />
 
     <!-- Theme Color for mobile browsers -->
-    <meta name="theme-color" content="#16304a" />
+    <meta name="theme-color" content="#0f2436" />
 
     <!-- Preconnect to external domains for faster resource loading -->
     <link rel="preconnect" href="https://fonts.googleapis.com" />
@@ -39,14 +39,14 @@
     <!-- Load Google Fonts asynchronously to avoid blocking render -->
     <link
       rel="stylesheet"
-      href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;500;600;700&family=Crimson+Text:ital,wght@0,400;0,600;1,400&display=swap"
+      href="https://fonts.googleapis.com/css2?family=Cinzel:wght@600;700&family=Inter:wght@400..700&display=swap"
       media="print"
       onload="this.media = 'all'"
     />
     <noscript>
       <link
         rel="stylesheet"
-        href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;500;600;700&family=Crimson+Text:ital,wght@0,400;0,600;1,400&display=swap"
+        href="https://fonts.googleapis.com/css2?family=Cinzel:wght@600;700&family=Inter:wght@400..700&display=swap"
       />
     </noscript>
 
@@ -101,54 +101,24 @@
           }
         ],
         "sameAs": [
+          "https://linktr.ee/TheOutpostGamesRGC",
+          "https://www.instagram.com/theoutpostgames_rgc",
           "https://www.facebook.com/Theoutpostgames/",
           "https://discord.gg/PW3YkMtFmz"
         ]
       }
     </script>
 
-    <!-- Inline critical CSS for instant render -->
+    <!-- Inline critical CSS for instant render. Keep this minimal: it's
+         unlayered, so anything here outranks every Tailwind layer (a reset of
+         border-width here once silently erased every border on the site). -->
     <style>
-      /* Critical CSS - Prevents FOUC */
-      *,
-      ::before,
-      ::after {
-        box-sizing: border-box;
-        border-width: 0;
-        border-style: solid;
-      }
-      html {
-        line-height: 1.5;
-        -webkit-text-size-adjust: 100%;
-        font-family: ui-sans-serif, system-ui, sans-serif;
-      }
       body {
         margin: 0;
-        line-height: inherit;
         background: #0f2436;
       }
       #app {
         min-height: 100vh;
-      }
-      /* Critical hero styles for faster LCP */
-      .hero-section {
-        min-height: 100vh;
-        background: linear-gradient(135deg, #0f2436 0%, #16304a 100%);
-        display: flex;
-        align-items: center;
-        justify-content: center;
-      }
-      .hero-section h1 {
-        font-family: 'Cinzel', serif;
-        font-weight: 700;
-        color: #fff;
-        margin: 0;
-      }
-      .text-gradient {
-        background: linear-gradient(to right, #d4af37, #e6c85c);
-        -webkit-background-clip: text;
-        background-clip: text;
-        -webkit-text-fill-color: transparent;
       }
     </style>
   </head>

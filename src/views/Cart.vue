@@ -2,12 +2,12 @@
   <div class="min-h-screen bg-gray-50 py-12">
     <div class="container mx-auto px-4">
       <div class="max-w-4xl mx-auto">
-        <h1 class="font-cinzel text-4xl font-bold text-center mb-12 text-gray-800">
+        <h1 class="font-display text-4xl font-bold text-center mb-12 text-gray-800">
           Shopping Cart
         </h1>
         <div v-if="cartStore.itemCount === 0" class="card">
           <div class="text-center py-12">
-            <h2 class="font-cinzel text-2xl font-bold mb-4 text-gray-800">Your cart is empty</h2>
+            <h2 class="font-display text-2xl font-bold mb-4 text-gray-800">Your cart is empty</h2>
             <p class="text-gray-600 mb-6">Add some cards to your cart to get started!</p>
             <router-link to="/shop" class="btn-primary px-8 py-4"> Continue Shopping </router-link>
           </div>
@@ -38,8 +38,8 @@
           </div>
           <div class="card">
             <div class="flex justify-between items-center mb-4">
-              <span class="font-cinzel text-xl font-bold">Total:</span>
-              <span class="font-cinzel text-xl font-bold text-teal-600"
+              <span class="font-display text-xl font-bold">Total:</span>
+              <span class="font-display text-xl font-bold text-teal-600"
                 >${{ cartStore.total.toFixed(2) }}</span
               >
             </div>

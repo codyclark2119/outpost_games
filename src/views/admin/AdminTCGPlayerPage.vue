@@ -5,7 +5,7 @@
         <!-- Header -->
         <div class="flex flex-wrap justify-between items-center mb-8 gap-4">
           <div>
-            <h1 class="font-cinzel text-4xl font-bold text-gray-800">Manage Listings</h1>
+            <h1 class="font-display text-4xl font-bold text-gray-800">Manage Listings</h1>
             <p class="text-gray-600 mt-1">Edit and delete featured single card listings</p>
           </div>
           <div class="flex gap-3">
@@ -138,7 +138,7 @@
             @click.stop
           >
             <div class="p-6">
-              <h2 class="font-cinzel text-xl font-bold mb-5 text-gray-800">Edit Listing</h2>
+              <h2 class="font-display text-xl font-bold mb-5 text-gray-800">Edit Listing</h2>
 
               <form class="space-y-4" @submit.prevent="saveEdit">
                 <div class="grid grid-cols-2 gap-4">
@@ -259,7 +259,7 @@
           @click.self="deleteModal.open = false"
         >
           <div class="bg-white rounded-2xl shadow-2xl w-full max-w-sm p-6 text-center" @click.stop>
-            <h2 class="font-cinzel text-lg font-bold mb-2 text-gray-800">Delete Listing?</h2>
+            <h2 class="font-display text-lg font-bold mb-2 text-gray-800">Delete Listing?</h2>
             <p class="text-gray-600 text-sm mb-6">
               "{{ deleteModal.name }}" will be permanently removed.
             </p>

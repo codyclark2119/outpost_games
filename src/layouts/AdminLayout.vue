@@ -1,29 +1,36 @@
 <template>
   <div class="min-h-screen bg-gray-50">
     <header class="border-b border-gray-200 bg-outpost-navy text-white shadow-sm">
-      <div class="container mx-auto flex min-h-16 items-center justify-between gap-4 px-4 py-3">
+      <div class="container mx-auto flex min-h-14 items-center justify-between gap-3 px-4 py-2">
         <router-link
           :to="ADMIN_BASE_PATH"
-          class="font-cinzel text-lg font-bold tracking-wide text-outpost-gold"
+          class="shrink-0 font-display text-base font-bold tracking-wide text-outpost-gold sm:text-lg"
           >Outpost Admin</router-link
         >
-        <nav v-if="auth.username" class="flex flex-wrap items-center justify-end gap-2 text-sm">
+        <nav v-if="auth.username" class="flex items-center justify-end gap-1 text-sm whitespace-nowrap">
           <router-link
             :to="ADMIN_BASE_PATH"
-            class="rounded-md px-3 py-2 font-semibold hover:bg-white/10"
+            class="rounded-md px-2.5 py-2 font-semibold hover:bg-white/10"
             >Dashboard</router-link
           >
-          <router-link to="/" class="rounded-md px-3 py-2 font-semibold hover:bg-white/10"
+          <router-link
+            :to="{ name: 'AdminSquareScan' }"
+            class="rounded-md bg-white/10 px-2.5 py-2 font-semibold hover:bg-white/20"
+            >Scan</router-link
+          >
+          <router-link
+            to="/"
+            class="hidden rounded-md px-2.5 py-2 font-semibold hover:bg-white/10 sm:inline-block"
             >View Store</router-link
           >
-          <span class="hidden text-gray-300 md:inline">{{ auth.username }}</span>
+          <span class="hidden px-2 text-gray-300 md:inline">{{ auth.username }}</span>
           <button
             type="button"
-            class="rounded-md border border-red-300/40 px-3 py-2 font-semibold text-red-100 hover:bg-red-500/20"
+            class="rounded-md border border-red-300/40 px-2.5 py-2 font-semibold text-red-100 hover:bg-red-500/20"
             :disabled="loggingOut"
             @click="logout"
           >
-            {{ loggingOut ? 'Logging out…' : 'Log Out' }}
+            {{ loggingOut ? '…' : 'Log Out' }}
           </button>
         </nav>
       </div>
@@ -55,9 +62,6 @@ const logout = async () => {
 </script>
 
 <style>
-.admin-content {
-  font-family: Arial, sans-serif;
-}
 .admin-content .input-field {
   width: 100%;
   padding: 0.5rem 1rem;

@@ -8,6 +8,7 @@ import {
   adjustSquareInventoryCount,
   adjustSquareInventoryCountBatch,
   applyBoxToPackRestock,
+  linkSquareVariationBarcode,
   resolveSquareCredentials,
 } from '../squarePosClient.js'
 import { requireAdminAuth } from '../auth.js'
@@ -70,6 +71,22 @@ export function mountSquareInventory(
       )
       invalidatePublicCatalog()
       res.json({ ok: true, updatedCount: result.updatedCount })
+    } catch (error) {
+      return dependencyError(error, req, res)
+    }
+  })
+
+  // Mobile admin scanner: attach a scanned barcode to a variation. The rules
+  // (fill an empty SKU, else add a manufacturer GTIN, never overwrite a SKU)
+  // live in linkSquareVariationBarcode.
+  app.post('/api/square/variations/:variationId/barcode', requireAdminAuth, async (req, res) => {
+    try {
+      const result = await linkSquareVariationBarcode(
+        req.params.variationId,
+        req.body.code,
+        process.env
+      )
+      res.json({ ok: true, ...result })
     } catch (error) {
       return dependencyError(error, req, res)
     }

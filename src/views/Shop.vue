@@ -2,7 +2,7 @@
   <div class="min-h-screen bg-gray-50 py-12">
     <div class="container mx-auto px-4">
       <div class="max-w-4xl mx-auto">
-        <h1 class="font-cinzel text-4xl font-bold text-center mb-12 text-gray-800">
+        <h1 class="font-display text-4xl font-bold text-center mb-12 text-gray-800">
           MTG Card Shop
         </h1>
 
@@ -20,7 +20,7 @@
               />
             </svg>
           </div>
-          <h2 class="font-cinzel text-2xl font-bold mb-4 text-gray-800">Shop Coming Soon!</h2>
+          <h2 class="font-display text-2xl font-bold mb-4 text-gray-800">Shop Coming Soon!</h2>
           <p class="text-gray-600 text-lg mb-6">
             We're working hard to bring you an amazing online shopping experience. In the meantime,
             visit us in-store for our full inventory!

@@ -1,7 +1,7 @@
 <template>
   <div class="min-h-screen bg-gray-50 flex items-center justify-center py-12 px-4">
     <div class="w-full max-w-sm">
-      <h1 class="font-cinzel text-3xl font-bold text-center mb-8 text-gray-800">Admin Login</h1>
+      <h1 class="font-display text-3xl font-bold text-center mb-8 text-gray-800">Admin Login</h1>
 
       <form class="card space-y-5" @submit.prevent="handleSubmit">
         <div>

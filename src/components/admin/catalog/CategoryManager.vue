@@ -7,7 +7,7 @@
     >
       <div class="p-6">
         <div class="flex justify-between items-center mb-4">
-          <h2 class="font-cinzel text-xl font-bold text-gray-800">Manage Categories</h2>
+          <h2 class="font-display text-xl font-bold text-gray-800">Manage Categories</h2>
           <button
             type="button"
             class="text-gray-400 hover:text-gray-600 text-xl leading-none"

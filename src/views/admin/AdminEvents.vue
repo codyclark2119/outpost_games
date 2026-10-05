@@ -5,7 +5,7 @@
         <!-- Header -->
         <div class="flex flex-wrap justify-between items-center mb-8 gap-4">
           <div>
-            <h1 class="font-cinzel text-4xl font-bold text-gray-800">Manage Events</h1>
+            <h1 class="font-display text-4xl font-bold text-gray-800">Manage Events</h1>
             <p class="text-gray-600 mt-1">Edit, delete, and review current and historical events</p>
           </div>
           <div class="flex gap-3">
@@ -67,7 +67,7 @@
                 <div class="text-xs uppercase tracking-wide opacity-70">
                   {{ monthOf(event.date) }}
                 </div>
-                <div class="font-cinzel font-bold text-2xl leading-none">
+                <div class="font-display font-bold text-2xl leading-none">
                   {{ dayOf(event.date) }}
                 </div>
                 <div class="text-xs opacity-70">{{ yearOf(event.date) }}</div>
@@ -76,7 +76,7 @@
               <!-- Details -->
               <div class="flex-grow min-w-0">
                 <div class="flex flex-wrap items-center gap-2">
-                  <h3 class="font-cinzel font-bold text-lg text-gray-800">{{ event.title }}</h3>
+                  <h3 class="font-display font-bold text-lg text-gray-800">{{ event.title }}</h3>
                   <span
                     v-if="event.isVisible === false"
                     class="inline-block text-xs px-2 py-0.5 rounded-full font-medium bg-gray-200 text-gray-600"
@@ -124,7 +124,7 @@
           </div>
 
           <div v-if="pastEventsFiltered.length" class="mt-10">
-            <h2 class="font-cinzel text-xl font-bold text-gray-800 mb-3">Past Events</h2>
+            <h2 class="font-display text-xl font-bold text-gray-800 mb-3">Past Events</h2>
             <p class="text-sm text-gray-500 mb-4">
               History is retained until you explicitly delete an event.
             </p>
@@ -167,7 +167,7 @@
             @click.stop
           >
             <div class="p-6">
-              <h2 class="font-cinzel text-xl font-bold mb-5 text-gray-800">Edit Event</h2>
+              <h2 class="font-display text-xl font-bold mb-5 text-gray-800">Edit Event</h2>
 
               <form class="space-y-4" @submit.prevent="saveEdit">
                 <div>
@@ -257,7 +257,7 @@
           @click.self="deleteModal.open = false"
         >
           <div class="bg-white rounded-2xl shadow-2xl w-full max-w-sm p-6 text-center" @click.stop>
-            <h2 class="font-cinzel text-lg font-bold mb-2 text-gray-800">Delete Event?</h2>
+            <h2 class="font-display text-lg font-bold mb-2 text-gray-800">Delete Event?</h2>
             <p class="text-gray-600 text-sm mb-6">
               "{{ deleteModal.title }}" will be permanently removed.
             </p>

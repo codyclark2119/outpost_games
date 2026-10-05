@@ -5,7 +5,7 @@
         <!-- Header -->
         <div class="flex flex-wrap justify-between items-center mb-8 gap-4">
           <div>
-            <h1 class="font-cinzel text-4xl font-bold text-gray-800">Square Sales</h1>
+            <h1 class="font-display text-4xl font-bold text-gray-800">Square Sales</h1>
             <p class="text-gray-600 mt-1">
               Sales analytics pulled from Square POS ({{ report?.environment || '…' }})
             </p>
@@ -137,18 +137,18 @@
           <template v-else>
             <!-- Revenue trend -->
             <div class="card p-6 mb-6">
-              <h2 class="font-cinzel font-semibold text-gray-800 mb-4">Revenue Over Time</h2>
+              <h2 class="font-display font-semibold text-gray-800 mb-4">Revenue Over Time</h2>
               <Line :data="revenueChartData" :options="revenueChartOptions" />
             </div>
 
             <!-- Orders + AOV trend -->
             <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
               <div class="card p-6">
-                <h2 class="font-cinzel font-semibold text-gray-800 mb-4">Orders Over Time</h2>
+                <h2 class="font-display font-semibold text-gray-800 mb-4">Orders Over Time</h2>
                 <Bar :data="ordersChartData" :options="ordersChartOptions" />
               </div>
               <div class="card p-6">
-                <h2 class="font-cinzel font-semibold text-gray-800 mb-4">
+                <h2 class="font-display font-semibold text-gray-800 mb-4">
                   Avg. Order Value Over Time
                 </h2>
                 <Line :data="aovChartData" :options="aovChartOptions" />
@@ -158,29 +158,31 @@
             <!-- Category + payment method breakdowns -->
             <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
               <div class="card p-6">
-                <h2 class="font-cinzel font-semibold text-gray-800 mb-4">Revenue by Category</h2>
+                <h2 class="font-display font-semibold text-gray-800 mb-4">Revenue by Category</h2>
                 <Doughnut :data="categoryRevenueChartData" :options="doughnutOptions" />
               </div>
               <div class="card p-6">
-                <h2 class="font-cinzel font-semibold text-gray-800 mb-4">Payment Methods</h2>
+                <h2 class="font-display font-semibold text-gray-800 mb-4">Payment Methods</h2>
                 <Doughnut :data="tenderChartData" :options="doughnutOptions" />
               </div>
             </div>
 
             <!-- Profit by category — only when at least some cost data exists -->
             <div v-if="hasAnyCategoryProfit" class="card p-6 mb-6">
-              <h2 class="font-cinzel font-semibold text-gray-800 mb-4">Profit by Category</h2>
+              <h2 class="font-display font-semibold text-gray-800 mb-4">Profit by Category</h2>
               <Bar :data="categoryProfitChartData" :options="horizontalBarOptions" />
             </div>
 
             <!-- Day of week + hour of day -->
             <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
               <div class="card p-6">
-                <h2 class="font-cinzel font-semibold text-gray-800 mb-4">Revenue by Day of Week</h2>
+                <h2 class="font-display font-semibold text-gray-800 mb-4">
+                  Revenue by Day of Week
+                </h2>
                 <Bar :data="dayOfWeekChartData" :options="barChartOptions" />
               </div>
               <div class="card p-6">
-                <h2 class="font-cinzel font-semibold text-gray-800 mb-4">
+                <h2 class="font-display font-semibold text-gray-800 mb-4">
                   Revenue by Hour of Day
                   <span class="text-xs text-gray-400 font-normal">(store local time)</span>
                 </h2>
@@ -192,7 +194,7 @@
           <!-- Top products -->
           <div class="card overflow-hidden p-0">
             <div class="px-4 py-3 border-b border-gray-200 flex flex-wrap items-center gap-3">
-              <h2 class="font-cinzel font-semibold text-gray-800 mr-auto">Top Products</h2>
+              <h2 class="font-display font-semibold text-gray-800 mr-auto">Top Products</h2>
               <input
                 v-model="productSearch"
                 type="text"

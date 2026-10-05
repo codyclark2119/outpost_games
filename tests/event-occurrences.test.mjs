@@ -1,23 +1,7 @@
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
-import ts from 'typescript'
-import fs from 'node:fs'
-// Transpile only the pure utility dependency graph; never import stores or start APIs.
-function loadTS(file) {
-  const source = fs.readFileSync(new URL(file, import.meta.url), 'utf8')
-  if (file.endsWith('.json')) return { default: JSON.parse(source) }
-  const code = ts.transpileModule(source, {
-    compilerOptions: { module: ts.ModuleKind.CommonJS },
-  }).outputText
-  const module = { exports: {} }
-  const require = path =>
-    loadTS(
-      new URL(path.endsWith('.json') ? path : `${path}.ts`, new URL(file, import.meta.url)).href
-    )
-  Function('require', 'module', 'exports', code)(require, module, module.exports)
-  return module.exports
-}
-const { getFeaturedDay } = loadTS('../src/utils/eventOccurrences.ts')
+import { loadTS } from './loadTS.mjs'
+const { getFeaturedDay, getAgenda } = loadTS('../src/utils/eventOccurrences.ts')
 const { getStoreTodayISO, hasEventStarted, eventDateToISO, eventStartISO } = loadTS(
   '../src/utils/eventDateTime.ts'
 )
@@ -87,4 +71,24 @@ test('real ISO and historical month-name dates parse', () => {
 test('structured event times use Central offsets in summer and winter', () => {
   assert.equal(eventStartISO('2026-09-09', '6:00 PM'), '2026-09-09T23:00:00.000Z')
   assert.equal(eventStartISO('2026-01-09', '6:00 PM'), '2026-01-10T00:00:00.000Z')
+})
+
+test('agenda lists only days with events, labelled relative to today', () => {
+  // 2026-09-09 is a Wednesday; the weekly entry recurs every Wednesday.
+  const agenda = getAgenda([special], [weekly], [], { days: 14, now })
+  assert.deepEqual(
+    agenda.map(day => [day.dateISO, day.relative, day.events.length]),
+    [
+      ['2026-09-09', 'Today', 2],
+      ['2026-09-16', null, 1],
+    ]
+  )
+})
+test('agenda honours per-date overrides and drops started events', () => {
+  const evening = new Date('2026-09-10T00:30:00Z') // 7:30 PM Central, after both start
+  const agenda = getAgenda([special], [weekly], [override], { days: 8, now: evening })
+  assert.deepEqual(
+    agenda.map(day => day.dateISO),
+    ['2026-09-16']
+  )
 })

@@ -1,3 +1,10 @@
 {
-  "timeZone": "America/Chicago"
+  "timeZone": "America/Chicago",
+  "openHours": {
+    "Tue": ["17:30", "22:00"],
+    "Wed": ["17:30", "22:00"],
+    "Thu": ["17:30", "22:00"],
+    "Fri": ["17:30", "22:00"],
+    "Sat": ["17:30", "22:00"]
+  }
 }

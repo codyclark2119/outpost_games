@@ -87,6 +87,12 @@ const getStoreDateTimeParts = (date: Date) => {
 
 export const getStoreTodayISO = (date = new Date()): string => getStoreDateTimeParts(date).dateISO
 
+// Store-local wall clock: date, weekday (0 = Sunday) and minutes past midnight.
+export const getStoreClock = (date = new Date()) => {
+  const { dateISO, hour, minute } = getStoreDateTimeParts(date)
+  return { dateISO, jsDay: weekdayFromISODate(dateISO), minutes: hour * 60 + minute }
+}
+
 export const parseTimeToMinutes = (time: string): number | null => {
   const match = TIME_RE.exec(time.trim())
   if (!match) return null
@@ -118,6 +124,19 @@ export const formatStoreDateLabel = (iso: string): string =>
     month: 'long',
     day: 'numeric',
   }).format(new Date(`${iso}T12:00:00Z`))
+
+// Pieces of a calendar date for compact date tiles: { weekday: 'Wed', month: 'Oct', day: '8' }.
+export const storeDateParts = (iso: string) => {
+  const parts = new Intl.DateTimeFormat('en-US', {
+    timeZone: 'UTC',
+    weekday: 'short',
+    month: 'short',
+    day: 'numeric',
+  }).formatToParts(new Date(`${iso}T12:00:00Z`))
+  const value = (type: Intl.DateTimeFormatPartTypes) =>
+    parts.find(part => part.type === type)?.value ?? ''
+  return { weekday: value('weekday'), month: value('month'), day: value('day') }
+}
 
 // Convert a store wall-clock time to an instant without using the viewer's zone.
 // Iteration resolves the offset on the target date, including Central DST.

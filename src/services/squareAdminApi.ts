@@ -158,4 +158,9 @@ export const squareAdminApi = {
     ),
   deleteProduct: (id: string) =>
     apiFetch<MutationResult>(`/square/products/${encodeURIComponent(id)}`, { method: 'DELETE' }),
+  linkBarcode: (variationId: string, code: string) =>
+    apiFetch<{ field: 'sku' | 'upc'; barcode: string }>(
+      `/square/variations/${encodeURIComponent(variationId)}/barcode`,
+      { method: 'POST', body: JSON.stringify({ code }) }
+    ),
 }

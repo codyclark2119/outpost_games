@@ -5,7 +5,6 @@ import { requiresPersistence } from './services/persistence.js'
 import { mountSquarespace } from './routes/squarespace.js'
 import { mountInventoryExport } from './routes/inventoryExport.js'
 import { mountSquare } from './routes/square.js'
-import { mountMarketingPosters } from './routes/marketingPosters.js'
 import { mountAuth } from './routes/auth.js'
 // Catch all uncaught errors
 process.on('uncaughtException', error => {
@@ -193,8 +192,6 @@ app.get('/api/health', (req, res) => {
 })
 
 mountAuth(app, loginRateLimiter)
-
-mountMarketingPosters(app)
 
 mountRecords(app, {
   redisClient,

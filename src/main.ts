@@ -23,6 +23,11 @@ const routes = [
     name: 'Products',
     component: () => import('./views/Products.vue'),
   },
+  // Bandai used to be one combined section; its games (One Piece, Gundam,
+  // Digimon, Union Arena) are now top-level Square categories with their own
+  // pages, so old /products/bandai links land on the overview instead of a
+  // "not in stock" page.
+  { path: '/products/bandai', redirect: '/products' },
   {
     path: '/products/:typeId',
     name: 'ProductsGameType',
@@ -111,6 +116,11 @@ const routes = [
     path: `${ADMIN_BASE_PATH}/square-mass-inventory`,
     name: 'AdminSquareMassInventory',
     component: () => import('./views/admin/AdminSquareMassInventory.vue'),
+  },
+  {
+    path: `${ADMIN_BASE_PATH}/scan`,
+    name: 'AdminSquareScan',
+    component: () => import('./views/admin/AdminSquareScan.vue'),
   },
   {
     path: `${ADMIN_BASE_PATH}/square-restock`,

@@ -159,9 +159,13 @@ const parseEnvFile = envFilePath => {
 export const loadSquareEnvironment = () => {
   if (globalThis.__outpostSquareEnvLoaded) return process.env
 
+  // Same precedence as dotenv: a value already in the environment (shell,
+  // Docker Compose, Fly secrets) beats the .env file. Overwriting it used to
+  // make `SQUARE_ENV=sandbox` or `NODE_ENV=development` on the command line
+  // silently snap back to whatever .env said.
   const parsedEnv = parseEnvFile(envPath)
   for (const [key, value] of Object.entries(parsedEnv)) {
-    if (key.startsWith('SQUARE_') || key === 'NODE_ENV') {
+    if ((key.startsWith('SQUARE_') || key === 'NODE_ENV') && process.env[key] === undefined) {
       process.env[key] = value
     }
   }
@@ -357,6 +361,9 @@ export const listSquareCatalogItems = async (env = process.env) => {
           name: itemData.name || null,
           variationName: variationData.name || null,
           sku: variationData.sku || null,
+          // Square shows this as "GTIN" in the Dashboard/POS: the
+          // manufacturer barcode, kept separate from the shop's own SKU.
+          upc: variationData.upc || null,
           priceCents: variationData.price_money?.amount ?? null,
           currency: variationData.price_money?.currency ?? null,
           trackInventory: Boolean(variationData.track_inventory),
@@ -453,6 +460,8 @@ export const getSquareInventoryReport = async (env = process.env) => {
           ? `${variation.name} - ${variation.variationName}`
           : variation.name || 'Unnamed item',
       sku: variation.sku,
+      upc: variation.upc,
+      imageUrl: variation.imageUrl,
       priceCents: variation.priceCents,
       currency: variation.currency,
       trackInventory: variation.trackInventory,
@@ -478,8 +487,10 @@ export const getSquareInventoryReport = async (env = process.env) => {
 
 // Categories the public site never shows even if they're sellable in Square —
 // e.g. snacks/concessions sold in-store but out of scope for the TCG-only
-// public catalog, and accessories (sold in-store only, not part of the
-// online card-shop catalog). Matched case-insensitively against the item's
+// public catalog, accessories (sold in-store only, not part of the online
+// card-shop catalog), and tournament entries (event fees rung up at the
+// register, not products — events are advertised on /events instead).
+// Matched case-insensitively against the item's
 // top-level category name, so tagging a new item under one of these just
 // works with no code change; anything not listed here shows up on the public
 // site by default.
@@ -489,13 +500,23 @@ const PUBLIC_CATALOG_EXCLUDED_CATEGORIES = [
   'drinks',
   'concessions',
   'accessories',
+  'tournaments',
 ]
 
-// Display order for the public catalog's category sections: these three
-// always lead, in this exact sequence, when present; every other category
-// falls in after, ranked by how much is actually on hand (busiest categories
-// first).
-const PINNED_CATEGORY_ORDER = ['magic', 'pokemon', 'bandai']
+// Singles (individual cards) aren't listed online — pricing moves too fast to
+// keep in sync — so the public catalog hides anything filed under a
+// "Single"/"Singles" category, plus the register's catch-all singles items by
+// name ("Magic singles", "Rift Singles"). The name check is plural-only on
+// purpose: sealed "Single Booster Pack" products must stay listed.
+const SINGLES_CATEGORY = /\bsingles?\b/i
+const SINGLES_ITEM_NAME = /\bsingles\b/i
+
+// Display order for the public catalog's category sections: the shop's five
+// headline games always lead, in this exact sequence, when present; every
+// other category falls in after, ranked by how much is actually on hand
+// (busiest categories first). One Piece and Gundam are their own top-level
+// categories in Square (formerly both under a combined "Bandai" parent).
+const PINNED_CATEGORY_ORDER = ['magic', 'pokemon', 'one piece', 'gundam', 'riftbound']
 
 // Public-facing catalog: sellable items only, grouped by top-level category,
 // with non-TCG categories (snacks, etc.) filtered out entirely. Internal
@@ -549,7 +570,7 @@ export const getPublicSquareCatalog = async (env = process.env) => {
     const leafId = variation.categoryIds?.[0] || null
     const topCategory = leafId ? topOf(leafId) : null
     const categoryName = topCategory?.name || 'Uncategorized'
-    if (PUBLIC_CATALOG_EXCLUDED_CATEGORIES.includes(categoryName.toLowerCase())) continue
+    if (PUBLIC_CATALOG_EXCLUDED_CATEGORIES.includes(categoryName.trim().toLowerCase())) continue
 
     // "Set" is the item's immediate/leaf category (e.g. "Bloomburrow" under
     // Magic > Pre-cons > Bloomburrow) — distinct from the top-level game-type
@@ -559,6 +580,17 @@ export const getPublicSquareCatalog = async (env = process.env) => {
     const setId = hasSet ? leafId : null
     const setName = hasSet ? nameOf(leafId) : null
 
+    const name =
+      variation.variationName && variation.variationName !== 'Regular'
+        ? `${variation.name} - ${variation.variationName}`
+        : variation.name || 'Unnamed item'
+    if (
+      SINGLES_CATEGORY.test(setName || '') ||
+      SINGLES_CATEGORY.test(categoryName) ||
+      SINGLES_ITEM_NAME.test(name)
+    )
+      continue
+
     const count = countByVariationId.get(variation.id)
     const quantity = variation.trackInventory ? Number(count?.quantity ?? 0) : 0
     stockByCategory.set(categoryName, (stockByCategory.get(categoryName) || 0) + quantity)
@@ -566,10 +598,7 @@ export const getPublicSquareCatalog = async (env = process.env) => {
     rawItems.push({
       id: variation.id,
       itemId: variation.itemId,
-      name:
-        variation.variationName && variation.variationName !== 'Regular'
-          ? `${variation.name} - ${variation.variationName}`
-          : variation.name || 'Unnamed item',
+      name,
       priceCents: variation.priceCents,
       currency: variation.currency,
       imageUrl: variation.imageUrl,
@@ -584,7 +613,7 @@ export const getPublicSquareCatalog = async (env = process.env) => {
 
   const categoryNames = [...stockByCategory.keys()]
   const pinned = PINNED_CATEGORY_ORDER.map(lower =>
-    categoryNames.find(name => name.toLowerCase() === lower)
+    categoryNames.find(name => name.trim().toLowerCase() === lower)
   ).filter(Boolean)
   const middle = categoryNames
     .filter(name => !pinned.includes(name))
@@ -1454,6 +1483,85 @@ export const adjustSquareInventoryCountBatch = async (changes, env = process.env
   }
 
   return { updatedCount: changes.length, results }
+}
+
+// ─── Barcode linking (mobile admin scanner) ──────────────────────────────────
+// A scanned barcode can name the same product in two ways: as the shop's own
+// SKU (what the register matches, printed on Square labels) or as the
+// manufacturer's UPC/EAN, which Square stores separately as `upc` ("GTIN" in
+// the Dashboard, 12-14 digits). UPC-A and EAN-13 are the same code with and
+// without a leading 0, and scanners report either, so both spellings match.
+export const barcodeVariants = code => {
+  const normalized = String(code ?? '')
+    .trim()
+    .toUpperCase()
+  if (!normalized) return []
+  const variants = new Set([normalized])
+  if (/^0\d{12}$/.test(normalized)) variants.add(normalized.slice(1))
+  if (/^\d{12}$/.test(normalized)) variants.add(`0${normalized}`)
+  return [...variants]
+}
+
+const GTIN_PATTERN = /^\d{12,14}$/
+
+// Attaches a scanned barcode to a variation without ever overwriting a SKU —
+// SKUs are locked elsewhere in the admin to protect register scanning, and
+// this path honours that: an empty SKU is filled; otherwise a manufacturer
+// barcode goes into the separate GTIN field. Anything else is refused with a
+// reason the admin can act on. Returns which field was written.
+export const linkSquareVariationBarcode = async (variationId, code, env = process.env) => {
+  const barcode = String(code ?? '').trim()
+  if (!barcode) throw new AppError(400, 'A barcode is required')
+
+  const client = clientFromEnv(env)
+  const variations = await listSquareCatalogItems(env)
+  const target = variations.find(variation => variation.id === variationId)
+  if (!target) throw new AppError(404, 'That product variation no longer exists')
+
+  const variants = new Set(barcodeVariants(barcode))
+  const owner = variations.find(
+    variation =>
+      variation.id !== variationId &&
+      [variation.sku, variation.upc].some(value => value && variants.has(value.toUpperCase()))
+  )
+  if (owner) {
+    const ownerName =
+      owner.variationName && owner.variationName !== 'Regular'
+        ? `${owner.name} - ${owner.variationName}`
+        : owner.name
+    throw new AppError(409, `That barcode already belongs to "${ownerName}"`)
+  }
+  if ([target.sku, target.upc].some(value => value && variants.has(value.toUpperCase()))) {
+    return { field: target.sku && variants.has(target.sku.toUpperCase()) ? 'sku' : 'upc', barcode }
+  }
+
+  let field
+  if (!target.sku) field = 'sku'
+  else if (GTIN_PATTERN.test(barcode) && !target.upc) field = 'upc'
+  else if (GTIN_PATTERN.test(barcode)) {
+    throw new AppError(
+      409,
+      `This product already has SKU ${target.sku} and GTIN ${target.upc} — remove one in Square first`
+    )
+  } else {
+    throw new AppError(
+      409,
+      `This product already has SKU ${target.sku}, and SKUs are locked to protect register scanning. Only a 12–14 digit manufacturer barcode can be added (as its GTIN).`
+    )
+  }
+
+  const { object } = await fetchRawCatalogObject(client, variationId)
+  object.item_variation_data = { ...(object.item_variation_data || {}), [field]: barcode }
+  try {
+    await client.request('/v2/catalog/object', {
+      method: 'POST',
+      body: { idempotency_key: crypto.randomUUID(), object },
+    })
+  } catch (error) {
+    if (isVersionMismatch(error)) throw new SquareVersionMismatchError(target.itemId)
+    throw error
+  }
+  return { field, barcode }
 }
 
 // ─── Quick Restock (box -> loose packs) ──────────────────────────────────────

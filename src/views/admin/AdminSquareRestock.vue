@@ -5,7 +5,7 @@
         <!-- Header -->
         <div class="flex flex-wrap justify-between items-center mb-8 gap-4">
           <div>
-            <h1 class="font-cinzel text-4xl font-bold text-gray-800">Quick Restock</h1>
+            <h1 class="font-display text-4xl font-bold text-gray-800">Quick Restock</h1>
             <p class="text-gray-600 mt-1">Open a sealed box, restock loose packs in one click</p>
           </div>
           <router-link :to="{ name: 'AdminDashboard' }" class="btn-secondary px-4 py-2">
@@ -30,7 +30,7 @@
         <template v-else>
           <!-- Quick Restock -->
           <div class="card p-6 mb-6">
-            <h2 class="font-cinzel text-xl font-bold text-gray-800 mb-4">Quick Restock</h2>
+            <h2 class="font-display text-xl font-bold text-gray-800 mb-4">Quick Restock</h2>
 
             <div v-if="mappings.length === 0" class="text-gray-500 text-sm">
               No restock pairs configured yet — add one below first.
@@ -110,7 +110,7 @@
 
           <!-- Configured Restock Pairs -->
           <div class="card p-6">
-            <h2 class="font-cinzel text-xl font-bold text-gray-800 mb-4">
+            <h2 class="font-display text-xl font-bold text-gray-800 mb-4">
               Configured Restock Pairs
             </h2>
 

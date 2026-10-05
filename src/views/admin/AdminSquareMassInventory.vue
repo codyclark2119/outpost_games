@@ -1,11 +1,13 @@
 <template>
-  <div class="min-h-screen bg-gray-50 py-12 pb-28">
+  <div class="min-h-screen bg-gray-50 py-6 pb-28 sm:py-12">
     <div class="container mx-auto px-4">
       <div class="max-w-6xl mx-auto">
         <!-- Header -->
         <div class="flex flex-wrap justify-between items-center mb-8 gap-4">
           <div>
-            <h1 class="font-cinzel text-4xl font-bold text-gray-800">Mass Inventory Update</h1>
+            <h1 class="font-display text-3xl font-bold text-gray-800 sm:text-4xl">
+              Mass Inventory Update
+            </h1>
             <p class="text-gray-600 mt-1">
               Correct many on-hand counts in one save ({{ report?.environment || '…' }})
             </p>
@@ -30,14 +32,17 @@
         </div>
 
         <template v-else>
-          <!-- Search -->
-          <div class="card p-4 mb-6">
+          <!-- Search + scan to count -->
+          <div class="card p-4 mb-6 flex flex-wrap gap-2">
             <input
               v-model="search"
               type="text"
               placeholder="Search by name or SKU…"
-              class="input-field"
+              class="input-field min-w-0 flex-1"
             />
+            <button type="button" class="btn-primary px-4" @click="scanning = true">
+              Scan to count
+            </button>
           </div>
 
           <!-- Start from zero -->
@@ -118,7 +123,7 @@
                   :class="expandedCategories.has(group.name) ? 'rotate-90' : ''"
                   >▶</span
                 >
-                <span class="font-cinzel font-bold text-lg flex-1">{{ group.name }}</span>
+                <span class="font-display font-bold text-lg flex-1">{{ group.name }}</span>
                 <span
                   v-if="isResetCategory(group.name)"
                   class="text-xs font-semibold px-2 py-0.5 rounded bg-amber-400 text-outpost-navy"
@@ -182,6 +187,60 @@
       </div>
     </div>
 
+    <!-- Scan to count: camera sheet over the page; counts land in the table -->
+    <transition name="fade">
+      <div
+        v-if="scanning"
+        class="fixed inset-0 z-30 flex flex-col justify-end bg-black/40 sm:justify-center"
+        @click.self="scanning = false"
+      >
+        <div
+          class="max-h-[92vh] overflow-y-auto rounded-t-3xl bg-white p-4 pb-[calc(1rem+env(safe-area-inset-bottom))] shadow-2xl sm:mx-auto sm:w-full sm:max-w-md sm:rounded-3xl"
+          role="dialog"
+          aria-modal="true"
+          aria-label="Scan to count"
+        >
+          <div class="mb-3 flex items-start justify-between gap-3">
+            <div>
+              <h2 class="font-semibold text-gray-900">Scan to count</h2>
+              <p class="text-xs text-gray-500">
+                Each scan adds one to that item's New Qty. Scan every unit on the shelf.
+              </p>
+            </div>
+            <button type="button" class="btn-secondary px-3 py-1.5" @click="scanning = false">
+              Done
+            </button>
+          </div>
+          <BarcodeScanner @detected="onScan" />
+          <ul class="mt-3 space-y-1.5 text-sm" aria-live="polite">
+            <li
+              v-for="entry in scanLog.slice(0, 3)"
+              :key="entry.key"
+              class="flex items-center justify-between gap-3 rounded-lg px-3 py-2"
+              :class="
+                entry.kind === 'counted'
+                  ? 'bg-green-50 text-green-800'
+                  : 'bg-amber-50 text-amber-800'
+              "
+            >
+              <span class="min-w-0 truncate">{{ entry.text }}</span>
+              <span v-if="entry.count !== undefined" class="shrink-0 font-semibold">
+                {{ entry.count }}
+              </span>
+            </li>
+          </ul>
+          <button
+            v-if="undoStack.length"
+            type="button"
+            class="mt-2 text-sm font-semibold text-outpost-navy underline"
+            @click="undoScan"
+          >
+            Undo last scan
+          </button>
+        </div>
+      </div>
+    </transition>
+
     <!-- Sticky save bar -->
     <transition name="fade">
       <div
@@ -220,6 +279,8 @@ import { useConfirmation } from '../../composables/useConfirmation'
 const { ask } = useConfirmation()
 import { squareAdminApi } from '../../services/squareAdminApi'
 import { ref, reactive, computed, onMounted } from 'vue'
+import BarcodeScanner from '../../components/admin/BarcodeScanner.vue'
+import { findByBarcode } from '../../utils/barcode'
 
 import type { SquareStockItem, SquareInventoryReport } from '../../services/squareAdminTypes'
 
@@ -334,6 +395,58 @@ const clearEdits = () => {
   for (const key of Object.keys(edits)) delete edits[key]
   startFromZero.value = false
   includeAll()
+  undoStack.value = []
+  scanLog.value = []
+}
+
+// ── Scan to count ────────────────────────────────────────────────────────────
+// Each scan adds one to that item's New Qty (an untouched row counts up from
+// 0), so a recount — especially after "Start from zero" — is just scanning
+// every unit. Undo restores the row's exact previous value.
+const scanning = ref(false)
+interface ScanLogEntry {
+  key: number
+  kind: 'counted' | 'problem'
+  text: string
+  count?: number
+}
+const scanLog = ref<ScanLogEntry[]>([])
+const undoStack = ref<{ id: string; name: string; previous: string | undefined }[]>([])
+let scanKey = 0
+const logScan = (entry: Omit<ScanLogEntry, 'key'>) => {
+  scanLog.value.unshift({ key: ++scanKey, ...entry })
+  scanLog.value.length = Math.min(scanLog.value.length, 20)
+}
+
+const onScan = (code: string) => {
+  const found = findByBarcode(items.value, code)
+  const [item] = found
+  if (!item) {
+    logScan({ kind: 'problem', text: `Unknown barcode ${code} — link it on the Scan page` })
+    return
+  }
+  if (found.length > 1) {
+    logScan({ kind: 'problem', text: `${code} is on ${found.length} products — fix in Square` })
+    return
+  }
+  if (!item.trackInventory) {
+    logScan({ kind: 'problem', text: `${item.displayName} isn't inventory-tracked` })
+    return
+  }
+  const previous = edits[item.id]
+  const count = (isEdited(item.id) ? Number(previous) : 0) + 1
+  edits[item.id] = String(count)
+  undoStack.value.push({ id: item.id, name: item.displayName, previous })
+  expandedCategories.value.add(categoryOf(item))
+  logScan({ kind: 'counted', text: item.displayName, count })
+}
+
+const undoScan = () => {
+  const last = undoStack.value.pop()
+  if (!last) return
+  if (last.previous === undefined) delete edits[last.id]
+  else edits[last.id] = last.previous
+  logScan({ kind: 'problem', text: `Undid one ${last.name}` })
 }
 
 const fetchReport = async () => {

@@ -3,6 +3,9 @@ export interface SquareStockItem {
   itemId: string
   displayName: string
   sku: string | null
+  // Manufacturer barcode — Square's "GTIN" field (12–14 digits)
+  upc: string | null
+  imageUrl: string | null
   priceCents: number | null
   currency: string | null
   trackInventory: boolean

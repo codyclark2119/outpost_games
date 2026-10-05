@@ -101,6 +101,9 @@ export function validateSquareMutation(req, res, next) {
       for (const f of ['boxVariationId', 'packsVariationId', 'boxName', 'packsName'])
         if (f in body) string(body[f], f, f.endsWith('Name'))
       number(body.packsPerBox, 'packsPerBox', 1, true)
+    } else if (/\/variations\/[^/]+\/barcode$/.test(path)) {
+      object(body, ['code'], ['code'])
+      string(body.code, 'code')
     } else if (/\/restock-mappings\/[^/]+\/apply$/.test(path)) {
       object(body, ['boxesOpened'], ['boxesOpened'])
       number(body.boxesOpened, 'boxesOpened', 1, true)

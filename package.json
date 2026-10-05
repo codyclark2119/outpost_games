@@ -32,6 +32,7 @@
     "@tailwindcss/typography": "^0.5.19",
     "@unhead/vue": "^3.2.3",
     "@vueuse/core": "^14.1.0",
+    "barcode-detector": "^3.2.2",
     "chart.js": "^4.5.1",
     "pinia": "^3.0.4",
     "vue": "^3.5.24",

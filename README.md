@@ -102,12 +102,9 @@ See `local-dev/README.md` for details.
 ```
 ├── src/
 │   ├── views/
-│   │   ├── Home.vue              # One-page site: hero, marketing posters carousel, games, about, Instagram feed, Discord/Instagram CTA, contact
-│   │   ├── home-sections/         # Async-loaded Home sections (code-split below the fold)
-│   │   │   ├── MultiTcgShowcase.vue
-│   │   │   └── SocialCtaSection.vue    # Discord + Instagram CTA cards
-│   │   ├── Products.vue          # Square-backed product catalog (carousels per game type); gated by VITE_PRODUCTS_PAGE_LIVE
-│   │   ├── ProductsGameType.vue  # Single game type browse page with filters
+│   │   ├── Home.vue              # One-page site: hero + open/closed status, this week's events, shop by game, new arrivals, about, socials, visit/hours
+│   │   ├── Products.vue          # Square-backed catalog: game chips, search, a swipeable row per game; gated by VITE_PRODUCTS_PAGE_LIVE
+│   │   ├── ProductsGameType.vue  # One game: search, sort, set chips
 │   │   ├── Events.vue            # Weekly schedule + upcoming special events
 │   │   ├── Terms.vue
 │   │   ├── Privacy.vue
@@ -199,9 +196,6 @@ GET    /api/events
 POST   /api/events
 PUT    /api/events/:id
 DELETE /api/events/:id
-
-# Homepage marketing posters carousel — auto-populated from public/wpn-assets/posters/
-GET    /api/marketing-posters
 
 # TCGPlayer card listings
 GET    /api/tcgplayer-listings
@@ -307,7 +301,7 @@ Copy `.env.example` to `.env` and fill in values:
 | `VITE_API_URL`                                                                     | Frontend API base path                                                                                               | `/api`                             |
 | `VITE_PRODUCTS_PAGE_LIVE`                                                          | Build-time flag — show the live Square-backed `/products` page instead of "Coming Soon"                              | `false`                            |
 | `REDIS_URL`                                                                        | Redis connection string                                                                                              | `redis://redis:6379`               |
-| `PORT`                                                                             | API server port                                                                                                      | `3001`                             |
+| `API_PORT`                                                                         | API server port                                                                                                      | `3001`                             |
 | `NODE_ENV`                                                                         | Environment                                                                                                          | `production`                       |
 | `SQUARE_ENV`                                                                       | Which Square credential pair to use: `sandbox` or `production`                                                       | `sandbox`                          |
 | `SQUARE_ACCESS_TOKEN`                                                              | Production Square access token                                                                                       | —                                  |
@@ -320,7 +314,6 @@ Copy `.env.example` to `.env` and fill in values:
 | `GMAIL_USER`                                                                       | Gmail account sending the monthly inventory export (requires 2FA + an App Password); export idle if unset            | —                                  |
 | `GMAIL_APP_PASSWORD`                                                               | App Password for `GMAIL_USER` (Google Account > Security > App Passwords)                                            | —                                  |
 | `MAIL_TO`                                                                          | Destination address for the monthly inventory export                                                                 | `theoutpostgamingrgv@gmail.com`    |
-| `MARKETING_POSTERS_DIR`                                                            | Where the API reads homepage carousel posters from; only needed if the default repo-root-relative path doesn't apply | `<repo>/public/wpn-assets/posters` |
 | `SQUARESPACE_API_KEY`                                                              | Read-only Squarespace key (legacy integration); idle if unset                                                        | —                                  |
 | `SQUARESPACE_USER_AGENT`                                                           | Descriptive User-Agent for Commerce API calls                                                                        | `TheOutpostGames-Website/1.0`      |
 | `SQUARESPACE_CACHE_TTL_MS`                                                         | Cache TTL before background refresh                                                                                  | `900000` (15 min)                  |
@@ -368,13 +361,3 @@ fly tokens create deploy -x 999999h
 Then: repo **Settings → Secrets and variables → Actions → New repository secret**, name it `FLY_API_TOKEN`, paste the token. Without this the workflow's `flyctl` calls will fail authentication.
 
 An optional in-process fallback (belt-and-suspenders, off by default) is described under `WARM_WINDOW_SELF_PING` in Environment Variables above — the GitHub Actions cron is the primary mechanism and is sufficient on its own.
-
----
-
-## Marketing Assets (`/wpn-assets/posters/`)
-
-The homepage carousel is **fully filesystem-driven** — drop an image into `public/wpn-assets/posters/` and it appears automatically, no admin step required. `GET /api/marketing-posters` (`api/marketingPosters.js`) lists whatever's in that folder and titles each slide from its filename (e.g. `tmnt.jpg` → "Tmnt"); removing a file removes its slide. This replaced the old admin-managed Featured Items CRUD, which existed solely to power this carousel.
-
-This is for **promotional/marketing posters**, not product photography — the product page uses Square's own hosted product photos for that instead (see "Square POS Catalog Admin" below). See `WPN_ASSET_ACCESS_GUIDE.md` for where to source official WPN marketing materials.
-
-**Deployment note**: the API reads this folder directly off disk (not proxied through nginx), and its path resolution differs by environment — see `MARKETING_POSTERS_DIR` in Environment Variables and the comments in `Dockerfile.combined`/`local-dev/docker-compose.yml` if adding a new deployment target.

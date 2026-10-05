@@ -4,8 +4,8 @@
   "description": "Your premier TCG shop in Rio Grande City, Texas — Magic: The Gathering, Pokémon, One Piece, Gundam, and Riftbound",
   "start_url": "/",
   "display": "standalone",
-  "background_color": "#ffffff",
-  "theme_color": "#1e3a8a",
+  "background_color": "#0f2436",
+  "theme_color": "#0f2436",
   "orientation": "portrait-primary",
   "icons": [
     {

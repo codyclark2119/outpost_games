@@ -15,9 +15,14 @@ import { getSquareConfigurationStatus, getPublicSquareCatalog } from './squarePo
 
 const CACHE_KEY = 'outpost:square:public-catalog'
 const STORE_TIMEZONE = storeConfig.timeZone
-const OPEN_WEEKDAYS = new Set(['Tue', 'Wed', 'Thu', 'Fri', 'Sat'])
-const OPEN_MINUTES_FROM_MIDNIGHT = 17 * 60 + 30 // 5:30 PM
-const CLOSE_MINUTES_FROM_MIDNIGHT = 22 * 60 // 10:00 PM
+// Weekday ("Tue") -> ["17:30", "22:00"] in store-local time; a missing day is
+// closed. Shared with the frontend's open/closed status (src/config/storeInfo.ts)
+// so a change of hours is one edit to storeConfig.json.
+const OPEN_HOURS = storeConfig.openHours
+const toMinutes = hhmm => {
+  const [hour, minute] = hhmm.split(':').map(Number)
+  return hour * 60 + minute
+}
 const OPEN_HOURS_TTL_MS = 60 * 60 * 1000 // 1 hour
 const CLOSED_TTL_MS = 24 * 60 * 60 * 1000 // 1 day
 
@@ -35,12 +40,10 @@ const isStoreOpenNow = () => {
   const rawHour = Number(parts.find(part => part.type === 'hour')?.value)
   const hour = rawHour === 24 ? 0 : rawHour
   const minute = Number(parts.find(part => part.type === 'minute')?.value)
-  if (!weekday || !OPEN_WEEKDAYS.has(weekday)) return false
+  const hours = weekday ? OPEN_HOURS[weekday] : null
+  if (!hours) return false
   const minutesFromMidnight = hour * 60 + minute
-  return (
-    minutesFromMidnight >= OPEN_MINUTES_FROM_MIDNIGHT &&
-    minutesFromMidnight < CLOSE_MINUTES_FROM_MIDNIGHT
-  )
+  return minutesFromMidnight >= toMinutes(hours[0]) && minutesFromMidnight < toMinutes(hours[1])
 }
 
 const getTtlMs = () => (isStoreOpenNow() ? OPEN_HOURS_TTL_MS : CLOSED_TTL_MS)

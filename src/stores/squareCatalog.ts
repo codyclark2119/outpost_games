@@ -20,9 +20,14 @@ export interface SquarePublicItem {
   itemCreatedAt: string | null
 }
 
+// Keyed by the slug of its name rather than its Square category id: Square
+// happily holds two categories with the same visible name (a stray trailing
+// space is enough — "Foundations" vs "Foundations "), and a shopper should see
+// one "Foundations" filter that covers both, not two identical chips.
 export interface CatalogSet {
-  id: string
+  slug: string
   name: string
+  ids: string[]
 }
 
 export interface CatalogSection {
@@ -41,6 +46,34 @@ export const slugify = (value: string) =>
     .trim()
     .replace(/[^a-z0-9]+/g, '-')
     .replace(/^-+|-+$/g, '') || 'uncategorized'
+
+// No price or $0 (set at the register, e.g. singles) reads as "Ask in store"
+// rather than advertising the item as free.
+export const formatPrice = (item: SquarePublicItem) =>
+  item.priceCents ? `$${(item.priceCents / 100).toFixed(2)}` : 'Ask in store'
+
+// Prefers the admin-set releasedAt over Square's own itemCreatedAt — matches
+// the backend's default ordering (see getPublicSquareCatalog). Items with
+// neither sort last rather than falsely claiming to be newest.
+export const releaseMs = (item: SquarePublicItem) => {
+  const raw = item.releasedAt || item.itemCreatedAt
+  return raw ? new Date(raw).getTime() : -Infinity
+}
+
+// Case/accent-insensitive "does this item match what the shopper typed" —
+// every word must appear somewhere in the name, set, or game.
+const fold = (value: string) =>
+  value
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+export const matchesSearch = (item: SquarePublicItem, query: string) => {
+  const haystack = fold(`${item.name} ${item.setName ?? ''} ${item.categoryName}`)
+  return fold(query)
+    .split(/\s+/)
+    .filter(Boolean)
+    .every(word => haystack.includes(word))
+}
 
 // How long a catalog already in memory is reused before the next mount
 // re-requests it. Deliberately short: the endpoint behind it is itself served
@@ -99,7 +132,6 @@ export const useSquareCatalogStore = defineStore('squareCatalog', () => {
   // order, so just grouping in encounter order carries that through.
   const sections = computed<CatalogSection[]>(() => {
     const bySlug = new Map<string, CatalogSection>()
-    const seenSetIdsBySlug = new Map<string, Set<string>>()
     for (const item of items.value) {
       const name = item.categoryName || 'Uncategorized'
       const slug = slugify(name)
@@ -107,26 +139,40 @@ export const useSquareCatalogStore = defineStore('squareCatalog', () => {
       if (!section) {
         section = { slug, name, items: [], sets: [] }
         bySlug.set(slug, section)
-        seenSetIdsBySlug.set(slug, new Set())
       }
       section.items.push(item)
 
       // Distinct sets present in this section, first-seen order — powers the
-      // "filter by set" dropdown on ProductsGameType.vue. Items with no set
-      // (setId null) just don't contribute an option here.
+      // set chips on ProductsGameType.vue. Items with no set (setId null)
+      // just don't contribute one.
       if (item.setId && item.setName) {
-        const seenSetIds = seenSetIdsBySlug.get(slug)!
-        if (!seenSetIds.has(item.setId)) {
-          seenSetIds.add(item.setId)
-          section.sets.push({ id: item.setId, name: item.setName })
+        const setSlug = slugify(item.setName)
+        let set = section.sets.find(candidate => candidate.slug === setSlug)
+        if (!set) {
+          set = { slug: setSlug, name: item.setName.trim(), ids: [] }
+          section.sets.push(set)
         }
+        if (!set.ids.includes(item.setId)) set.ids.push(item.setId)
       }
     }
     return [...bySlug.values()]
   })
 
+  // Every in-stock item, newest first — the Home page's "New arrivals" row.
+  const newest = computed(() => [...items.value].sort((a, b) => releaseMs(b) - releaseMs(a)))
+
   const sectionBySlug = (slug: string) =>
     sections.value.find(section => section.slug === slug) ?? null
 
-  return { items, fetchedAt, loading, error, fetchCatalog, ensureCatalog, sections, sectionBySlug }
+  return {
+    items,
+    fetchedAt,
+    loading,
+    error,
+    fetchCatalog,
+    ensureCatalog,
+    sections,
+    sectionBySlug,
+    newest,
+  }
 })

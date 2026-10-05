@@ -5,7 +5,7 @@
         <!-- Header -->
         <div class="flex flex-wrap justify-between items-center mb-8 gap-4">
           <div>
-            <h1 class="font-cinzel text-4xl font-bold text-gray-800">Weekly Schedule</h1>
+            <h1 class="font-display text-4xl font-bold text-gray-800">Weekly Schedule</h1>
             <p class="text-gray-600 mt-1">
               Hide one occurrence of a recurring event — for a cancellation, or when a special event
               overrides that day. The recurring slot itself keeps running every other week.
@@ -48,7 +48,7 @@
             <!-- Details -->
             <div class="flex-grow min-w-0">
               <div class="flex flex-wrap items-center gap-2">
-                <h3 class="font-cinzel font-bold text-lg text-gray-800">{{ entry.eventName }}</h3>
+                <h3 class="font-display font-bold text-lg text-gray-800">{{ entry.eventName }}</h3>
                 <span
                   v-if="entry.override"
                   class="inline-block text-xs px-2 py-0.5 rounded-full font-medium bg-gray-200 text-gray-600"
@@ -95,7 +95,7 @@
           @click.self="closeHideModal"
         >
           <div class="bg-white rounded-2xl shadow-2xl w-full max-w-sm p-6" @click.stop>
-            <h2 class="font-cinzel text-lg font-bold mb-2 text-gray-800">
+            <h2 class="font-display text-lg font-bold mb-2 text-gray-800">
               Hide "{{ hideModal.eventName }}"?
             </h2>
             <p class="text-gray-600 text-sm mb-4">

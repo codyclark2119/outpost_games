@@ -5,7 +5,7 @@
         <!-- Header -->
         <div class="flex flex-wrap justify-between items-center mb-8 gap-4">
           <div>
-            <h1 class="font-cinzel text-4xl font-bold text-gray-800">Square Stock Report</h1>
+            <h1 class="font-display text-4xl font-bold text-gray-800">Square Stock Report</h1>
             <p class="text-gray-600 mt-1">
               Live inventory pulled from Square POS ({{ report?.environment || '…' }})
             </p>
@@ -80,7 +80,7 @@
                   :class="expandedCategories.has(group.name) ? 'rotate-90' : ''"
                   >▶</span
                 >
-                <span class="font-cinzel font-bold text-lg flex-1">{{ group.name }}</span>
+                <span class="font-display font-bold text-lg flex-1">{{ group.name }}</span>
                 <span class="text-xs text-white/60"
                   >{{ group.items.length }} item{{ group.items.length !== 1 ? 's' : '' }}</span
                 >

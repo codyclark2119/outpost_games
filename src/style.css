@@ -1,14 +1,21 @@
-/* Import Tailwind CSS */
 @import 'tailwindcss';
 
 /* Google Fonts are loaded asynchronously in index.html to avoid blocking render */
 
 @theme {
+  /* Typography. Tailwind v4 reads font families from the --font-* namespace
+     (the old --font-family-* names generated nothing, so every "font-cinzel"
+     heading was silently rendering in the body face). Inter carries the UI;
+     Cinzel is the display face, picked to echo the logo's Trajan-style
+     wordmark — headings only, never body copy. */
+  --font-sans: 'Inter', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  --font-display: 'Cinzel', 'Trajan Pro', Georgia, serif;
+
   /* The Outpost Games brand colors */
   --color-outpost-gold: #d4af37;
   --color-outpost-gold-light: #e6c85c;
   --color-outpost-gold-dark: #b8962e;
-  --color-outpost-gold-text: #765d08;
+  --color-outpost-gold-text: #765d08; /* gold that passes AA as text on light surfaces */
   --color-outpost-navy: #16304a;
   --color-outpost-navy-light: #1b3a52;
   --color-outpost-navy-dark: #0f2436;
@@ -16,34 +23,44 @@
   --color-outpost-stone-light: #737373;
   --color-outpost-stone-dark: #3d3d3d;
   --color-outpost-black: #0d0d0d;
+  /* Warm off-white page surface — sits better next to gold than pure gray */
+  --color-outpost-paper: #f6f4ef;
 
-  /* Per-game accent colors — used for badging/theming featured items and
-     game-specific sections. Magic reuses the core brand gold rather than a
-     separate token since the brand palette *is* the Magic-era palette. */
+  /* Per-game accents (see src/config/games.ts). Magic reuses the brand gold
+     since the brand palette *is* the Magic-era palette. */
   --color-game-magic: var(--color-outpost-gold);
   --color-game-pokemon: #ffcb05;
   --color-game-onepiece: #d4262c;
   --color-game-gundam: #3a6ea5;
   --color-game-riftbound: #6b4ce6;
-
-  /* Font families */
-  --font-family-cinzel: 'Cinzel', serif;
-  --font-family-crimson: 'Crimson Text', serif;
 }
 
-:root {
-  font-family: 'Crimson Text', system-ui, Avenir, Helvetica, Arial, sans-serif;
-  line-height: 1.5;
-  font-weight: 400;
-  text-rendering: optimizeLegibility;
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
-}
+@layer base {
+  html {
+    /* The one owner of in-page anchor scrolling — see scrollToSection.ts. */
+    scroll-behavior: smooth;
+    scroll-padding-top: 5rem; /* clears the sticky header */
+    -webkit-tap-highlight-color: transparent;
+  }
 
-/* Smooth scroll behavior */
-html {
-  scroll-behavior: smooth;
-  scroll-padding-top: 80px; /* Account for fixed header */
+  body {
+    /* Navy to match index.html's critical CSS; each layout paints its own page
+       surface on top (see PublicLayout.vue). */
+    @apply bg-outpost-navy-dark font-sans text-slate-800 antialiased;
+    margin: 0;
+    min-height: 100vh;
+    overflow-x: hidden;
+    text-rendering: optimizeLegibility;
+  }
+
+  #app {
+    min-height: 100vh;
+  }
+
+  :focus-visible {
+    outline: 2px solid var(--color-outpost-gold);
+    outline-offset: 2px;
+  }
 }
 
 /* Reduced motion for accessibility */
@@ -58,309 +75,60 @@ html {
   }
 }
 
-/* Custom Outpost-themed components */
 @layer components {
+  /* Page width + side gutters shared by every public section. */
+  .page-shell {
+    @apply mx-auto w-full max-w-6xl px-4 sm:px-6;
+  }
+
   .btn-primary {
-    @apply bg-outpost-gold hover:bg-outpost-gold-light text-outpost-black font-semibold py-2 px-4 rounded-lg transition-all duration-300 shadow-md hover:shadow-xl;
-    position: relative;
-    overflow: hidden;
-    backface-visibility: hidden;
-  }
-
-  @media (hover: hover) and (pointer: fine) {
-    .btn-primary:hover {
-      transform: scale3d(1.05, 1.05, 1);
-    }
-
-    .btn-primary:active {
-      transform: scale3d(0.95, 0.95, 1);
-    }
-  }
-
-  .btn-primary::before {
-    content: '';
-    position: absolute;
-    top: 50%;
-    left: 50%;
-    width: 0;
-    height: 0;
-    border-radius: 50%;
-    background: rgba(255, 255, 255, 0.3);
-    transform: translate3d(-50%, -50%, 0);
-    transition:
-      width 0.6s,
-      height 0.6s;
-  }
-
-  @media (hover: hover) and (pointer: fine) {
-    .btn-primary:hover::before {
-      width: 300px;
-      height: 300px;
-    }
+    @apply inline-flex items-center justify-center gap-2 rounded-xl bg-outpost-gold px-4 py-2.5 font-semibold text-outpost-black shadow-sm transition-colors duration-150 select-none hover:bg-outpost-gold-light active:bg-outpost-gold-dark disabled:cursor-not-allowed disabled:opacity-50;
   }
 
   .btn-secondary {
-    @apply bg-outpost-navy hover:bg-outpost-navy-light text-outpost-gold font-semibold py-2 px-4 rounded-lg transition-all duration-300 shadow-md hover:shadow-xl border border-outpost-gold;
-    backface-visibility: hidden;
+    @apply inline-flex items-center justify-center gap-2 rounded-xl border border-slate-300 bg-white px-4 py-2.5 font-semibold text-outpost-navy shadow-sm transition-colors duration-150 select-none hover:border-outpost-navy hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50;
   }
 
-  @media (hover: hover) and (pointer: fine) {
-    .btn-secondary:hover {
-      transform: scale3d(1.05, 1.05, 1);
-    }
-
-    .btn-secondary:active {
-      transform: scale3d(0.95, 0.95, 1);
-    }
+  /* Secondary action on dark (navy) surfaces. */
+  .btn-on-dark {
+    @apply inline-flex items-center justify-center gap-2 rounded-xl border border-white/25 px-4 py-2.5 font-semibold text-white transition-colors duration-150 select-none hover:border-white/50 hover:bg-white/10;
   }
 
   .card {
-    @apply bg-white rounded-xl shadow-lg p-6 border border-outpost-stone-light hover:shadow-2xl transition-all duration-500;
-    background: linear-gradient(135deg, #ffffff 0%, #f8f9fa 100%);
-    backface-visibility: hidden;
+    @apply rounded-2xl border border-slate-200 bg-white p-6 shadow-sm;
   }
 
-  @media (hover: hover) and (pointer: fine) {
-    .card:hover {
-      transform: translate3d(0, -8px, 0);
-    }
+  .chip {
+    @apply inline-flex shrink-0 items-center gap-1.5 rounded-full border border-slate-200 bg-white px-3.5 py-1.5 text-sm font-medium whitespace-nowrap text-slate-700 transition-colors duration-150 hover:border-outpost-navy/40;
   }
 
-  .card:hover {
-    border-color: theme('colors.outpost.gold');
+  .chip-active {
+    @apply border-outpost-navy bg-outpost-navy text-white hover:border-outpost-navy;
   }
 
-  /* Shared section-heading treatment — previously copy-pasted with near-identical
-     CSS independently in Home.vue/Products.vue/Events.vue's scoped styles. */
-  .section-heading {
-    position: relative;
-    display: inline-block;
-    animation: fadeInUp 0.8s ease-out;
+  .eyebrow {
+    @apply text-xs font-semibold tracking-[0.16em] text-outpost-gold-text uppercase;
   }
 
-  .section-heading::after {
-    content: '';
-    position: absolute;
-    bottom: -8px;
-    left: 50%;
-    transform: translateX(-50%);
-    width: 60%;
-    height: 3px;
-    background: linear-gradient(to right, transparent, #d4af37, transparent);
-    animation: expandWidth 0.8s ease-out 0.3s both;
+  .section-title {
+    @apply font-display text-2xl font-bold tracking-tight text-outpost-navy sm:text-3xl;
   }
 
-  .text-gradient {
-    @apply bg-linear-to-r from-outpost-gold to-outpost-gold-light bg-clip-text text-transparent;
-    animation: shimmer 3s ease-in-out infinite;
-    background-size: 200% auto;
+  .text-link {
+    @apply inline-flex items-center gap-1 text-sm font-semibold text-outpost-navy underline-offset-4 hover:underline;
   }
 
-  .hero-section {
-    @apply bg-linear-to-br from-outpost-navy via-outpost-navy-light to-outpost-stone-dark;
-    position: relative;
-    overflow: hidden;
-    min-height: 100vh;
-    display: flex;
-    align-items: center;
-    padding: 4rem 0;
+  .form-input {
+    @apply w-full rounded-xl border border-slate-300 bg-white px-3.5 py-2.5 text-base text-slate-800 placeholder:text-slate-400 focus:border-outpost-navy focus:ring-2 focus:ring-outpost-navy/15 focus:outline-none sm:text-sm;
   }
 
-  .hero-section::before {
-    content: '';
-    position: absolute;
-    top: 0;
-    left: 0;
-    right: 0;
-    bottom: 0;
-    background:
-      radial-gradient(circle at 20% 50%, rgba(212, 175, 55, 0.1) 0%, transparent 50%),
-      radial-gradient(circle at 80% 80%, rgba(78, 205, 196, 0.1) 0%, transparent 50%);
-    animation: pulseGlow 8s ease-in-out infinite;
-    pointer-events: none;
+  /* Horizontally swipeable row (game chips, product previews). Bleeds to the
+     screen edge on phones so a partially visible next card signals "swipe". */
+  .scroll-row {
+    @apply -mx-4 flex snap-x snap-mandatory gap-3 overflow-x-auto scroll-px-4 px-4 pb-1 sm:-mx-6 sm:scroll-px-6 sm:px-6;
+    scrollbar-width: none;
   }
-}
-
-body {
-  margin: 0;
-  min-height: 100vh;
-  overflow-x: hidden;
-}
-
-#app {
-  min-height: 100vh;
-}
-
-/* Section motion is opt-in; utility/catalog sections should not animate by DOM position. */
-
-/* Fantasy-themed keyframe animations - GPU accelerated */
-@keyframes fadeInUp {
-  from {
-    opacity: 0;
-    transform: translate3d(0, 30px, 0);
+  .scroll-row::-webkit-scrollbar {
+    display: none;
   }
-  to {
-    opacity: 1;
-    transform: translate3d(0, 0, 0);
-  }
-}
-
-@keyframes shimmer {
-  0% {
-    background-position: 0% center;
-  }
-  50% {
-    background-position: 100% center;
-  }
-  100% {
-    background-position: 0% center;
-  }
-}
-
-@keyframes pulseGlow {
-  0%,
-  100% {
-    opacity: 0.3;
-    transform: scale3d(1, 1, 1);
-  }
-  50% {
-    opacity: 0.5;
-    transform: scale3d(1.05, 1.05, 1);
-  }
-}
-
-@keyframes expandWidth {
-  from {
-    width: 0%;
-  }
-  to {
-    width: 60%;
-  }
-}
-
-@keyframes float {
-  0%,
-  100% {
-    transform: translate3d(0, 0, 0);
-  }
-  50% {
-    transform: translate3d(0, -20px, 0);
-  }
-}
-
-@keyframes glow {
-  0%,
-  100% {
-    box-shadow: 0 0 20px rgba(212, 175, 55, 0.3);
-  }
-  50% {
-    box-shadow:
-      0 0 40px rgba(212, 175, 55, 0.6),
-      0 0 60px rgba(212, 175, 55, 0.3);
-  }
-}
-
-@keyframes sparkle {
-  0%,
-  100% {
-    opacity: 0;
-    transform: scale3d(0, 0, 1) rotate(0deg);
-  }
-  50% {
-    opacity: 1;
-    transform: scale3d(1, 1, 1) rotate(180deg);
-  }
-}
-
-/* Magical particle effect - GPU accelerated */
-.magical-particle {
-  position: absolute;
-  width: 4px;
-  height: 4px;
-  background: radial-gradient(circle, rgba(212, 175, 55, 0.8) 0%, transparent 70%);
-  border-radius: 50%;
-  pointer-events: none;
-  animation: sparkle 3s infinite;
-  /* No will-change. It is a short-lived hint for a change that is about to
-     happen, not a permanent flag — and there are 20 of these, so declaring it
-     pinned 20 compositor layers for the whole session, including long after
-     the hero has scrolled out of view. The sparkle keyframes already animate
-     only transform and opacity, which the compositor handles on its own, and
-     backface-visibility below is enough to promote them while they run. */
-  backface-visibility: hidden;
-  -webkit-backface-visibility: hidden;
-}
-
-/* Section dividers with fantasy styling */
-.section-divider {
-  height: 2px;
-  background: linear-gradient(
-    to right,
-    transparent 0%,
-    theme('colors.outpost.gold') 50%,
-    transparent 100%
-  );
-  margin: 3rem 0;
-  position: relative;
-}
-
-.section-divider::after {
-  content: '✦';
-  position: absolute;
-  top: 50%;
-  left: 50%;
-  transform: translate(-50%, -50%);
-  color: theme('colors.outpost.gold');
-  background: white;
-  padding: 0 1rem;
-  font-size: 1.5rem;
-}
-
-/* Enhanced image hover effects - GPU accelerated */
-img:not([class*='no-hover']) {
-  transition:
-    transform 0.4s ease,
-    filter 0.4s ease;
-  backface-visibility: hidden;
-}
-
-@media (hover: hover) and (pointer: fine) {
-  img:not([class*='no-hover']):hover {
-    transform: scale3d(1.02, 1.02, 1);
-    filter: brightness(1.05);
-  }
-}
-
-/* Custom scrollbar for fantasy theme */
-::-webkit-scrollbar {
-  width: 12px;
-}
-
-::-webkit-scrollbar-track {
-  background: theme('colors.outpost.navy.dark');
-}
-
-::-webkit-scrollbar-thumb {
-  background: linear-gradient(
-    180deg,
-    theme('colors.outpost.gold') 0%,
-    theme('colors.outpost.gold.dark') 100%
-  );
-  border-radius: 6px;
-  border: 2px solid theme('colors.outpost.navy.dark');
-}
-
-::-webkit-scrollbar-thumb:hover {
-  background: linear-gradient(
-    180deg,
-    theme('colors.outpost.gold.light') 0%,
-    theme('colors.outpost.gold') 100%
-  );
-}
-
-/* Focus styles for accessibility */
-*:focus-visible {
-  outline: 3px solid theme('colors.outpost.gold');
-  outline-offset: 2px;
-  border-radius: 4px;
 }
