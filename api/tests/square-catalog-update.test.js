@@ -7,7 +7,7 @@ import {
   SquareVersionMismatchError,
 } from '../squarePosClient.js'
 
-const FAKE_ENV = { SQUARE_ACCESS_TOKEN: 'fake-token', SQUARE_ENV: 'sandbox' }
+const FAKE_ENV = { SQUARE_SANDBOX_ACCESS_TOKEN: 'fake-token', SQUARE_ENV: 'sandbox' }
 
 const singleVariationObject = () => ({
   object: {

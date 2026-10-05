@@ -7,7 +7,10 @@
           class="shrink-0 font-display text-base font-bold tracking-wide text-outpost-gold sm:text-lg"
           >Outpost Admin</router-link
         >
-        <nav v-if="auth.username" class="flex items-center justify-end gap-1 text-sm whitespace-nowrap">
+        <nav
+          v-if="auth.username"
+          class="flex items-center justify-end gap-1 text-sm whitespace-nowrap"
+        >
           <router-link
             :to="ADMIN_BASE_PATH"
             class="rounded-md px-2.5 py-2 font-semibold hover:bg-white/10"

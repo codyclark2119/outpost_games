@@ -1522,7 +1522,9 @@ export const linkSquareVariationBarcode = async (variationId, code, env = proces
   const owner = variations.find(
     variation =>
       variation.id !== variationId &&
-      [variation.sku, variation.upc].some(value => value && variants.has(value.toUpperCase()))
+      [variation.sku, variation.upc].some(
+        value => value && variants.has(value.trim().toUpperCase())
+      )
   )
   if (owner) {
     const ownerName =
@@ -1531,8 +1533,11 @@ export const linkSquareVariationBarcode = async (variationId, code, env = proces
         : owner.name
     throw new AppError(409, `That barcode already belongs to "${ownerName}"`)
   }
-  if ([target.sku, target.upc].some(value => value && variants.has(value.toUpperCase()))) {
-    return { field: target.sku && variants.has(target.sku.toUpperCase()) ? 'sku' : 'upc', barcode }
+  if ([target.sku, target.upc].some(value => value && variants.has(value.trim().toUpperCase()))) {
+    return {
+      field: target.sku && variants.has(target.sku.trim().toUpperCase()) ? 'sku' : 'upc',
+      barcode,
+    }
   }
 
   let field

@@ -164,7 +164,7 @@ test('buildInventoryWorkbook excludes Snacks and writes rows sorted by stock/cat
 
   try {
     const { buffer, itemCount } = await buildInventoryWorkbook({
-      SQUARE_ACCESS_TOKEN: 'fake-token',
+      SQUARE_SANDBOX_ACCESS_TOKEN: 'fake-token',
       SQUARE_ENV: 'sandbox',
     })
     assert.equal(itemCount, 1)

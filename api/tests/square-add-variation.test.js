@@ -3,7 +3,7 @@ import assert from 'node:assert/strict'
 
 import { addSquareCatalogVariation } from '../squarePosClient.js'
 
-const FAKE_ENV = { SQUARE_ACCESS_TOKEN: 'fake-token', SQUARE_ENV: 'sandbox' }
+const FAKE_ENV = { SQUARE_SANDBOX_ACCESS_TOKEN: 'fake-token', SQUARE_ENV: 'sandbox' }
 
 // Matches this shop's real accounts: items are scoped to one specific
 // location, NOT present_at_all_locations — confirmed live that a new
