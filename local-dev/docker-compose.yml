@@ -53,7 +53,7 @@ services:
       timeout: 3s
       retries: 3
 
-  # Frontend — uses Dockerfile.dev (excludes WPN assets from image, mounts them instead)
+  # Frontend — built from Dockerfile.dev
   web:
     build:
       context: ..
