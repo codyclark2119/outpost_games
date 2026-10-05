@@ -66,7 +66,8 @@ const fetchInventoryCounts = async (client, catalogObjectIds, locationId) => {
   for (const batch of chunk(catalogObjectIds, INVENTORY_BATCH_SIZE)) {
     const payload = await client.request('/v2/inventory/counts/batch-retrieve', {
       method: 'POST',
-      body: { catalog_object_ids: batch, location_ids: [locationId] },
+      // IN_STOCK only — see listSquareInventory in squarePosClient.js for why.
+      body: { catalog_object_ids: batch, location_ids: [locationId], states: ['IN_STOCK'] },
     })
     counts.push(...(payload.counts || []))
   }

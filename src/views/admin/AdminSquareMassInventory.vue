@@ -40,6 +40,56 @@
             />
           </div>
 
+          <!-- Start from zero -->
+          <div
+            class="card p-4 mb-6 border"
+            :class="startFromZero ? 'border-amber-300 bg-amber-50' : 'border-transparent'"
+          >
+            <label class="flex items-start gap-3 cursor-pointer">
+              <input v-model="startFromZero" type="checkbox" class="mt-1 h-4 w-4" />
+              <span>
+                <span class="font-semibold text-gray-800">Start from zero</span>
+                <span class="block text-sm text-gray-600">
+                  Full recount for conventions and other big stock swings — every tracked item in
+                  the checked categories is set to 0 unless you enter a count for it. Applies to
+                  whole categories, regardless of the search above.
+                </span>
+              </span>
+            </label>
+
+            <div v-if="startFromZero" class="mt-4 pl-7">
+              <div class="flex items-center gap-3 mb-2 text-sm">
+                <span class="font-medium text-gray-700">Reset categories</span>
+                <button type="button" class="text-outpost-navy underline" @click="includeAll">
+                  All
+                </button>
+                <button type="button" class="text-outpost-navy underline" @click="excludeAll">
+                  None
+                </button>
+              </div>
+              <div class="flex flex-wrap gap-2">
+                <label
+                  v-for="group in allGroups"
+                  :key="group.name"
+                  class="flex items-center gap-2 px-3 py-1.5 rounded-full border text-sm cursor-pointer"
+                  :class="
+                    isResetCategory(group.name)
+                      ? 'border-amber-400 bg-white text-gray-800'
+                      : 'border-gray-200 bg-gray-50 text-gray-400'
+                  "
+                >
+                  <input
+                    type="checkbox"
+                    :checked="isResetCategory(group.name)"
+                    @change="toggleResetCategory(group.name)"
+                  />
+                  {{ group.name }}
+                  <span class="text-xs text-gray-400">{{ group.items.length }}</span>
+                </label>
+              </div>
+            </div>
+          </div>
+
           <div v-if="saveError" class="card py-4 px-4 mb-6 border border-red-200 bg-red-50">
             <p class="text-red-600 text-sm">{{ saveError }}</p>
           </div>
@@ -69,6 +119,11 @@
                   >▶</span
                 >
                 <span class="font-cinzel font-bold text-lg flex-1">{{ group.name }}</span>
+                <span
+                  v-if="isResetCategory(group.name)"
+                  class="text-xs font-semibold px-2 py-0.5 rounded bg-amber-400 text-outpost-navy"
+                  >Reset to 0</span
+                >
                 <span class="text-xs text-white/60"
                   >{{ group.items.length }} item{{ group.items.length !== 1 ? 's' : '' }}</span
                 >
@@ -95,7 +150,14 @@
                     >
                       <td class="px-4 py-2.5 font-medium text-gray-800">{{ item.displayName }}</td>
                       <td class="px-4 py-2.5 text-gray-500">{{ item.sku || '—' }}</td>
-                      <td class="px-4 py-2.5 text-right text-gray-700">
+                      <td
+                        class="px-4 py-2.5 text-right"
+                        :class="
+                          isResetCategory(categoryOf(item)) && !isEdited(item.id)
+                            ? 'text-gray-400 line-through'
+                            : 'text-gray-700'
+                        "
+                      >
                         {{ item.quantity ?? '—' }}
                       </td>
                       <td class="px-4 py-2.5 text-right">
@@ -104,7 +166,9 @@
                           type="number"
                           min="0"
                           step="1"
-                          :placeholder="String(item.quantity ?? 0)"
+                          :placeholder="
+                            isResetCategory(categoryOf(item)) ? '0' : String(item.quantity ?? 0)
+                          "
                           class="input-field !w-28 text-right py-1"
                         />
                       </td>
@@ -121,18 +185,27 @@
     <!-- Sticky save bar -->
     <transition name="fade">
       <div
-        v-if="editedCount > 0"
+        v-if="pendingChanges.length > 0"
         class="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 shadow-lg py-4 z-20"
       >
         <div class="container mx-auto px-4">
           <div class="max-w-6xl mx-auto flex items-center justify-between gap-4">
-            <p class="text-sm text-gray-600">{{ editedCount }} row(s) changed</p>
+            <p v-if="startFromZero" class="text-sm text-gray-600">
+              {{ editedCount }} counted · {{ resetCount }} reset to 0
+            </p>
+            <p v-else class="text-sm text-gray-600">{{ editedCount }} row(s) changed</p>
             <div class="flex gap-3">
               <button class="btn-secondary px-4 py-2" :disabled="saving" @click="clearEdits">
                 Clear
               </button>
               <button class="btn-primary px-6 py-2" :disabled="saving" @click="saveAll">
-                {{ saving ? 'Saving…' : `Save All Changes (${editedCount})` }}
+                {{
+                  saving
+                    ? 'Saving…'
+                    : startFromZero
+                      ? `Reset & Save (${pendingChanges.length})`
+                      : `Save All Changes (${editedCount})`
+                }}
               </button>
             </div>
           </div>
@@ -171,23 +244,25 @@ const edits = reactive<Record<string, string>>({})
 
 const items = computed(() => report.value?.items || [])
 
+const allTrackableItems = computed(() => items.value.filter(item => item.trackInventory))
+
 const trackableItems = computed(() => {
   const term = search.value.trim().toLowerCase()
-  return items.value.filter(item => {
-    if (!item.trackInventory) return false
-    if (!term) return true
-    return (
+  if (!term) return allTrackableItems.value
+  return allTrackableItems.value.filter(
+    item =>
       item.displayName.toLowerCase().includes(term) || (item.sku || '').toLowerCase().includes(term)
-    )
-  })
+  )
 })
+
+const categoryOf = (item: SquareStockItem) => item.categoryName || 'Uncategorized'
 
 // Grouped by top-level Square category so a large catalog can be scanned and
 // corrected section-by-section instead of one long flat table.
-const groupedTrackableItems = computed((): CategoryGroup[] => {
+const groupByCategory = (list: SquareStockItem[]): CategoryGroup[] => {
   const byName = new Map<string, CategoryGroup>()
-  for (const item of trackableItems.value) {
-    const name = item.categoryName || 'Uncategorized'
+  for (const item of list) {
+    const name = categoryOf(item)
     let group = byName.get(name)
     if (!group) {
       group = { name, items: [] }
@@ -200,7 +275,27 @@ const groupedTrackableItems = computed((): CategoryGroup[] => {
     if (b.name === 'Uncategorized') return -1
     return a.name.localeCompare(b.name)
   })
-})
+}
+
+const groupedTrackableItems = computed(() => groupByCategory(trackableItems.value))
+const allGroups = computed(() => groupByCategory(allTrackableItems.value))
+
+// "Start from zero" mode: every tracked item in a reset category is written
+// as 0 unless it has an entered count. Tracked as *excluded* categories so
+// the default is "everything", matching a full post-convention recount.
+const startFromZero = ref(false)
+const excludedCategories = ref(new Set<string>())
+
+const isResetCategory = (name: string) => startFromZero.value && !excludedCategories.value.has(name)
+
+const toggleResetCategory = (name: string) => {
+  if (excludedCategories.value.has(name)) excludedCategories.value.delete(name)
+  else excludedCategories.value.add(name)
+}
+const includeAll = () => excludedCategories.value.clear()
+const excludeAll = () => {
+  excludedCategories.value = new Set(allGroups.value.map(group => group.name))
+}
 
 const expandedCategories = ref(new Set<string>())
 const toggleCategory = (name: string) => {
@@ -215,8 +310,30 @@ const isEdited = (id: string) => {
 
 const editedCount = computed(() => Object.keys(edits).filter(id => isEdited(id)).length)
 
+// Every write the next save sends. Reset categories deliberately include items
+// that already read 0 — a sale since this page loaded may have taken one to
+// -1, and Square skips counts that truly didn't change (ignore_unchanged_counts).
+const pendingChanges = computed(() => {
+  const quantityById = new Map<string, number>()
+  if (startFromZero.value) {
+    for (const item of allTrackableItems.value) {
+      if (isResetCategory(categoryOf(item))) quantityById.set(item.id, 0)
+    }
+  }
+  for (const [id, value] of Object.entries(edits)) {
+    if (isEdited(id)) quantityById.set(id, Number(value))
+  }
+  return [...quantityById].map(([variationId, quantity]) => ({ variationId, quantity }))
+})
+
+const resetCount = computed(
+  () => pendingChanges.value.filter(change => !isEdited(change.variationId)).length
+)
+
 const clearEdits = () => {
   for (const key of Object.keys(edits)) delete edits[key]
+  startFromZero.value = false
+  includeAll()
 }
 
 const fetchReport = async () => {
@@ -237,17 +354,15 @@ const saveAll = async () => {
   saveError.value = null
   saveSuccess.value = false
 
-  const changes = Object.entries(edits)
-    .filter(([id]) => isEdited(id))
-    .map(([variationId, value]) => ({ variationId, quantity: Number(value) }))
+  const changes = pendingChanges.value
+  const resetCategoryCount = allGroups.value.filter(group => isResetCategory(group.name)).length
+  const message =
+    resetCount.value > 0
+      ? `Start from zero in ${report.value?.environment}: set ${resetCount.value} variations across ${resetCategoryCount} categories to 0, and ${editedCount.value} to the counts you entered? Every on-hand count in those categories is overwritten.`
+      : `Replace on-hand inventory counts for ${changes.length} variations with the entered quantities?`
 
   try {
-    if (
-      !(await ask(
-        `Replace on-hand inventory counts for ${changes.length} variations with the entered quantities?`
-      ))
-    )
-      return
+    if (!(await ask(message))) return
     const data = await squareAdminApi.updateInventoryBatch(changes)
 
     lastSavedCount.value = data.updatedCount || changes.length

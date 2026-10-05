@@ -409,6 +409,12 @@ export const listSquareInventory = async (
       body: {
         catalog_object_ids: batch,
         location_ids: resolvedLocationIds,
+        // Without this Square also returns a variation's RETURNED_BY_CUSTOMER /
+        // WASTE / etc. counts as separate rows, and every caller keys these by
+        // catalog_object_id alone — so whichever state came back last silently
+        // became "the" on-hand quantity (confirmed live: items showing a stale
+        // returns count of 0 or 1 while their sellable stock was -861).
+        states: ['IN_STOCK'],
       },
     })
     counts.push(...(payload.counts || []))

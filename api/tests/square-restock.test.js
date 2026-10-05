@@ -132,3 +132,19 @@ test('applyBoxToPackRestock treats a missing count (never sold/tracked yet) as z
     assert.equal(result.newPacksQty, 12)
   })
 })
+
+test('applyBoxToPackRestock reads only IN_STOCK counts, not returns/waste rows for the same variation', async () => {
+  const responses = [
+    { ok: true, body: { counts: [{ catalog_object_id: 'BOX1', quantity: '3' }] } },
+    { ok: true, body: { counts: [] } },
+  ]
+
+  await withMockedFetch(responses, async calls => {
+    await applyBoxToPackRestock(
+      { boxVariationId: 'BOX1', packsVariationId: 'PACKS1', packsPerBox: 12, boxesOpened: 1 },
+      FAKE_ENV
+    )
+    const readBody = JSON.parse(calls[0].options.body)
+    assert.deepEqual(readBody.states, ['IN_STOCK'])
+  })
+})
