@@ -4,7 +4,7 @@ import { AppError } from './middleware/errorHandler.js'
 // The public Products page reads live Square inventory, but hitting Square on
 // every page view would be slow for customers and needless load on the POS
 // API — so results are cached and served stale-while-refreshing, same
-// Redis-with-memory-fallback convention as squarespaceCache.js.
+// Redis-with-memory-fallback convention as the other Redis-backed modules.
 //
 // Refresh cadence intentionally tracks store hours rather than a flat TTL:
 // during open hours the floor is fresher (customers browsing while in/near
@@ -54,10 +54,6 @@ let isRedisConnected = () => false
 
 let memoryCache = null // { fetchedAt, environment, itemCount, items }
 
-let lastFetchedAt = null
-let lastError = null
-let itemCount = 0
-
 let refreshInProgress = null
 let warnedNotConfigured = false
 
@@ -97,13 +93,9 @@ export const refreshSquarePublicCatalog = async () => {
     try {
       const cache = await getPublicSquareCatalog()
       await writeCache(cache)
-      lastFetchedAt = cache.fetchedAt
-      itemCount = cache.itemCount
-      lastError = null
       console.log(`✅ Square public catalog cache refreshed: ${cache.itemCount} items`)
       return cache
     } catch (err) {
-      lastError = err.message
       console.error('❌ Square public catalog refresh failed:', err.message)
       throw err
     } finally {
@@ -140,13 +132,6 @@ export const getCachedPublicSquareCatalog = async () => {
 
   return cache
 }
-
-export const getSquarePublicCatalogStatus = () => ({
-  configured: getSquareConfigurationStatus().configured,
-  lastFetchedAt,
-  itemCount,
-  lastError,
-})
 
 // Called once on server startup. No-ops with a one-time warning if Square
 // isn't configured; never throws / crashes the server.

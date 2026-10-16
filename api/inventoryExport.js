@@ -3,7 +3,7 @@ import { assertPersistence, requiresPersistence, unavailable } from './services/
 // ─── Monthly inventory export ────────────────────────────────────────────────
 // Builds an .xlsx snapshot of the Square inventory report (non-snack items,
 // grouped by stock status → category → quantity) and emails it to the shop.
-// Scheduling mirrors squarespaceCache.js's Redis-with-memory-fallback
+// Scheduling mirrors the other Redis-backed modules' Redis-with-memory-fallback
 // convention: the shared Redis client + a live "connected" flag are injected
 // via initInventoryExport() so this reuses server.js's single connection.
 

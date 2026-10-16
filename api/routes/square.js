@@ -7,16 +7,11 @@ import { dependencyError } from '../middleware/errorHandler.js'
 import { validateSquareMutation } from '../schemas/square.js'
 import { unavailable } from '../services/persistence.js'
 
-import {
-  getSquareConfigurationStatus,
-  testSquareConnection,
-  getSquareInventoryReport,
-} from '../squarePosClient.js'
+import { getSquareInventoryReport } from '../squarePosClient.js'
 
 import {
   getCachedPublicSquareCatalog,
   refreshSquarePublicCatalog,
-  getSquarePublicCatalogStatus,
 } from '../squarePublicCatalogCache.js'
 import { requireAdminAuth } from '../auth.js'
 
@@ -31,58 +26,6 @@ export function mountSquare(app, { redisClient, isRedisConnected, requireProduct
   app.use('/api/square/restock-mappings', (req, res, next) => {
     if (requireProductionPersistence && !isRedisConnected()) return next(unavailable())
     next()
-  })
-
-  // ─── Square POS Integration (sandbox-first) ─────────────────────────────────
-  // This is an additive surface for validating Square POS credentials and catalog
-  // access before any production rollout.
-
-  app.get('/api/square/status', requireAdminAuth, async (req, res) => {
-    try {
-      const status = getSquareConfigurationStatus(process.env)
-      res.json({
-        ok: true,
-        ...status,
-        apiBaseUrl:
-          status.environment === 'production'
-            ? 'https://connect.squareup.com'
-            : 'https://connect.squareupsandbox.com',
-      })
-    } catch (error) {
-      return dependencyError(error, req, res)
-    }
-  })
-
-  app.post('/api/square/test', requireAdminAuth, async (req, res) => {
-    try {
-      const status = getSquareConfigurationStatus(process.env)
-      if (!status.configured) {
-        return res.status(422).json({
-          ok: false,
-          error: 'Square credentials are incomplete',
-          message:
-            'The Square integration needs SQUARE_ACCESS_TOKEN, SQUARE_APPLICATION_ID, and SQUARE_LOCATION_ID.',
-          missingFields: status.missingFields,
-        })
-      }
-
-      const result = await testSquareConnection(process.env)
-      res.json({ ok: true, ...result })
-    } catch (error) {
-      return dependencyError(error, req, res)
-    }
-  })
-
-  app.get('/api/square/catalog', requireAdminAuth, async (req, res) => {
-    try {
-      const { createSquarePosClient, resolveSquareCredentials } =
-        await import('../squarePosClient.js')
-      const client = createSquarePosClient(resolveSquareCredentials(process.env))
-      const payload = await client.request('/v2/catalog/list?types=ITEM')
-      res.json({ ok: true, environment: client.environment, items: payload.objects || [] })
-    } catch (error) {
-      return dependencyError(error, req, res)
-    }
   })
 
   app.get('/api/square/inventory-report', requireAdminAuth, async (req, res) => {
@@ -126,19 +69,6 @@ export function mountSquare(app, { redisClient, isRedisConnected, requireProduct
   const invalidatePublicCatalog = () => {
     refreshSquarePublicCatalog().catch(() => {}) // failure is already logged inside refreshSquarePublicCatalog
   }
-
-  app.post('/api/square/public-catalog/refresh', requireAdminAuth, async (req, res) => {
-    try {
-      const cache = await refreshSquarePublicCatalog()
-      res.json({ ok: true, ...cache })
-    } catch (error) {
-      return dependencyError(error, req, res)
-    }
-  })
-
-  app.get('/api/square/public-catalog/status', requireAdminAuth, (req, res) => {
-    res.json({ ok: true, ...getSquarePublicCatalogStatus() })
-  })
 
   mountSquareCatalog(app, { invalidatePublicCatalog })
   mountSquareInventory(app, {

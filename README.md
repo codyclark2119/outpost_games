@@ -194,8 +194,9 @@ POST   /api/events
 PUT    /api/events/:id
 DELETE /api/events/:id
 
-# Square POS (admin auth required except /status)
-GET  /api/square/status
+# Square POS (admin auth required, except the public catalog and checkout)
+GET  /api/square/public-catalog
+POST /api/checkout
 GET  /api/square/inventory-report
 GET  /api/square/categories
 GET  /api/square/sales?from=&to=&granularity=day|week|month
@@ -248,52 +249,30 @@ Drop downloaded WotC set xlsx files into `api/data/wotc-imports/` (gitignored) b
 
 ---
 
-## Squarespace Integration (Legacy)
-
-A read-only product source backed by the shop's Squarespace store, built before the Square POS integration above and now superseded by it — `api/server.js` itself marks these routes as "left in place only as documentation" and safe to remove once Square is fully validated. It isn't wired into any public page.
-
-- `api/squarespaceClient.js` — HTTP layer (products = API `v2`, inventory = API `1.0`); auth via `SQUARESPACE_API_KEY` or OAuth.
-- `api/squarespaceCache.js` — merges inventory into products by `variantId → sku`, Redis-cached with a TTL-based background refresh (default 15 min).
-- `api/squarespaceOAuth.js` — OAuth 2.0 flow for plans without a Developer API Key; only needed if `SQUARESPACE_API_KEY` isn't set.
-
-| Route                                                      | Purpose                                                                           |
-| ---------------------------------------------------------- | --------------------------------------------------------------------------------- |
-| `GET /api/squarespace/products`                            | Merged catalog with each product's `assignment`                                   |
-| `POST /api/squarespace/refresh`                            | Force sync                                                                        |
-| `GET /api/squarespace/status`                              | Cache + OAuth status                                                              |
-| `PUT /api/squarespace/products/:productId/assignment`      | Tag a product with an opaque `{ typeId, setId }` (no catalog to validate against) |
-| `GET /api/squarespace/oauth/authorize` / `/oauth/callback` | One-time OAuth consent flow                                                       |
-
----
-
 ## Environment Variables
 
 Copy `.env.example` to `.env` and fill in values:
 
-| Variable                                                                           | Description                                                                                               | Default                         |
-| ---------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------- | ------------------------------- |
-| `VITE_API_URL`                                                                     | Frontend API base path                                                                                    | `/api`                          |
-| `VITE_PRODUCTS_PAGE_LIVE`                                                          | Build-time flag — show the live Square-backed `/products` page instead of "Coming Soon"                   | `false`                         |
-| `REDIS_URL`                                                                        | Redis connection string                                                                                   | `redis://redis:6379`            |
-| `API_PORT`                                                                         | API server port                                                                                           | `3001`                          |
-| `NODE_ENV`                                                                         | Environment                                                                                               | `production`                    |
-| `SQUARE_ENV`                                                                       | Which Square credential pair to use: `sandbox` or `production`                                            | `sandbox`                       |
-| `SQUARE_ACCESS_TOKEN`                                                              | Production Square access token                                                                            | —                               |
-| `SQUARE_APPLICATION_ID`                                                            | Production Square application ID                                                                          | —                               |
-| `SQUARE_LOCATION_ID`                                                               | Production Square location ID                                                                             | —                               |
-| `SQUARE_SANDBOX_ACCESS_TOKEN`                                                      | Sandbox Square access token                                                                               | —                               |
-| `SQUARE_SANDBOX_APPLICATION_ID`                                                    | Sandbox Square application ID                                                                             | —                               |
-| `SQUARE_SANDBOX_LOCATION_ID`                                                       | Sandbox Square location ID (falls back to `SQUARE_LOCATION_ID` if unset)                                  | —                               |
-| `ADMIN_USERS`                                                                      | JSON array of `{ username, passwordHash }` for admin login (bcrypt hashes)                                | —                               |
-| `GMAIL_USER`                                                                       | Gmail account sending the monthly inventory export (requires 2FA + an App Password); export idle if unset | —                               |
-| `GMAIL_APP_PASSWORD`                                                               | App Password for `GMAIL_USER` (Google Account > Security > App Passwords)                                 | —                               |
-| `MAIL_TO`                                                                          | Destination address for the monthly inventory export                                                      | `theoutpostgamingrgv@gmail.com` |
-| `SQUARESPACE_API_KEY`                                                              | Read-only Squarespace key (legacy integration); idle if unset                                             | —                               |
-| `SQUARESPACE_USER_AGENT`                                                           | Descriptive User-Agent for Commerce API calls                                                             | `TheOutpostGames-Website/1.0`   |
-| `SQUARESPACE_CACHE_TTL_MS`                                                         | Cache TTL before background refresh                                                                       | `900000` (15 min)               |
-| `SQUARESPACE_CLIENT_ID` / `SQUARESPACE_CLIENT_SECRET` / `SQUARESPACE_REDIRECT_URI` | OAuth credentials (only needed without `SQUARESPACE_API_KEY`)                                             | —                               |
-| `WARM_WINDOW_SELF_PING`                                                            | Set `true` to enable the optional in-process warm-hours fallback ping (see "Warm Hours")                  | `false`                         |
-| `WARM_WINDOW_SELF_PING_URL`                                                        | Override the self-ping target URL; defaults to `https://<FLY_APP_NAME>.fly.dev/api/health`                | —                               |
+| Variable                        | Description                                                                                               | Default                         |
+| ------------------------------- | --------------------------------------------------------------------------------------------------------- | ------------------------------- |
+| `VITE_API_URL`                  | Frontend API base path                                                                                    | `/api`                          |
+| `VITE_PRODUCTS_PAGE_LIVE`       | Build-time flag — show the live Square-backed `/products` page instead of "Coming Soon"                   | `false`                         |
+| `REDIS_URL`                     | Redis connection string                                                                                   | `redis://redis:6379`            |
+| `API_PORT`                      | API server port                                                                                           | `3001`                          |
+| `NODE_ENV`                      | Environment                                                                                               | `production`                    |
+| `SQUARE_ENV`                    | Which Square credential pair to use: `sandbox` or `production`                                            | `sandbox`                       |
+| `SQUARE_ACCESS_TOKEN`           | Production Square access token                                                                            | —                               |
+| `SQUARE_APPLICATION_ID`         | Production Square application ID                                                                          | —                               |
+| `SQUARE_LOCATION_ID`            | Production Square location ID                                                                             | —                               |
+| `SQUARE_SANDBOX_ACCESS_TOKEN`   | Sandbox Square access token                                                                               | —                               |
+| `SQUARE_SANDBOX_APPLICATION_ID` | Sandbox Square application ID                                                                             | —                               |
+| `SQUARE_SANDBOX_LOCATION_ID`    | Sandbox Square location ID (falls back to `SQUARE_LOCATION_ID` if unset)                                  | —                               |
+| `ADMIN_USERS`                   | JSON array of `{ username, passwordHash }` for admin login (bcrypt hashes)                                | —                               |
+| `GMAIL_USER`                    | Gmail account sending the monthly inventory export (requires 2FA + an App Password); export idle if unset | —                               |
+| `GMAIL_APP_PASSWORD`            | App Password for `GMAIL_USER` (Google Account > Security > App Passwords)                                 | —                               |
+| `MAIL_TO`                       | Destination address for the monthly inventory export                                                      | `theoutpostgamingrgv@gmail.com` |
+| `WARM_WINDOW_SELF_PING`         | Set `true` to enable the optional in-process warm-hours fallback ping (see "Warm Hours")                  | `false`                         |
+| `WARM_WINDOW_SELF_PING_URL`     | Override the self-ping target URL; defaults to `https://<FLY_APP_NAME>.fly.dev/api/health`                | —                               |
 
 For production on Upstash, use a `rediss://` URL (TLS is auto-detected from `upstash.io` in the hostname).
 
