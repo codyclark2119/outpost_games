@@ -93,6 +93,7 @@ The public site is a single page (`Home.vue`) plus two standalone routes. `/abou
 | `/products/:typeId` | `ProductsGameType.vue` — one game: search, sort, set chips; filters mirrored to `?q=`, `?sort=`, `?set=`. `/products/bandai` redirects to `/products` (see Bandai note below) |
 | `/events` | `Events.vue` |
 | `/events/:id` | `EventDetail.vue` — one special event: details, Add to calendar, Share. Hidden, unknown or finished events show a friendly "not on the calendar" panel |
+| `/order/thanks` | `OrderThanks.vue` — where Square's checkout sends a buyer after paying for an online order |
 | `/terms` | `Terms.vue` |
 | `/privacy` | `Privacy.vue` |
 
@@ -109,6 +110,7 @@ Every route below is built from `ADMIN_BASE_PATH` (`src/config/adminPath.ts`) in
 | `/x/outpostAdmin/square-stock` | `AdminSquareStock.vue` | Read-only Square inventory report, CSV export |
 | `/x/outpostAdmin/square-sales` | `AdminSquareSales.vue` | Revenue/order/AOV trend charts, top-products table |
 | `/x/outpostAdmin/square-mass-inventory` | `AdminSquareMassInventory.vue` | Bulk on-hand count corrections |
+| `/x/outpostAdmin/online-sales` | `AdminOnlineSales.vue` | Switch Magic products on or off for buying online |
 | `/x/outpostAdmin/square-restock` | `AdminSquareRestock.vue` | Persisted box→packs restock pairs, one-click apply |
 
 All admin chunks are code-split into a separate `admin` bundle via `vite.config.ts`.
@@ -131,6 +133,15 @@ Talks directly to the shop's live Square point-of-sale account (catalog, invento
 - **One top-level category per game**: the public catalog groups by top-level Square category, so every game must be its own root category. Bandai was formerly a publisher umbrella over One Piece, Gundam, Digimon, and Union Arena; those were promoted to top level on 2026-10-05 and the Bandai category left empty. Put a new game at the root, never under a publisher.
 - **Public product page** (`/products`, `/products/:typeId`): `api/squarePublicCatalogCache.js` (store-hours-aware TTL cache, Redis-backed like the Squarespace cache below) wraps `getPublicSquareCatalog` and exposes `GET /api/square/public-catalog`. Sections lead with `PINNED_CATEGORY_ORDER` (Magic, Pokémon, One Piece, Gundam, Riftbound), then everything else by stock on hand; category names are compared trimmed and case-insensitively. `src/stores/squareCatalog.ts` consumes it; `Products.vue`/`ProductsGameType.vue` render straight from Square inventory. Gated behind `VITE_PRODUCTS_PAGE_LIVE` (see Environment Variables) — flip that to `true` and rebuild once ready to go public; until then both views show `ComingSoonPanel`.
   - **Cache invalidation on admin writes**: every `/api/square/*` admin mutation (image upload, product update, delete, inventory adjust) calls `invalidatePublicCatalog()` (a small wrapper around `refreshSquarePublicCatalog()`) right after it succeeds. Without this, an edit only reaches the public page once the store-hours TTL next expires (up to an hour open, a day closed) — which reads as "the save didn't work" from the admin's perspective even though Square itself updated fine. Adding a new admin mutation route that changes catalog data should call this too.
+
+### Online ordering (Square checkout links)
+
+Shoppers can buy some products on the site, pay on a Square-hosted checkout page, and pick up in store. There is no cart or on-site payment.
+
+- **Rules** live in `api/onlineSales.js`: Magic only (top-level category name starting with "Magic"), and the shop always keeps stock back for walk-ins: 5 of each single booster pack, 1 of everything else (boxes, bundles, decks, prerelease kits). Sellable online = on hand minus that reserve. Untracked, unpriced and singles items are never sold online.
+- **Opt-in** is per Square ITEM, stored in Redis (`outpost:onlineSales`, rows `{ itemId, enabledAt }`), not as a Square custom attribute, so it needs no one-time Square setup. Admins flip it on `/x/outpostAdmin/online-sales` (`GET`/`PUT /api/square/online-sales`).
+- **Public catalog**: `getPublicSquareCatalog` computes each item's `onlineQuantity`; the `/api/square/public-catalog` route zeroes it for items not switched on. If the opt-in list can't be read, nothing is buyable (fails closed). `ProductCard` shows "Buy online" only with its `buyable` prop (off on Home, where the card is itself a link) and `onlineQuantity > 0`.
+- **Checkout**: `POST /api/checkout` `{ itemId, variationId, quantity }` (public, rate-limited) re-checks every rule against live Square data, not the cache, then calls `createSquarePaymentLink` (`/v2/online-checkout/payment-links`) with the variation as a catalog line item, so a paid order lowers Square stock like any sale. 409 with `available` when there isn't enough. Square sends the buyer back to `${PUBLIC_SITE_URL}/order/thanks`. Nothing is reserved until payment, so two buyers can race for the last online unit; the shop reserve absorbs that.
 
 ### Squarespace integration (legacy — superseded by the Square POS integration above, read-only, additive)
 

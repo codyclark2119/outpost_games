@@ -3,7 +3,7 @@
     <h1 class="font-display text-3xl font-bold tracking-tight text-outpost-navy sm:text-4xl">
       Privacy Policy
     </h1>
-    <p class="mt-2 mb-8 text-sm text-slate-500">Last updated July 11, 2026</p>
+    <p class="mt-2 mb-8 text-sm text-slate-500">Last updated October 16, 2026</p>
 
     <div class="card space-y-8">
       <section>
@@ -18,7 +18,7 @@
       <section>
         <h2 class="mb-2 text-lg font-semibold text-outpost-navy">Information We Do Not Collect</h2>
         <p class="text-slate-600">
-          This site doesn't have user accounts, doesn't process payments or checkout, and doesn't
+          This site doesn't have user accounts, never sees or stores your card details, and doesn't
           run a contact form — our Contact page simply links to our email address and store
           location. Any email you send us goes directly to our inbox and isn't collected or stored
           by this website itself.
@@ -31,8 +31,10 @@
           This site loads fonts from Google Fonts, which may process your IP address to serve font
           files. We also link out to Facebook, Discord, and Google Maps — if you follow those links,
           your interactions there are governed by each service's own privacy policy, not this one.
-          Our product/inventory display may also be sourced from our Squarespace commerce backend,
-          used only to reflect what we sell and have in stock, not to collect information about you.
+          Our product and stock information comes from our Square point-of-sale system. When you buy
+          a product online, you're sent to Square's own checkout page, and the payment and contact
+          details you enter there are collected by Square under its privacy policy and shared with
+          us only so we can complete your order.
         </p>
       </section>
 

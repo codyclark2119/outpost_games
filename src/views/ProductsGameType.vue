@@ -129,6 +129,7 @@
             <ProductCard
               v-for="item in filteredItems"
               :key="item.id"
+              buyable
               :item="item"
               :subtitle="activeSet ? null : item.setName"
             />

@@ -43,6 +43,12 @@ const routes = [
     name: 'EventDetail',
     component: () => import('./views/EventDetail.vue'),
   },
+  // Square's checkout sends buyers here once an online order is paid.
+  {
+    path: '/order/thanks',
+    name: 'OrderThanks',
+    component: () => import('./views/OrderThanks.vue'),
+  },
   // About/Contact folded into the single-page Home as anchor sections —
   // redirect old bookmarks/inbound links rather than 404 them.
   { path: '/about', redirect: () => ({ path: '/', hash: '#about' }) },
@@ -116,6 +122,11 @@ const routes = [
     path: `${ADMIN_BASE_PATH}/scan`,
     name: 'AdminSquareScan',
     component: () => import('./views/admin/AdminSquareScan.vue'),
+  },
+  {
+    path: `${ADMIN_BASE_PATH}/online-sales`,
+    name: 'AdminOnlineSales',
+    component: () => import('./views/admin/AdminOnlineSales.vue'),
   },
   {
     path: `${ADMIN_BASE_PATH}/square-restock`,

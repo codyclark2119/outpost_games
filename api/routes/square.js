@@ -1,6 +1,7 @@
 import { mountSquareCatalog } from './squareCatalog.js'
 import { mountSquareInventory } from './squareInventory.js'
 import { mountSquareSales } from './squareSales.js'
+import { mountOnlineSales } from './onlineSales.js'
 
 import { dependencyError } from '../middleware/errorHandler.js'
 import { validateSquareMutation } from '../schemas/square.js'
@@ -97,10 +98,21 @@ export function mountSquare(app, { redisClient, isRedisConnected, requireProduct
   // deliberately not requireAdminAuth. Never calls Square directly on request;
   // always served from squarePublicCatalogCache's Redis/memory cache, which
   // refreshes itself in the background per its store-hours-aware TTL.
+  const { enabledItemIds } = mountOnlineSales(app, {
+    redisClient,
+    isRedisConnected,
+    persistent: requireProductionPersistence,
+  })
+
   app.get('/api/square/public-catalog', async (req, res) => {
     try {
-      const cache = await getCachedPublicSquareCatalog()
-      res.json({ ok: true, ...cache })
+      const [cache, enabled] = await Promise.all([getCachedPublicSquareCatalog(), enabledItemIds()])
+      // Only items an admin switched on keep a "buy online" count.
+      const items = (cache.items || []).map(item => ({
+        ...item,
+        onlineQuantity: enabled.has(item.itemId) ? item.onlineQuantity || 0 : 0,
+      }))
+      res.json({ ok: true, ...cache, items })
     } catch (error) {
       return dependencyError(error, req, res)
     }

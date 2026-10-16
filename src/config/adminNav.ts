@@ -11,6 +11,7 @@ import {
   ClipboardDocumentListIcon,
   ChartBarIcon,
   TableCellsIcon,
+  ShoppingBagIcon,
 } from '@heroicons/vue/24/outline'
 
 // Every admin screen, named for the job it does rather than the system behind
@@ -72,6 +73,12 @@ export const ADMIN_TASKS = {
     hint: 'Names, prices, photos, what shows online',
     icon: TagIcon,
   },
+  online: {
+    routeName: 'AdminOnlineSales',
+    title: 'Sell online',
+    hint: 'Choose which Magic products people can buy on the website',
+    icon: ShoppingBagIcon,
+  },
   stock: {
     routeName: 'AdminSquareStock',
     title: 'Stock list',
@@ -97,7 +104,7 @@ export const ADMIN_TASK_GROUPS: AdminTaskGroup[] = [
   },
   {
     heading: 'Products',
-    tasks: [ADMIN_TASKS.catalog, ADMIN_TASKS.sales],
+    tasks: [ADMIN_TASKS.catalog, ADMIN_TASKS.online, ADMIN_TASKS.sales],
   },
 ]
 
@@ -129,6 +136,7 @@ export const ADMIN_TABS: AdminTab[] = [
       'AdminSquareMassInventory',
       'AdminSquareRestock',
       'AdminSquareSales',
+      'AdminOnlineSales',
     ],
   },
 ]

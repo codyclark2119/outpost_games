@@ -1,4 +1,5 @@
 import storeConfig from './storeConfig.json' with { type: 'json' }
+import { SITE_URL } from './siteUrl.js'
 
 // Everything a shared event link needs that the single-page app can't do on
 // its own: a calendar file phones open straight into their calendar app, and
@@ -6,10 +7,6 @@ import storeConfig from './storeConfig.json' with { type: 'json' }
 // previews (Discord, Facebook and iMessage read meta tags without running
 // JavaScript, so the SPA's per-page tags never reach them).
 
-export const SITE_URL = (process.env.PUBLIC_SITE_URL || 'https://outpostgamesrgv.com').replace(
-  /\/$/,
-  ''
-)
 const STORE = {
   name: 'The Outpost Games',
   // Mirrors STORE_INFO.address in src/config/storeInfo.ts.

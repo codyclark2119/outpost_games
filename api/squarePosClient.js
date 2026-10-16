@@ -3,6 +3,7 @@ import fs from 'node:fs'
 import path from 'node:path'
 import crypto from 'node:crypto'
 import { fileURLToPath } from 'node:url'
+import { isMagicCategory, onlineQuantity } from './onlineSales.js'
 
 const SANDBOX_BASE_URL = 'https://connect.squareupsandbox.com'
 const PRODUCTION_BASE_URL = 'https://connect.squareup.com'
@@ -455,6 +456,7 @@ export const getSquareInventoryReport = async (env = process.env) => {
     return {
       id: variation.id,
       itemId: variation.itemId,
+      itemName: variation.name || null,
       displayName:
         variation.variationName && variation.variationName !== 'Regular'
           ? `${variation.name} - ${variation.variationName}`
@@ -608,6 +610,13 @@ export const getPublicSquareCatalog = async (env = process.env) => {
       setName,
       releasedAt: variation.releasedAt,
       itemCreatedAt: variation.itemCreatedAt,
+      // How many could be bought online if an admin switches this item on
+      // (see api/onlineSales.js). The public-catalog route zeroes it for every
+      // item that isn't switched on, so this alone never makes anything buyable.
+      onlineQuantity:
+        isMagicCategory(categoryName) && variation.trackInventory && variation.priceCents > 0
+          ? onlineQuantity(quantity, name)
+          : 0,
     })
   }
 
@@ -1614,4 +1623,34 @@ export const applyBoxToPackRestock = async (
   )
 
   return { previousBoxQty, newBoxQty, previousPacksQty, newPacksQty }
+}
+
+// A Square-hosted checkout page for one product. Square takes the payment,
+// asks the buyer for their contact details, and records the sale as an order
+// against the catalog item, so the shop's stock count drops like any other
+// sale. Nothing is held until the buyer actually pays.
+export const createSquarePaymentLink = async (
+  { variationId, quantity, redirectUrl, note },
+  env = process.env
+) => {
+  const client = clientFromEnv(env)
+  if (!client.locationId) throw new AppError(503, 'Square location is not configured')
+  const payload = await client.request('/v2/online-checkout/payment-links', {
+    method: 'POST',
+    body: {
+      idempotency_key: crypto.randomUUID(),
+      order: {
+        location_id: client.locationId,
+        line_items: [{ catalog_object_id: variationId, quantity: String(quantity) }],
+      },
+      checkout_options: {
+        ...(redirectUrl ? { redirect_url: redirectUrl } : {}),
+        ask_for_shipping_address: false,
+      },
+      ...(note ? { payment_note: note } : {}),
+    },
+  })
+  const url = payload.payment_link?.url
+  if (!url) throw new Error('Square did not return a checkout link')
+  return { url, orderId: payload.payment_link?.order_id || null }
 }
