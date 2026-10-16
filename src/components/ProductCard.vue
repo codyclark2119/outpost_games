@@ -41,19 +41,37 @@
       <p class="mt-auto pt-1 text-base font-semibold text-outpost-navy">
         {{ formatPrice(item) }}
       </p>
+      <template v-if="canBuy">
+        <button type="button" class="btn-primary mt-2 w-full py-2 text-sm" @click="buying = true">
+          <ShoppingBagIcon class="h-4 w-4" aria-hidden="true" />
+          Buy online
+        </button>
+        <BuyOnlineDialog :item="item" :open="buying" @close="buying = false" />
+      </template>
     </div>
   </article>
 </template>
 
 <script setup lang="ts">
-import { computed } from 'vue'
+import { computed, ref } from 'vue'
+import { ShoppingBagIcon } from '@heroicons/vue/24/outline'
+import BuyOnlineDialog from './BuyOnlineDialog.vue'
 import { formatPrice, slugify, type SquarePublicItem } from '../stores/squareCatalog'
 import { gameMeta } from '../config/games'
 import { placeholderArt } from '../config/setSymbols'
 
 // subtitle: the set or game name shown above the title, when the context
 // around the card doesn't already make it obvious.
-const props = defineProps<{ item: SquarePublicItem; subtitle?: string | null }>()
+// buyable: show "Buy online" for items that can be bought online. Off where
+// the whole card is already a link (Home's new arrivals), since a button
+// can't sit inside a link.
+const props = defineProps<{
+  item: SquarePublicItem
+  subtitle?: string | null
+  buyable?: boolean
+}>()
+const canBuy = computed(() => props.buyable && (props.item.onlineQuantity ?? 0) > 0)
+const buying = ref(false)
 const game = computed(() => gameMeta(slugify(props.item.categoryName), props.item.categoryName))
 const placeholder = computed(() => placeholderArt(props.item.setName, props.item.name))
 </script>

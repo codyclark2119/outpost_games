@@ -62,6 +62,7 @@
             <ProductCard
               v-for="item in searchResults"
               :key="item.id"
+              buyable
               :item="item"
               :subtitle="gameMeta(slugify(item.categoryName), item.categoryName).label"
             />
@@ -104,6 +105,7 @@
               <ProductCard
                 v-for="(item, index) in section.items.slice(0, PREVIEW_COUNT)"
                 :key="item.id"
+                buyable
                 :item="item"
                 :subtitle="item.setName"
                 class="w-40 shrink-0 snap-start sm:w-48 lg:w-auto"

@@ -28,6 +28,21 @@ export interface CatalogItem {
   imageUrl: string | null
   variations: CatalogVariation[]
 }
+export interface OnlineSaleVariation {
+  id: string
+  name: string
+  priceCents: number
+  quantity: number
+  reserve: number
+  onlineQuantity: number
+}
+export interface OnlineSaleItem {
+  itemId: string
+  name: string
+  imageUrl: string | null
+  enabled: boolean
+  variations: OnlineSaleVariation[]
+}
 interface MutationResult {
   ok: boolean
   updatedCount?: number
@@ -158,6 +173,12 @@ export const squareAdminApi = {
     ),
   deleteProduct: (id: string) =>
     apiFetch<MutationResult>(`/square/products/${encodeURIComponent(id)}`, { method: 'DELETE' }),
+  getOnlineSales: () => apiFetch<{ items: OnlineSaleItem[] }>('/square/online-sales'),
+  setOnlineSale: (itemId: string, enabled: boolean) =>
+    apiFetch<{ enabled: boolean }>(`/square/online-sales/${encodeURIComponent(itemId)}`, {
+      method: 'PUT',
+      body: JSON.stringify({ enabled }),
+    }),
   linkBarcode: (variationId: string, code: string) =>
     apiFetch<{ field: 'sku' | 'upc'; barcode: string }>(
       `/square/variations/${encodeURIComponent(variationId)}/barcode`,

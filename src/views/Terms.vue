@@ -3,7 +3,7 @@
     <h1 class="font-display text-3xl font-bold tracking-tight text-outpost-navy sm:text-4xl">
       Terms &amp; Conditions
     </h1>
-    <p class="mt-2 mb-8 text-sm text-slate-500">Last updated July 11, 2026</p>
+    <p class="mt-2 mb-8 text-sm text-slate-500">Last updated October 16, 2026</p>
 
     <div class="card space-y-8">
       <section>
@@ -18,9 +18,10 @@
         <h2 class="mb-2 text-lg font-semibold text-outpost-navy">2. Use of This Website</h2>
         <p class="text-slate-600">
           This site is provided to share information about The Outpost Games, including our product
-          catalog, events calendar, and store details. It is informational — purchases are not
-          completed directly on this website today. We may introduce online ordering in the future,
-          at which point these Terms will be updated accordingly.
+          catalog, events calendar, and store details. Some products can be bought online: you pay
+          on Square's secure checkout page and pick your order up at the shop during open hours. We
+          keep some stock of every product in store, so online quantities are limited, and if an
+          item sells out before your order is ready we'll contact you and refund it in full.
         </p>
       </section>
 

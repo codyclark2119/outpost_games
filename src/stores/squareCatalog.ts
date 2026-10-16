@@ -18,6 +18,10 @@ export interface SquarePublicItem {
   setName: string | null
   releasedAt: string | null
   itemCreatedAt: string | null
+  // How many can be bought online through Square checkout. Zero unless an
+  // admin switched the item on (Magic only for now), and always leaves some
+  // on the shelf for walk-ins. See api/onlineSales.js.
+  onlineQuantity?: number
 }
 
 // Keyed by the slug of its name rather than its Square category id: Square
