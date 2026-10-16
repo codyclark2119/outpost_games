@@ -273,7 +273,7 @@ Copy `.env.example` to `.env` and fill in values:
 | `GMAIL_USER`                    | Gmail account sending the monthly inventory export (requires 2FA + an App Password); export idle if unset | —                               |
 | `GMAIL_APP_PASSWORD`            | App Password for `GMAIL_USER` (Google Account > Security > App Passwords)                                 | —                               |
 | `MAIL_TO`                       | Destination address for the monthly inventory export                                                      | `theoutpostgamingrgv@gmail.com` |
-| `WARM_WINDOW_SELF_PING`         | Set `true` to enable the optional in-process warm-hours fallback ping (see "Warm Hours")                  | `false`                         |
+| `WARM_WINDOW_SELF_PING`         | Set `false` to stop the server pinging itself noon to midnight Central (see "Warm Hours")                 | on when running on Fly          |
 | `WARM_WINDOW_SELF_PING_URL`     | Override the self-ping target URL; defaults to `https://<FLY_APP_NAME>.fly.dev/api/health`                | —                               |
 
 For production on Upstash, use a `rediss://` URL (TLS is auto-detected from `upstash.io` in the hostname).
@@ -301,16 +301,18 @@ See [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md) for secrets, rollback and troublesh
 
 ### Warm Hours
 
-`fly.toml` keeps `auto_stop_machines`/`auto_start_machines` on with `min_machines_running = 0` — off-hours the machine sleeps after ~5 min idle and the next visitor eats a ~500ms cold start on wake. To avoid that during business hours without paying to stay warm 24/7, `.github/workflows/warm-hours.yml` pins the machine(s) awake on a schedule instead:
+`fly.toml` keeps `auto_stop_machines`/`auto_start_machines` on with `min_machines_running = 0`, so the machine sleeps after ~5 min idle and the next visitor waits for it to wake. During business hours two pieces keep it awake:
 
-| Window                                  | Behavior                                                                |
-| --------------------------------------- | ----------------------------------------------------------------------- |
-| Noon – midnight, America/Chicago, daily | Guaranteed warm — the cron starts every machine at window open          |
-| Midnight – noon, America/Chicago, daily | Normal wake-on-demand auto-sleep (today's existing behavior, unchanged) |
+| Window                                  | Behavior                                                                                                          |
+| --------------------------------------- | ----------------------------------------------------------------------------------------------------------------- |
+| Noon – midnight, America/Chicago, daily | Warm: `warm-hours.yml` starts the machine at noon, and the server pings its own `fly.dev` address every 2 minutes |
+| Midnight – noon, America/Chicago, daily | Normal wake-on-demand auto-sleep                                                                                  |
 
-**DST**: GitHub Actions cron has no timezone support and runs in UTC, so the workflow uses one fixed UTC time per job, chosen so the window is never caught cold — see the comment block at the top of `warm-hours.yml` for the full noon/midnight → UTC table. Net effect: the store is never cold during business hours; the only cost is up to ~1 extra warm hour/day around whichever DST boundary doesn't line up exactly (a few cents).
+The cron alone isn't enough: Fly's proxy stops any idle machine after a few minutes, however it was started. The self-ping (`api/services/warmWindow.js`) is what keeps it up, and it costs about half of an always-on machine.
 
-**To change the warm-hours window later**: edit the two `cron:` lines in `warm-hours.yml` (and `WARM_WINDOW_START_HOUR` in `api/services/warmWindow.js` if the optional self-ping fallback is enabled) — that file's comment block has the conversion math.
+**DST**: GitHub Actions cron has no timezone support and runs in UTC, so the workflow uses one fixed UTC time per job — see the comment block at the top of `warm-hours.yml` for the noon/midnight → UTC table.
+
+**To change the warm-hours window later**: edit the two `cron:` lines in `warm-hours.yml` and `WARM_WINDOW_START_HOUR` in `api/services/warmWindow.js` — that file's comment block has the conversion math.
 
 **One manual step required**: create a Fly deploy token and add it as a repo secret:
 
@@ -319,5 +321,3 @@ fly tokens create deploy -x 999999h
 ```
 
 Then: repo **Settings → Secrets and variables → Actions → New repository secret**, name it `FLY_API_TOKEN`, paste the token. Without this the workflow's `flyctl` calls will fail authentication.
-
-An optional in-process fallback (belt-and-suspenders, off by default) is described under `WARM_WINDOW_SELF_PING` in Environment Variables above — the GitHub Actions cron is the primary mechanism and is sufficient on its own.
