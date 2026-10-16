@@ -1,7 +1,7 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
 
-import { applyBoxToPackRestock } from '../squarePosClient.js'
+import { applyBoxToPackRestock } from '../square/index.js'
 
 const FAKE_ENV = {
   SQUARE_ACCESS_TOKEN: 'fake-token',

@@ -7,7 +7,7 @@ import { dependencyError } from '../middleware/errorHandler.js'
 import { validateSquareMutation } from '../schemas/square.js'
 import { unavailable } from '../services/persistence.js'
 
-import { getSquareInventoryReport } from '../squarePosClient.js'
+import { getSquareInventoryReport } from '../square/index.js'
 
 import {
   getCachedPublicSquareCatalog,

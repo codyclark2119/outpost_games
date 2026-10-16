@@ -5,7 +5,7 @@ import {
   createSquarePosClient,
   buildSquareApiUrl,
   resolveSquareEnvironment,
-} from '../squarePosClient.js'
+} from '../square/index.js'
 
 test('defaults to the Square sandbox environment for local development', () => {
   const environment = resolveSquareEnvironment({})

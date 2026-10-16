@@ -44,10 +44,7 @@ import {
   createSquareCatalogItem,
   getSquareCatalogItem,
   updateSquareCatalogItem,
-  loadSquareEnvironment,
-} from '../squarePosClient.js'
-
-loadSquareEnvironment()
+} from '../square/index.js'
 
 const CREATE_DRAFTS = process.argv.includes('--create-drafts')
 const UPDATE_EXISTING = process.argv.includes('--update-existing')

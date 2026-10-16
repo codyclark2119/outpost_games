@@ -1,5 +1,5 @@
 import { dependencyError } from '../middleware/errorHandler.js'
-import { getSquareSalesReport } from '../squareOrdersClient.js'
+import { getSquareSalesReport } from '../square/index.js'
 import { requireAdminAuth } from '../auth.js'
 export function mountSquareSales(app) {
   app.get('/api/square/sales', requireAdminAuth, async (req, res) => {
