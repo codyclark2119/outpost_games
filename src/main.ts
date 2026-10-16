@@ -11,6 +11,16 @@ import { ADMIN_BASE_PATH } from './config/adminPath'
 // Only Home is eagerly loaded since it's the landing page
 import Home from './views/Home.vue'
 
+// Apply the Google Fonts stylesheet index.html preloads. Done here rather than
+// with an inline onload handler, which the site's CSP doesn't allow.
+const fontsLink = document.querySelector<HTMLLinkElement>('link[rel="preload"][as="style"]')
+if (fontsLink) {
+  const stylesheet = document.createElement('link')
+  stylesheet.rel = 'stylesheet'
+  stylesheet.href = fontsLink.href
+  document.head.appendChild(stylesheet)
+}
+
 // Define routes with lazy-loaded components
 const routes = [
   {

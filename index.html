@@ -36,12 +36,13 @@
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
 
-    <!-- Load Google Fonts asynchronously to avoid blocking render -->
+    <!-- Google Fonts: fetched early here, applied by src/main.ts without
+         blocking render. An inline onload="" swap broke the Content Security
+         Policy (no inline scripts), which Lighthouse flags. -->
     <link
-      rel="stylesheet"
+      rel="preload"
+      as="style"
       href="https://fonts.googleapis.com/css2?family=Cinzel:wght@600;700&family=Inter:wght@400..700&display=swap"
-      media="print"
-      onload="this.media = 'all'"
     />
     <noscript>
       <link
