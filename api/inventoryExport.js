@@ -9,7 +9,7 @@ import { assertPersistence, createValue, requiresPersistence } from './services/
 
 import ExcelJS from 'exceljs'
 
-import { getSquareInventoryReport } from './squarePosClient.js'
+import { getSquareInventoryReport } from './square/index.js'
 import { sendMail } from './mailClient.js'
 
 const LAST_RUN_KEY = 'outpost:inventory-export:lastRun'
@@ -27,7 +27,7 @@ export const initInventoryExport = sharedStore => {
 
 // Store-local date parts — "the 1st of the month" only means something in the
 // shop's own timezone, not UTC. Same ICU-midnight-quirk guard used elsewhere
-// in this codebase (squareOrdersClient.js's localPartsOf()).
+// in this codebase (square/orders.js's localPartsOf()).
 const localDatePartsOf = date => {
   const parts = new Intl.DateTimeFormat('en-US', {
     timeZone: STORE_TIMEZONE,

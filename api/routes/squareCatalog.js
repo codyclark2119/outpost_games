@@ -17,7 +17,7 @@ import {
   setSquareCatalogItemsVisibilityBatch,
   setSquareCatalogItemsReleasedAtBatch,
   uploadSquareCatalogImage,
-} from '../squarePosClient.js'
+} from '../square/index.js'
 import { requireAdminAuth } from '../auth.js'
 import multer from 'multer'
 export function mountSquareCatalog(app, { invalidatePublicCatalog }) {

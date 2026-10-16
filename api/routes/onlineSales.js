@@ -8,7 +8,7 @@ import {
   getSquareCatalogItem,
   resolveTopLevelCategoryMap,
   createSquarePaymentLink,
-} from '../squarePosClient.js'
+} from '../square/index.js'
 import { isMagicCategory, onlineQuantity, shopReserve } from '../onlineSales.js'
 import { SITE_URL } from '../siteUrl.js'
 

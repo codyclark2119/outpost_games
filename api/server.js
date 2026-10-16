@@ -1,6 +1,4 @@
-import dotenv from 'dotenv'
-import path from 'node:path'
-import { fileURLToPath } from 'node:url'
+import './loadEnv.js'
 import express from 'express'
 import cors from 'cors'
 import cookieParser from 'cookie-parser'
@@ -28,13 +26,6 @@ process.on('unhandledRejection', (reason, promise) => {
   console.error('❌ UNHANDLED REJECTION at:', promise, 'reason:', reason)
   process.exit(1)
 })
-
-// Load the repo-root .env explicitly — dotenv's default lookup is relative to
-// process.cwd(), which is api/ under the documented `cd api && npm run dev`
-// workflow, so it silently found nothing there. In production, real platform
-// env vars (Fly secrets) always win regardless, since dotenv never overrides
-// an already-set process.env value.
-dotenv.config({ path: path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '.env') })
 
 const PORT = process.env.API_PORT || 3001
 const REDIS_URL = process.env.REDIS_URL || 'redis://redis:6379'

@@ -12,7 +12,7 @@ import { createValue } from './services/persistence.js'
 // the store, stock genuinely moving) at once an hour; outside open hours the
 // catalog can't realistically change, so refreshes back off to once a day.
 
-import { getSquareConfigurationStatus, getPublicSquareCatalog } from './squarePosClient.js'
+import { getSquareConfigurationStatus, getPublicSquareCatalog } from './square/index.js'
 
 const CACHE_KEY = 'outpost:square:public-catalog'
 const STORE_TIMEZONE = storeConfig.timeZone

@@ -23,18 +23,25 @@ trap 'exit 0' TERM INT
 trap shutdown EXIT
 # Put the private admin path (Fly secret) into the built frontend. Refuse to
 # start without it rather than serve the admin page at a guessable path.
-ADMIN_PATH="${VITE_ADMIN_BASE_PATH:-}"
-case "$ADMIN_PATH" in
-  /*) ;;
-  *) echo "VITE_ADMIN_BASE_PATH must be set as a Fly secret and start with /" >&2; exit 1 ;;
-esac
-if printf '%s' "$ADMIN_PATH" | grep -q '[^A-Za-z0-9/_.-]'; then
-  echo "VITE_ADMIN_BASE_PATH may only contain letters, digits, / _ . -" >&2
+# Like src/config/adminPath.ts, a missing leading slash is fine (the app adds
+# it); node does the swap so no character in the path can break it.
+if [ -z "${VITE_ADMIN_BASE_PATH:-}" ]; then
+  echo "Set the VITE_ADMIN_BASE_PATH Fly secret (the private admin path)" >&2
   exit 1
 fi
-grep -rl __OUTPOST_ADMIN_BASE_PATH__ /usr/share/nginx/html | while read -r file; do
-  sed -i "s#__OUTPOST_ADMIN_BASE_PATH__#${ADMIN_PATH}#g" "$file"
-done
+node -e '
+  const fs = require("fs"), path = require("path")
+  const value = JSON.stringify(process.env.VITE_ADMIN_BASE_PATH).slice(1, -1)
+  const walk = dir => fs.readdirSync(dir, { withFileTypes: true }).forEach(entry => {
+    const file = path.join(dir, entry.name)
+    if (entry.isDirectory()) return walk(file)
+    if (!file.endsWith(".js")) return
+    const text = fs.readFileSync(file, "utf8")
+    if (text.includes("__OUTPOST_ADMIN_BASE_PATH__"))
+      fs.writeFileSync(file, text.split("__OUTPOST_ADMIN_BASE_PATH__").join(value))
+  })
+  walk("/usr/share/nginx/html")
+'
 cd /app/api
 node server.js &
 API_PID=$!

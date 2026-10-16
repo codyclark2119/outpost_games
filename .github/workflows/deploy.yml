@@ -1,7 +1,7 @@
 name: Deploy (Fly.io)
 
-# Deploys main to production after CI passes on it, then checks the live
-# site answers. Can also be started by hand from the Actions tab.
+# Deploys main to production after CI passes on it, then checks the app
+# answers. Can also be started by hand from the Actions tab.
 #
 # One-time setup (Settings -> Secrets and variables -> Actions):
 #   - Secret FLY_API_TOKEN: already set for warm-hours.yml.
@@ -27,7 +27,6 @@ concurrency:
 
 env:
   FLY_APP: outpost-games-rgv
-  SITE_URL: https://outpostgamesrgv.com
 
 jobs:
   deploy:
@@ -59,14 +58,18 @@ jobs:
             -H "Content-Type: application/json" \
             --data '{"purge_everything":true}' > /dev/null
           echo "Cloudflare cache purged"
-      - name: Check the live site
+      # Straight to Fly, not through Cloudflare: Cloudflare's bot protection
+      # answers GitHub's runners with a 403. The first request also wakes the
+      # machine from auto-sleep, so allow it a couple of minutes.
+      - name: Check the live app
         run: |
-          for i in 1 2 3 4 5 6; do
-            if curl -fsS "$SITE_URL/api/health" | grep -q '"status":"ok"'; then
-              echo "Site is up and Redis is connected"
+          url="https://$FLY_APP.fly.dev/api/health"
+          for i in $(seq 1 12); do
+            if curl -fsS -m 20 "$url" | grep -q '"status":"ok"'; then
+              echo "App is up and Redis is connected"
               exit 0
             fi
             sleep 10
           done
-          echo "::error::$SITE_URL/api/health did not report ok after deploying"
+          echo "::error::$url did not report ok after deploying"
           exit 1

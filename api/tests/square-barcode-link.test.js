@@ -1,7 +1,7 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
 
-import { linkSquareVariationBarcode, barcodeVariants } from '../squarePosClient.js'
+import { linkSquareVariationBarcode, barcodeVariants } from '../square/index.js'
 
 const FAKE_ENV = { SQUARE_SANDBOX_ACCESS_TOKEN: 'fake-token', SQUARE_ENV: 'sandbox' }
 
