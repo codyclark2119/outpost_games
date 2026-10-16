@@ -12,10 +12,7 @@ import {
   resolveSquareCredentials,
 } from '../squarePosClient.js'
 import { requireAdminAuth } from '../auth.js'
-export function mountSquareInventory(
-  app,
-  { redisClient, isRedisConnected, requireProductionPersistence, invalidatePublicCatalog }
-) {
+export function mountSquareInventory(app, store, { invalidatePublicCatalog }) {
   app.post('/api/square/products/:itemId/inventory', requireAdminAuth, async (req, res) => {
     try {
       const quantity = Number(req.body?.quantity)
@@ -97,10 +94,7 @@ export function mountSquareInventory(
   // own developer forum), so the relationship itself lives here in Redis, same
   // convention as outpost:events — plain flat CRUD, no TTL/
   // orchestration complexity.
-  const mappingsStore = createCollection(
-    { redisClient, isRedisConnected, persistent: requireProductionPersistence },
-    'outpost:square:restock-mappings'
-  )
+  const mappingsStore = createCollection(store, 'outpost:square:restock-mappings')
 
   app.get('/api/square/restock-mappings', requireAdminAuth, async (req, res) => {
     try {

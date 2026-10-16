@@ -282,12 +282,15 @@ For production on Upstash, use a `rediss://` URL (TLS is auto-detected from `ups
 
 The app runs as a single combined container on Fly.io: Nginx serves the Vue SPA, proxies `/api` to a Node.js process in the same container.
 
-```bash
-# Deploy to Fly.io
-flyctl deploy
+Merging to `main` deploys automatically: once CI passes on `main`, `.github/workflows/deploy.yml` runs `flyctl deploy`, purges Cloudflare's cache (when its secrets are set) and checks that `/api/health` reports `ok`. It can also be run by hand from the Actions tab. One-time setup is listed at the top of that file: the `VITE_ADMIN_BASE_PATH` secret is required, and the products page goes live by setting the `VITE_PRODUCTS_PAGE_LIVE` repository variable to `true` and re-running the deploy.
 
-# Purge Cloudflare cache after deploy
-./scripts/purge-cloudflare.sh
+Every PR also builds the production image (`Dockerfile.combined`), so a broken Dockerfile fails CI instead of a deploy.
+
+A manual deploy from a laptop still works and reads frontend settings from the repo-root `.env`:
+
+```bash
+flyctl deploy
+./scripts/purge-cloudflare.sh   # if the Cloudflare secrets aren't set in GitHub
 ```
 
 See `docs/deployment/` for full deployment guides.

@@ -1,11 +1,11 @@
 import storeConfig from './storeConfig.json' with { type: 'json' }
-import { assertPersistence, requiresPersistence, unavailable } from './services/persistence.js'
+import { assertPersistence, createValue, requiresPersistence } from './services/persistence.js'
 // ─── Monthly inventory export ────────────────────────────────────────────────
 // Builds an .xlsx snapshot of the Square inventory report (non-snack items,
 // grouped by stock status → category → quantity) and emails it to the shop.
-// Scheduling mirrors the other Redis-backed modules' Redis-with-memory-fallback
-// convention: the shared Redis client + a live "connected" flag are injected
-// via initInventoryExport() so this reuses server.js's single connection.
+// The month it last sent for is kept in the shared Redis store
+// (services/redis.js, injected via initInventoryExport()) so a restart on the
+// 1st never sends the same report twice.
 
 import ExcelJS from 'exceljs'
 
@@ -17,13 +17,12 @@ const STORE_TIMEZONE = storeConfig.timeZone
 export const EXCLUDED_EXPORT_CATEGORIES = ['Snacks']
 const CHECK_INTERVAL_MS = 60 * 60 * 1000 // hourly
 
-let redisClient = null
-let isRedisConnected = () => false
-let memoryLastRun = null // 'YYYY-MM' the export last actually sent for
+let store = { redisClient: null, isRedisConnected: () => false, persistent: requiresPersistence() }
+let lastRun = createValue(store, LAST_RUN_KEY) // 'YYYY-MM' the export last actually sent for
 
-export const initInventoryExport = ({ redisClient: client, isRedisConnected: connectedFn }) => {
-  redisClient = client
-  if (typeof connectedFn === 'function') isRedisConnected = connectedFn
+export const initInventoryExport = sharedStore => {
+  store = { persistent: requiresPersistence(), ...sharedStore }
+  lastRun = createValue(store, LAST_RUN_KEY)
 }
 
 // Store-local date parts — "the 1st of the month" only means something in the
@@ -106,29 +105,6 @@ export const buildInventoryWorkbook = async (env = process.env) => {
   return { buffer: await workbook.xlsx.writeBuffer(), itemCount: items.length }
 }
 
-const readLastRun = async () => {
-  assertPersistence(isRedisConnected() && redisClient)
-  if (!isRedisConnected() || !redisClient) return memoryLastRun
-  try {
-    return (await redisClient.get(LAST_RUN_KEY)) || memoryLastRun
-  } catch (cause) {
-    if (requiresPersistence()) throw unavailable(cause)
-    return memoryLastRun
-  }
-}
-
-const writeLastRun = async monthKey => {
-  assertPersistence(isRedisConnected() && redisClient)
-  if (isRedisConnected() && redisClient) {
-    try {
-      await redisClient.set(LAST_RUN_KEY, monthKey)
-    } catch (cause) {
-      throw unavailable(cause)
-    }
-  }
-  memoryLastRun = monthKey
-}
-
 const MONTH_NAMES = [
   'January',
   'February',
@@ -145,7 +121,7 @@ const MONTH_NAMES = [
 ]
 
 export const runMonthlyInventoryExport = async (env = process.env) => {
-  assertPersistence(isRedisConnected() && redisClient, env)
+  assertPersistence(store)
   const { year, month } = localDatePartsOf(new Date())
   const monthKey = `${year}-${month}`
   const monthLabel = `${MONTH_NAMES[Number(month) - 1]} ${year}`
@@ -167,7 +143,7 @@ export const runMonthlyInventoryExport = async (env = process.env) => {
     env
   )
 
-  await writeLastRun(monthKey)
+  await lastRun.set(monthKey)
   return { monthKey, itemCount }
 }
 
@@ -176,10 +152,10 @@ export const startInventoryExportScheduler = (env = process.env) => {
     const { year, month, day } = localDatePartsOf(new Date())
     if (day !== 1) return
     const monthKey = `${year}-${month}`
-    const lastRun = await readLastRun()
-    if (lastRun === monthKey) return
-
+    // Inside the try: without Redis in production the read throws, and an
+    // unhandled rejection here would take the whole API down.
     try {
+      if ((await lastRun.get()) === monthKey) return
       await runMonthlyInventoryExport(env)
       console.log(`✅ Monthly inventory export sent for ${monthKey}`)
     } catch (error) {

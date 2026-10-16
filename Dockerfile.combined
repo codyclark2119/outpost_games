@@ -18,8 +18,17 @@ RUN npm ci --prefer-offline --no-audit
 # Copy frontend source
 COPY . .
 
+# Build-time frontend settings. The deploy workflow passes these as build args
+# (from GitHub secrets/variables); a local `fly deploy` can still rely on the
+# repo-root .env instead. An arg left empty is unset first, because Vite lets
+# any existing environment variable, even an empty one, beat the .env file.
+ARG VITE_ADMIN_BASE_PATH
+ARG VITE_PRODUCTS_PAGE_LIVE
+
 # Build for production
-RUN npm run build
+RUN [ -n "$VITE_ADMIN_BASE_PATH" ] || unset VITE_ADMIN_BASE_PATH; \
+    [ -n "$VITE_PRODUCTS_PAGE_LIVE" ] || unset VITE_PRODUCTS_PAGE_LIVE; \
+    npm run build
 
 # ============================================
 # Stage 2: Build Backend

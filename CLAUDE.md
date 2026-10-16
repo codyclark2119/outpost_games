@@ -66,7 +66,7 @@ Tailwind v4 does **not** support `@apply` with custom theme tokens in scoped com
 
 ### API (`api/server.js`)
 
-Express server with Redis for persistence, falls back to module-level in-memory variables if Redis is unreachable. Resource types:
+Express server with Redis for persistence. `api/services/redis.js` owns the one connection and hands every Redis-backed module the same `store` object (`{ redisClient, isRedisConnected, persistent }`); `api/services/persistence.js` builds on it with `createCollection` (JSON row lists with optimistic locking) and `createValue` (one string, e.g. a cache). Outside production a missing Redis falls back to process memory; in production (`persistent`) it is a 503, except for caches created with `required: false`. Resource types:
 
 - `outpost:events` — CRUD for special tournament events
 - `outpost:weeklyOverrides` — per-date hide overrides for recurring weekly events (see below)
@@ -173,6 +173,7 @@ Opening hours live in `api/storeConfig.json` (`openHours`, weekday → `["17:30"
 ### Deployment
 
 - **Fly.io** (`fly.toml`) — combined `Dockerfile.combined` serves both the Vue SPA (Nginx) and API (Node.js) from one container
+- **CI/CD**: `ci.yml` runs `npm run verify` and builds `Dockerfile.combined` on every PR; `deploy.yml` deploys `main` to Fly after CI passes on it, then purges Cloudflare (optional secrets) and checks `/api/health`. Frontend build settings (`VITE_ADMIN_BASE_PATH` secret, `VITE_PRODUCTS_PAGE_LIVE` variable) reach the image as Docker build args; empty args are unset before `npm run build` so a local `fly deploy` can still use `.env`. Fly's health check hits `/api/health` through nginx
 - **Redis**: Upstash (TLS via `rediss://` URL, auto-detected from `upstash.io` in hostname)
 - `docker-compose.prod.yml` for self-hosted production
 

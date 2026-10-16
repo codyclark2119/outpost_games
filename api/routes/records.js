@@ -12,7 +12,7 @@ export function validateOverride(body) {
   if ('reason' in body) string(body.reason, 'reason', true)
   return body
 }
-export function mountRecords(app, dependencies) {
+export function mountRecords(app, store) {
   for (const [route, key, schema] of [
     [
       'events',
@@ -25,7 +25,7 @@ export function mountRecords(app, dependencies) {
     ],
     ['weekly-overrides', 'outpost:weeklyOverrides', validateOverride],
   ]) {
-    const collection = createCollection(dependencies, key)
+    const collection = createCollection(store, key)
     // Mounted before /:id so the extra path segment is never read as an id;
     // shares this collection so the dev memory fallback sees the same events.
     if (route === 'events') mountEventShare(app, collection)

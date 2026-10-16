@@ -1,0 +1,88 @@
+name: Deploy (Fly.io)
+
+# Deploys main to production after CI passes on it, then checks the live
+# site answers. Can also be started by hand from the Actions tab.
+#
+# One-time setup (Settings -> Secrets and variables -> Actions):
+#   - Secret FLY_API_TOKEN: already set for warm-hours.yml.
+#   - Secret VITE_ADMIN_BASE_PATH: the private admin path from your local .env.
+#     Required: without it the admin would fall back to the public default path,
+#     so the deploy stops instead.
+#   - Variable VITE_PRODUCTS_PAGE_LIVE: "true" to show the products page,
+#     anything else (or unset) keeps "Coming soon".
+#   - Optional secrets CLOUDFLARE_API_TOKEN (Zone > Cache Purge permission) and
+#     CLOUDFLARE_ZONE_ID: purge Cloudflare's cache after each deploy. Skipped
+#     when unset, in which case purge by hand (scripts/purge-cloudflare.sh).
+
+on:
+  workflow_run:
+    workflows: [CI]
+    types: [completed]
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: deploy-production
+  cancel-in-progress: false
+
+env:
+  FLY_APP: outpost-games-rgv
+  SITE_URL: https://outpostgamesrgv.com
+
+jobs:
+  deploy:
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      (github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.event == 'push')
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # The exact commit CI just passed, not whatever main is now.
+          ref: ${{ github.event.workflow_run.head_sha || github.sha }}
+      - name: Check build settings
+        env:
+          VITE_ADMIN_BASE_PATH: ${{ secrets.VITE_ADMIN_BASE_PATH }}
+        run: |
+          if [ -z "$VITE_ADMIN_BASE_PATH" ]; then
+            echo "::error::Add the VITE_ADMIN_BASE_PATH repository secret before deploying (see the top of deploy.yml)."
+            exit 1
+          fi
+      - uses: superfly/flyctl-actions/setup-flyctl@ed8efb33836e8b2096c7fd3ba1c8afe303ebbff1 # verified upstream commit
+      - name: Deploy
+        env:
+          FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
+          VITE_ADMIN_BASE_PATH: ${{ secrets.VITE_ADMIN_BASE_PATH }}
+          VITE_PRODUCTS_PAGE_LIVE: ${{ vars.VITE_PRODUCTS_PAGE_LIVE }}
+        run: >-
+          flyctl deploy --remote-only -a "$FLY_APP"
+          --build-arg VITE_ADMIN_BASE_PATH="$VITE_ADMIN_BASE_PATH"
+          --build-arg VITE_PRODUCTS_PAGE_LIVE="$VITE_PRODUCTS_PAGE_LIVE"
+      - name: Purge Cloudflare cache
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ZONE_ID: ${{ secrets.CLOUDFLARE_ZONE_ID }}
+        run: |
+          if [ -z "$CLOUDFLARE_API_TOKEN" ] || [ -z "$CLOUDFLARE_ZONE_ID" ]; then
+            echo "Cloudflare secrets not set, skipping cache purge"
+            exit 0
+          fi
+          curl -fsS -X POST "https://api.cloudflare.com/client/v4/zones/$CLOUDFLARE_ZONE_ID/purge_cache" \
+            -H "Authorization: Bearer $CLOUDFLARE_API_TOKEN" \
+            -H "Content-Type: application/json" \
+            --data '{"purge_everything":true}' > /dev/null
+          echo "Cloudflare cache purged"
+      - name: Check the live site
+        run: |
+          for i in 1 2 3 4 5 6; do
+            if curl -fsS "$SITE_URL/api/health" | grep -q '"status":"ok"'; then
+              echo "Site is up and Redis is connected"
+              exit 0
+            fi
+            sleep 10
+          done
+          echo "::error::$SITE_URL/api/health did not report ok after deploying"
+          exit 1

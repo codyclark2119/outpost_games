@@ -3,8 +3,40 @@ export const requiresPersistence = (env = process.env) =>
   Boolean(env.FLY_APP_NAME) || env.NODE_ENV === 'production'
 export const unavailable = cause =>
   new AppError(503, 'Persistence temporarily unavailable', { cause })
-export function assertPersistence(connected, env = process.env) {
-  if (requiresPersistence(env) && !connected) throw unavailable()
+export function assertPersistence({ isRedisConnected, persistent }) {
+  if (persistent && !isRedisConnected()) throw unavailable()
+}
+
+// One string value in Redis with a process-memory fallback. `required` values
+// (the default) follow the same rule as collections: without Redis in
+// production, reads and writes fail with 503. A cache passes required: false,
+// so a Redis hiccup only costs freshness and never an error.
+export function createValue(store, key, { required = true } = {}) {
+  const { redisClient, isRedisConnected } = store
+  let memory = null
+  return {
+    async get() {
+      if (required) assertPersistence(store)
+      if (!isRedisConnected()) return memory
+      try {
+        return (await redisClient.get(key)) ?? memory
+      } catch (cause) {
+        if (required && store.persistent) throw unavailable(cause)
+        return memory
+      }
+    },
+    async set(value) {
+      if (required) assertPersistence(store)
+      memory = value
+      if (!isRedisConnected()) return
+      try {
+        await redisClient.set(key, value)
+      } catch (cause) {
+        if (required) throw unavailable(cause)
+        console.warn(`⚠️  Failed to persist ${key} to Redis:`, cause.message)
+      }
+    },
+  }
 }
 // Serialize read/modify/write within this API process. Redis WATCH protects
 // against other instances; a conflict asks the admin to reload, never overwrites.
