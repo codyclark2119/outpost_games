@@ -272,7 +272,6 @@ import { useSquareCatalogStore, slugify } from '../stores/squareCatalog'
 import { STORE_INFO, HOURS_BY_DAY } from '../config/storeInfo'
 import { WEEKLY_SCHEDULE } from '../config/weeklySchedule'
 import { gameMeta, HEADLINE_GAMES } from '../config/games'
-import { PRODUCTS_CATALOG_LIVE } from '../config/featureFlags'
 import { getAgenda } from '../utils/eventOccurrences'
 import { getStoreClock } from '../utils/eventDateTime'
 import { scrollToSectionId, cancelPendingSectionScroll } from '../utils/scrollToSection'
@@ -370,7 +369,7 @@ const OFFERINGS = [
 onMounted(() => {
   eventsStore.fetchEvents()
   weeklyOverridesStore.fetchOverrides()
-  if (PRODUCTS_CATALOG_LIVE) catalogStore.ensureCatalog()
+  catalogStore.ensureCatalog()
 })
 
 onUnmounted(() => {
