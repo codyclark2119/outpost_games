@@ -117,14 +117,19 @@
           class="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-3 sm:gap-4 lg:grid-cols-4 xl:grid-cols-5"
         >
           <ProductCard
-            v-for="item in filteredItems"
+            v-for="item in shownItems"
             :key="item.id"
             buyable
             :item="item"
             :subtitle="activeSet ? null : item.setName"
           />
         </div>
-        <div v-else class="card mt-4 text-center">
+        <div v-if="shownItems.length < filteredItems.length" class="mt-6 text-center">
+          <button type="button" class="btn-secondary" @click="shownCount += PAGE_SIZE">
+            Show more ({{ filteredItems.length - shownItems.length }} left)
+          </button>
+        </div>
+        <div v-if="!filteredItems.length" class="card mt-4 text-center">
           <p class="font-medium text-slate-800">Nothing matches those filters.</p>
           <button type="button" class="btn-secondary mt-4" @click="clearFilters">
             Clear filters
@@ -186,6 +191,16 @@ watch(typeId, () => {
   query.value = ''
   sortBy.value = 'newest'
   selectedSet.value = null
+})
+
+// Cards are drawn a page at a time, so a big game doesn't build hundreds of
+// cards (and start their photo downloads) on a phone that only sees a few.
+const PAGE_SIZE = 40
+const shownCount = ref(PAGE_SIZE)
+const shownItems = computed(() => filteredItems.value.slice(0, shownCount.value))
+
+watch([typeId, query, sortBy, selectedSet], () => {
+  shownCount.value = PAGE_SIZE
 })
 
 watch([query, sortBy, selectedSet], () => {

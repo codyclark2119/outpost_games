@@ -66,7 +66,7 @@
 <script setup lang="ts">
 import { useRoute } from 'vue-router'
 import { MapPinIcon } from '@heroicons/vue/24/outline'
-import wordmarkUrl from '../assets/outpost_text_only.png'
+import wordmarkUrl from '../assets/outpost_wordmark.webp'
 import StoreStatus from './StoreStatus.vue'
 import { PRIMARY_NAV, isNavLinkActive } from '../config/navigation'
 import { STORE_INFO } from '../config/storeInfo'

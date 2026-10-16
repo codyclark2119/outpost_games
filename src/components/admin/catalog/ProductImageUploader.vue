@@ -34,6 +34,7 @@
 <script setup lang="ts">
 import { ref } from 'vue'
 import { squareAdminApi } from '../../../services/squareAdminApi'
+import { shrinkImage } from '../../../utils/shrinkImage'
 const props = defineProps<{ itemId: string; variationId?: string; label: string }>()
 const imageUrl = defineModel<string | null>({ required: true })
 const emit = defineEmits<{ busy: [value: boolean]; uploaded: [] }>()
@@ -54,7 +55,7 @@ const upload = async () => {
   success.value = false
   try {
     const body = new FormData()
-    body.append('image', file.value)
+    body.append('image', await shrinkImage(file.value))
     const result = props.variationId
       ? await squareAdminApi.uploadVariationImage(props.itemId, props.variationId, body)
       : await squareAdminApi.uploadProductImage(props.itemId, body)

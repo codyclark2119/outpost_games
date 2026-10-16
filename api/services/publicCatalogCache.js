@@ -60,16 +60,31 @@ export const initSquarePublicCatalogCache = store => {
   cacheValue = createValue(store, CACHE_KEY, { required: false })
 }
 
+// The parsed catalog also stays in this process's memory, so a page view
+// doesn't download and re-parse the whole catalog from Redis each time
+// (Upstash's free plan counts every command and every byte). Redis is only
+// read when memory is empty, i.e. right after the machine wakes up. With more
+// than one machine, an admin edit would reach the others at their next TTL.
+let memoryCache = null
+
 const readCache = async () => {
+  if (memoryCache) return memoryCache
   const raw = await cacheValue.get()
   try {
-    return raw ? JSON.parse(raw) : null
+    memoryCache = raw ? JSON.parse(raw) : null
   } catch {
-    return null
+    memoryCache = null
   }
+  return memoryCache
 }
 
-const writeCache = cache => cacheValue.set(JSON.stringify(cache))
+const writeCache = cache => {
+  memoryCache = cache
+  return cacheValue.set(JSON.stringify(cache))
+}
+
+const cacheAgeMs = cache =>
+  cache?.fetchedAt ? Date.now() - new Date(cache.fetchedAt).getTime() : Infinity
 
 // Force a synchronous full refresh from Square. Overlapping calls share one refresh.
 export const refreshSquarePublicCatalog = async () => {
@@ -111,17 +126,19 @@ export const getCachedPublicSquareCatalog = async () => {
     return { fetchedAt: null, itemCount: 0, items: [] }
   }
 
-  const age = cache.fetchedAt ? Date.now() - new Date(cache.fetchedAt).getTime() : Infinity
-  if (configured && age > getTtlMs()) {
+  if (configured && cacheAgeMs(cache) > getTtlMs()) {
     refreshSquarePublicCatalog().catch(() => {}) // fire-and-forget background refresh
   }
 
   return cache
 }
 
-// Called once on server startup. No-ops with a one-time warning if Square
-// isn't configured; never throws / crashes the server.
-export const bootstrapSquarePublicCatalogCache = () => {
+// Called once on server startup. Refreshes from Square only when the stored
+// copy is missing or past its TTL: the machine sleeps when idle, and pulling
+// the whole catalog from Square on every wake-up slowed the visitor whose
+// request woke it. No-ops with a one-time warning if Square isn't configured;
+// never throws / crashes the server.
+export const bootstrapSquarePublicCatalogCache = async () => {
   if (!getSquareConfigurationStatus().configured) {
     if (!warnedNotConfigured) {
       console.warn(
@@ -131,6 +148,8 @@ export const bootstrapSquarePublicCatalogCache = () => {
     }
     return
   }
+  const cache = await readCache().catch(() => null)
+  if (cache && cacheAgeMs(cache) <= getTtlMs()) return
   console.log('🔄 Square configured — running initial public catalog refresh...')
   refreshSquarePublicCatalog().catch(() => {}) // failure is already logged inside refreshSquarePublicCatalog
 }

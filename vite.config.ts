@@ -24,15 +24,18 @@ export default defineConfig({
             if (id.includes('chart.js') || id.includes('vue-chartjs')) {
               return 'vendor-charts'
             }
-            if (id.includes('@headlessui') || id.includes('@heroicons')) {
-              return 'vendor-ui'
-            }
             // 'vue-router' needs no separate test — it contains 'vue'.
-            if (id.includes('vue') || id.includes('pinia')) {
+            // '@headlessui/vue' and '@heroicons/vue' are left out on purpose
+            // (Rollup places them with the pages that use them).
+            if (
+              (id.includes('vue') && !id.includes('@headlessui') && !id.includes('@heroicons')) ||
+              id.includes('pinia')
+            ) {
               return 'vendor-vue'
             }
-            // Other node_modules go into vendor-libs
-            return 'vendor-libs'
+            // Everything else is left to Rollup. A catch-all vendor chunk used
+            // to pull the admin barcode scanner and Chart.js's color library
+            // into a file every phone preloaded on every public page.
           }
         },
         // Asset file naming with content hash for cache busting
