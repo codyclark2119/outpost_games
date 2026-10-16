@@ -18,7 +18,7 @@ import {
   setSquareCatalogItemsReleasedAtBatch,
   uploadSquareCatalogImage,
 } from '../square/index.js'
-import { requireAdminAuth } from '../auth.js'
+import { requireAdminAuth } from '../services/auth.js'
 import multer from 'multer'
 export function mountSquareCatalog(app, { invalidatePublicCatalog }) {
   app.get('/api/square/categories', requireAdminAuth, async (req, res) => {

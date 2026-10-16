@@ -6,13 +6,13 @@ import rateLimit from 'express-rate-limit'
 
 import { errorHandler, AppError } from './middleware/errorHandler.js'
 import { createRedisStore } from './services/redis.js'
-import { initAuth } from './auth.js'
-import { initInventoryExport, startInventoryExportScheduler } from './inventoryExport.js'
+import { initAuth } from './services/auth.js'
+import { initInventoryExport, startInventoryExportScheduler } from './services/inventoryExport.js'
 import {
   initSquarePublicCatalogCache,
   bootstrapSquarePublicCatalogCache,
-} from './squarePublicCatalogCache.js'
-import { startWarmWindowSelfPing } from './warmWindow.js'
+} from './services/publicCatalogCache.js'
+import { startWarmWindowSelfPing } from './services/warmWindow.js'
 import { mountAuth } from './routes/auth.js'
 import { mountRecords } from './routes/records.js'
 import { mountSquare } from './routes/square.js'

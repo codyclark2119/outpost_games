@@ -1,7 +1,7 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { mountRecords } from '../routes/records.js'
-import { initAuth, createSession, requireAdminAuth } from '../auth.js'
+import { initAuth, createSession, requireAdminAuth } from '../services/auth.js'
 import { errorHandler } from '../middleware/errorHandler.js'
 import { validateSquareMutation } from '../schemas/square.js'
 

@@ -11,7 +11,7 @@ import {
   linkSquareVariationBarcode,
   resolveSquareCredentials,
 } from '../square/index.js'
-import { requireAdminAuth } from '../auth.js'
+import { requireAdminAuth } from '../services/auth.js'
 export function mountSquareInventory(app, store, { invalidatePublicCatalog }) {
   app.post('/api/square/products/:itemId/inventory', requireAdminAuth, async (req, res) => {
     try {

@@ -1,7 +1,7 @@
 import rateLimit from 'express-rate-limit'
 import { createCollection } from '../services/persistence.js'
 import { AppError, dependencyError } from '../middleware/errorHandler.js'
-import { requireAdminAuth } from '../auth.js'
+import { requireAdminAuth } from '../services/auth.js'
 import { object, string, number, boolean } from '../schemas/validation.js'
 import {
   getSquareInventoryReport,
@@ -9,8 +9,8 @@ import {
   resolveTopLevelCategoryMap,
   createSquarePaymentLink,
 } from '../square/index.js'
-import { isMagicCategory, onlineQuantity, shopReserve } from '../onlineSales.js'
-import { SITE_URL } from '../siteUrl.js'
+import { isMagicCategory, onlineQuantity, shopReserve } from '../lib/onlineSales.js'
+import { SITE_URL } from '../lib/siteUrl.js'
 
 // Register catch-alls for singles ("Magic singles") are rung up in store only.
 const SINGLES_ITEM_NAME = /\bsingles\b/i

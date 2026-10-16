@@ -1,4 +1,4 @@
-import { isMagicCategory, onlineQuantity } from '../onlineSales.js'
+import { isMagicCategory, onlineQuantity } from '../lib/onlineSales.js'
 import { listSquareCatalogItems } from './catalog.js'
 import { resolveTopLevelCategoryMap } from './categories.js'
 import { resolveSquareCredentials, resolveSquareEnvironment } from './client.js'
@@ -128,7 +128,7 @@ export const getPublicSquareCatalog = async (env = process.env) => {
       releasedAt: variation.releasedAt,
       itemCreatedAt: variation.itemCreatedAt,
       // How many could be bought online if an admin switches this item on
-      // (see api/onlineSales.js). The public-catalog route zeroes it for every
+      // (see api/lib/onlineSales.js). The public-catalog route zeroes it for every
       // item that isn't switched on, so this alone never makes anything buyable.
       onlineQuantity:
         isMagicCategory(categoryName) && variation.trackInventory && variation.priceCents > 0

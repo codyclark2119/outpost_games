@@ -7,7 +7,7 @@ import {
   daysInCatalog,
   EXCLUDED_EXPORT_CATEGORIES,
   buildInventoryWorkbook,
-} from '../inventoryExport.js'
+} from '../services/inventoryExport.js'
 
 const item = overrides => ({
   id: 'VAR1',

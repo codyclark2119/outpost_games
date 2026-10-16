@@ -8,7 +8,7 @@ import {
   eventDateISO,
   eventStart,
   entryLabel,
-} from '../eventShare.js'
+} from '../lib/eventShare.js'
 
 const prerelease = {
   id: 'evt-1',

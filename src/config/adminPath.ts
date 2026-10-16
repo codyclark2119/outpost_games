@@ -3,7 +3,7 @@
 // visible to anyone reading the source, so real deployments should set
 // VITE_ADMIN_BASE_PATH to something private instead of relying on the
 // default. This is obscurity on top of the real defense (the login wall in
-// api/auth.js), not a replacement for it.
+// api/services/auth.js), not a replacement for it.
 const raw = import.meta.env.VITE_ADMIN_BASE_PATH || '/x/outpostAdmin'
 
 // Normalize: exactly one leading slash, no trailing slash, so every route

@@ -1,4 +1,4 @@
-import storeConfig from './storeConfig.json' with { type: 'json' }
+import storeConfig from '../storeConfig.json' with { type: 'json' }
 
 // ─── Warm-hours self-ping (belt-and-suspenders) ─────────────────────────────
 // The .github/workflows/warm-hours.yml cron is the primary mechanism that

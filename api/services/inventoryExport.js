@@ -1,5 +1,5 @@
-import storeConfig from './storeConfig.json' with { type: 'json' }
-import { assertPersistence, createValue, requiresPersistence } from './services/persistence.js'
+import storeConfig from '../storeConfig.json' with { type: 'json' }
+import { assertPersistence, createValue, requiresPersistence } from './persistence.js'
 // ─── Monthly inventory export ────────────────────────────────────────────────
 // Builds an .xlsx snapshot of the Square inventory report (non-snack items,
 // grouped by stock status → category → quantity) and emails it to the shop.
@@ -9,8 +9,8 @@ import { assertPersistence, createValue, requiresPersistence } from './services/
 
 import ExcelJS from 'exceljs'
 
-import { getSquareInventoryReport } from './square/index.js'
-import { sendMail } from './mailClient.js'
+import { getSquareInventoryReport } from '../square/index.js'
+import { sendMail } from './mail.js'
 
 const LAST_RUN_KEY = 'outpost:inventory-export:lastRun'
 const STORE_TIMEZONE = storeConfig.timeZone

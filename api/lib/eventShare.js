@@ -1,4 +1,4 @@
-import storeConfig from './storeConfig.json' with { type: 'json' }
+import storeConfig from '../storeConfig.json' with { type: 'json' }
 import { SITE_URL } from './siteUrl.js'
 
 // Everything a shared event link needs that the single-page app can't do on
