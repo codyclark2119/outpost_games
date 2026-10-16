@@ -18,8 +18,11 @@ RUN npm ci --prefer-offline --no-audit
 # Copy frontend source
 COPY . .
 
-# Build for production
-RUN npm run build
+# The admin path is never baked into the image. The bundle is built with a
+# placeholder (an existing env var beats any .env file in Vite), and
+# startup.combined.sh swaps in the VITE_ADMIN_BASE_PATH Fly secret when the
+# container starts.
+RUN VITE_ADMIN_BASE_PATH=__OUTPOST_ADMIN_BASE_PATH__ npm run build
 
 # ============================================
 # Stage 2: Build Backend

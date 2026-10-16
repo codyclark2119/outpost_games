@@ -1,10 +1,10 @@
-import { assertPersistence, unavailable } from './services/persistence.js'
+import { assertPersistence, requiresPersistence, unavailable } from './services/persistence.js'
 import { asyncRoute } from './middleware/errorHandler.js'
 // ─── Admin session auth ───────────────────────────────────────────────────────
 // Opaque server-side sessions (not JWT) so a login can be revoked immediately by
 // deleting its Redis key — matters for an admin panel with catalog write access.
-// Mirrors the Redis-with-in-memory-fallback convention used by every other Redis-backed module:
-// the shared Redis client + a live "connected" flag are injected via initAuth().
+// Uses the shared Redis store from services/redis.js (injected via initAuth()),
+// with an in-memory fallback outside production.
 
 import crypto from 'node:crypto'
 import bcrypt from 'bcryptjs'
@@ -12,15 +12,14 @@ import bcrypt from 'bcryptjs'
 const SESSION_PREFIX = 'outpost:session:'
 const SESSION_TTL_SECONDS = 12 * 60 * 60 // 12 hours, refreshed on each authenticated request
 
-let redisClient = null
-let isRedisConnected = () => false
+let store = { redisClient: null, isRedisConnected: () => false, persistent: requiresPersistence() }
+const redis = () => (store.isRedisConnected() ? store.redisClient : null)
 
 // In-memory fallback: sessionId -> { username, expiresAt }
 const memorySessions = new Map()
 
-export const initAuth = ({ redisClient: client, isRedisConnected: connectedFn }) => {
-  redisClient = client
-  if (typeof connectedFn === 'function') isRedisConnected = connectedFn
+export const initAuth = sharedStore => {
+  store = { persistent: requiresPersistence(), ...sharedStore }
 }
 
 const parseAdminUsers = () => {
@@ -45,12 +44,13 @@ export const verifyCredentials = async (username, password) => {
 }
 
 export const createSession = async username => {
-  assertPersistence(isRedisConnected() && redisClient)
+  assertPersistence(store)
   const sessionId = crypto.randomBytes(32).toString('hex')
   const session = { username, createdAt: Date.now() }
+  const client = redis()
 
-  if (isRedisConnected() && redisClient) {
-    await redisClient
+  if (client) {
+    await client
       .set(SESSION_PREFIX + sessionId, JSON.stringify(session), {
         EX: SESSION_TTL_SECONDS,
       })
@@ -69,13 +69,14 @@ export const createSession = async username => {
 
 export const getSession = async sessionId => {
   if (!sessionId) return null
-  assertPersistence(isRedisConnected() && redisClient)
+  assertPersistence(store)
+  const client = redis()
 
-  if (isRedisConnected() && redisClient) {
+  if (client) {
     const key = SESSION_PREFIX + sessionId
-    const data = await redisClient.get(key)
+    const data = await client.get(key)
     if (!data) return null
-    await redisClient.expire(key, SESSION_TTL_SECONDS) // sliding expiration
+    await client.expire(key, SESSION_TTL_SECONDS) // sliding expiration
     return JSON.parse(data)
   }
 
@@ -91,9 +92,10 @@ export const getSession = async sessionId => {
 
 export const destroySession = async sessionId => {
   if (!sessionId) return
-  assertPersistence(isRedisConnected() && redisClient)
-  if (isRedisConnected() && redisClient) {
-    await redisClient.del(SESSION_PREFIX + sessionId).catch(cause => {
+  assertPersistence(store)
+  const client = redis()
+  if (client) {
+    await client.del(SESSION_PREFIX + sessionId).catch(cause => {
       throw unavailable(cause)
     })
   } else {

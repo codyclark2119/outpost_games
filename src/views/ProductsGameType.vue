@@ -1,148 +1,137 @@
 <template>
   <div class="pb-14">
-    <div v-if="!PRODUCTS_CATALOG_LIVE" class="page-shell py-8">
-      <ComingSoonPanel
-        title="Our online catalog is getting a refresh"
-        message="Live inventory isn't online just yet. Everything is still stocked in store — come see the full selection in person."
-      />
-    </div>
+    <GameNav
+      v-if="catalogStore.sections.length"
+      :sections="catalogStore.sections"
+      :active-slug="typeId"
+    />
 
-    <template v-else>
-      <GameNav
-        v-if="catalogStore.sections.length"
-        :sections="catalogStore.sections"
-        :active-slug="typeId"
-      />
+    <div class="page-shell">
+      <header class="pt-6 pb-4 sm:pt-8">
+        <p class="eyebrow">Products</p>
+        <h1
+          class="mt-2 flex items-center gap-3 font-display text-3xl font-bold tracking-tight text-outpost-navy sm:text-4xl"
+        >
+          <span
+            class="h-7 w-1.5 rounded-full"
+            :style="{ backgroundColor: meta.accent }"
+            aria-hidden="true"
+          ></span>
+          {{ meta.title }}
+        </h1>
+        <p v-if="currentSection" class="mt-1 text-slate-600">
+          {{ currentSection.items.length }} item{{ currentSection.items.length === 1 ? '' : 's' }}
+          in stock
+        </p>
+      </header>
 
-      <div class="page-shell">
-        <header class="pt-6 pb-4 sm:pt-8">
-          <p class="eyebrow">Products</p>
-          <h1
-            class="mt-2 flex items-center gap-3 font-display text-3xl font-bold tracking-tight text-outpost-navy sm:text-4xl"
-          >
-            <span
-              class="h-7 w-1.5 rounded-full"
-              :style="{ backgroundColor: meta.accent }"
+      <ProductGridSkeleton v-if="catalogStore.loading && !catalogStore.items.length" />
+
+      <div v-else-if="catalogStore.error && !catalogStore.items.length" class="card text-center">
+        <p class="text-slate-600">Products are temporarily unavailable.</p>
+        <button type="button" class="btn-secondary mt-4" @click="catalogStore.fetchCatalog">
+          Try again
+        </button>
+      </div>
+
+      <ComingSoonPanel v-else-if="!catalogStore.sections.length" />
+
+      <div v-else-if="!currentSection" class="card text-center">
+        <p class="font-medium text-slate-800">Nothing from {{ meta.title }} is in stock online.</p>
+        <p class="mt-1 text-sm text-slate-600">
+          Stock moves fast — check the other games or ask us in store.
+        </p>
+        <router-link to="/products" class="btn-secondary mt-4">Browse all games</router-link>
+      </div>
+
+      <template v-else>
+        <!-- Search + sort -->
+        <div class="flex gap-2">
+          <label class="relative min-w-0 flex-1">
+            <span class="sr-only">Search {{ meta.title }}</span>
+            <MagnifyingGlassIcon
+              class="pointer-events-none absolute top-1/2 left-3.5 h-5 w-5 -translate-y-1/2 text-slate-400"
               aria-hidden="true"
-            ></span>
-            {{ meta.title }}
-          </h1>
-          <p v-if="currentSection" class="mt-1 text-slate-600">
-            {{ currentSection.items.length }} item{{ currentSection.items.length === 1 ? '' : 's' }}
-            in stock
-          </p>
-        </header>
+            />
+            <input
+              v-model="query"
+              type="search"
+              :placeholder="`Search ${meta.label}`"
+              class="form-input pl-11"
+              enterkeyhint="search"
+            />
+          </label>
+          <label class="shrink-0">
+            <span class="sr-only">Sort</span>
+            <select v-model="sortBy" class="form-input w-auto pr-8">
+              <option value="newest">Newest</option>
+              <option value="price-asc">Price ↑</option>
+              <option value="price-desc">Price ↓</option>
+              <option value="name-asc">A–Z</option>
+            </select>
+          </label>
+        </div>
 
-        <ProductGridSkeleton v-if="catalogStore.loading && !catalogStore.items.length" />
-
-        <div v-else-if="catalogStore.error && !catalogStore.items.length" class="card text-center">
-          <p class="text-slate-600">Products are temporarily unavailable.</p>
-          <button type="button" class="btn-secondary mt-4" @click="catalogStore.fetchCatalog">
-            Try again
+        <!-- Set filter -->
+        <div
+          v-if="currentSection.sets.length > 1"
+          class="scroll-row mt-3"
+          role="group"
+          aria-label="Filter by set"
+        >
+          <button
+            type="button"
+            class="chip snap-start"
+            :class="{ 'chip-active': !activeSet }"
+            :aria-pressed="!activeSet"
+            @click="selectedSet = null"
+          >
+            All sets
+          </button>
+          <button
+            v-for="set in currentSection.sets"
+            :key="set.slug"
+            type="button"
+            class="chip snap-start"
+            :class="{ 'chip-active': activeSet?.slug === set.slug }"
+            :aria-pressed="activeSet?.slug === set.slug"
+            @click="selectedSet = set.slug"
+          >
+            {{ set.name }}
           </button>
         </div>
 
-        <ComingSoonPanel v-else-if="!catalogStore.sections.length" />
+        <p v-if="isFiltered" class="mt-4 text-sm text-slate-600" aria-live="polite">
+          Showing {{ filteredItems.length }} of {{ currentSection.items.length }}
+          <button
+            type="button"
+            class="ml-2 font-semibold text-outpost-navy underline-offset-4 hover:underline"
+            @click="clearFilters"
+          >
+            Clear filters
+          </button>
+        </p>
 
-        <div v-else-if="!currentSection" class="card text-center">
-          <p class="font-medium text-slate-800">
-            Nothing from {{ meta.title }} is in stock online.
-          </p>
-          <p class="mt-1 text-sm text-slate-600">
-            Stock moves fast — check the other games or ask us in store.
-          </p>
-          <router-link to="/products" class="btn-secondary mt-4">Browse all games</router-link>
+        <div
+          v-if="filteredItems.length"
+          class="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-3 sm:gap-4 lg:grid-cols-4 xl:grid-cols-5"
+        >
+          <ProductCard
+            v-for="item in filteredItems"
+            :key="item.id"
+            buyable
+            :item="item"
+            :subtitle="activeSet ? null : item.setName"
+          />
         </div>
-
-        <template v-else>
-          <!-- Search + sort -->
-          <div class="flex gap-2">
-            <label class="relative min-w-0 flex-1">
-              <span class="sr-only">Search {{ meta.title }}</span>
-              <MagnifyingGlassIcon
-                class="pointer-events-none absolute top-1/2 left-3.5 h-5 w-5 -translate-y-1/2 text-slate-400"
-                aria-hidden="true"
-              />
-              <input
-                v-model="query"
-                type="search"
-                :placeholder="`Search ${meta.label}`"
-                class="form-input pl-11"
-                enterkeyhint="search"
-              />
-            </label>
-            <label class="shrink-0">
-              <span class="sr-only">Sort</span>
-              <select v-model="sortBy" class="form-input w-auto pr-8">
-                <option value="newest">Newest</option>
-                <option value="price-asc">Price ↑</option>
-                <option value="price-desc">Price ↓</option>
-                <option value="name-asc">A–Z</option>
-              </select>
-            </label>
-          </div>
-
-          <!-- Set filter -->
-          <div
-            v-if="currentSection.sets.length > 1"
-            class="scroll-row mt-3"
-            role="group"
-            aria-label="Filter by set"
-          >
-            <button
-              type="button"
-              class="chip snap-start"
-              :class="{ 'chip-active': !activeSet }"
-              :aria-pressed="!activeSet"
-              @click="selectedSet = null"
-            >
-              All sets
-            </button>
-            <button
-              v-for="set in currentSection.sets"
-              :key="set.slug"
-              type="button"
-              class="chip snap-start"
-              :class="{ 'chip-active': activeSet?.slug === set.slug }"
-              :aria-pressed="activeSet?.slug === set.slug"
-              @click="selectedSet = set.slug"
-            >
-              {{ set.name }}
-            </button>
-          </div>
-
-          <p v-if="isFiltered" class="mt-4 text-sm text-slate-600" aria-live="polite">
-            Showing {{ filteredItems.length }} of {{ currentSection.items.length }}
-            <button
-              type="button"
-              class="ml-2 font-semibold text-outpost-navy underline-offset-4 hover:underline"
-              @click="clearFilters"
-            >
-              Clear filters
-            </button>
-          </p>
-
-          <div
-            v-if="filteredItems.length"
-            class="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-3 sm:gap-4 lg:grid-cols-4 xl:grid-cols-5"
-          >
-            <ProductCard
-              v-for="item in filteredItems"
-              :key="item.id"
-              buyable
-              :item="item"
-              :subtitle="activeSet ? null : item.setName"
-            />
-          </div>
-          <div v-else class="card mt-4 text-center">
-            <p class="font-medium text-slate-800">Nothing matches those filters.</p>
-            <button type="button" class="btn-secondary mt-4" @click="clearFilters">
-              Clear filters
-            </button>
-          </div>
-        </template>
-      </div>
-    </template>
+        <div v-else class="card mt-4 text-center">
+          <p class="font-medium text-slate-800">Nothing matches those filters.</p>
+          <button type="button" class="btn-secondary mt-4" @click="clearFilters">
+            Clear filters
+          </button>
+        </div>
+      </template>
+    </div>
   </div>
 </template>
 
@@ -159,7 +148,6 @@ import {
 } from '../stores/squareCatalog'
 import { gameMeta } from '../config/games'
 import { SITE_URL } from '../composables/usePageMeta'
-import { PRODUCTS_CATALOG_LIVE } from '../config/featureFlags'
 import GameNav from '../components/GameNav.vue'
 import ProductCard from '../components/ProductCard.vue'
 import ProductGridSkeleton from '../components/ProductGridSkeleton.vue'
@@ -251,6 +239,6 @@ const filteredItems = computed((): SquarePublicItem[] => {
 })
 
 onMounted(() => {
-  if (PRODUCTS_CATALOG_LIVE) catalogStore.ensureCatalog()
+  catalogStore.ensureCatalog()
 })
 </script>

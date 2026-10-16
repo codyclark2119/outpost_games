@@ -4,7 +4,7 @@ Web application for **The Outpost Games**, a TCG card shop in Rio Grande City, T
 
 **Live site:** https://outpostgamesrgv.com
 
-The public site is a single page (`src/views/Home.vue`) plus two standalone routes, `/products` (Square-backed live inventory, gated by the `VITE_PRODUCTS_PAGE_LIVE` build-time env var — see `src/config/featureFlags.ts`) and `/events`. `/about` and `/contact` redirect to in-page sections (`/#about`, `/#contact`) rather than 404ing, for anyone with an old bookmark or inbound link.
+The public site is a single page (`src/views/Home.vue`) plus two standalone routes, `/products` (Square-backed live inventory) and `/events`. `/about` and `/contact` redirect to in-page sections (`/#about`, `/#contact`) rather than 404ing, for anyone with an old bookmark or inbound link.
 
 ---
 
@@ -103,7 +103,7 @@ See `local-dev/README.md` for details.
 ├── src/
 │   ├── views/
 │   │   ├── Home.vue              # One-page site: hero + open/closed status, this week's events, shop by game, new arrivals, about, socials, visit/hours
-│   │   ├── Products.vue          # Square-backed catalog: game chips, search, a swipeable row per game; gated by VITE_PRODUCTS_PAGE_LIVE
+│   │   ├── Products.vue          # Square-backed catalog: game chips, search, a swipeable row per game
 │   │   ├── ProductsGameType.vue  # One game: search, sort, set chips
 │   │   ├── Events.vue            # Weekly schedule + upcoming special events
 │   │   ├── Terms.vue
@@ -256,7 +256,6 @@ Copy `.env.example` to `.env` and fill in values:
 | Variable                        | Description                                                                                               | Default                         |
 | ------------------------------- | --------------------------------------------------------------------------------------------------------- | ------------------------------- |
 | `VITE_API_URL`                  | Frontend API base path                                                                                    | `/api`                          |
-| `VITE_PRODUCTS_PAGE_LIVE`       | Build-time flag — show the live Square-backed `/products` page instead of "Coming Soon"                   | `false`                         |
 | `REDIS_URL`                     | Redis connection string                                                                                   | `redis://redis:6379`            |
 | `API_PORT`                      | API server port                                                                                           | `3001`                          |
 | `NODE_ENV`                      | Environment                                                                                               | `production`                    |
@@ -282,12 +281,17 @@ For production on Upstash, use a `rediss://` URL (TLS is auto-detected from `ups
 
 The app runs as a single combined container on Fly.io: Nginx serves the Vue SPA, proxies `/api` to a Node.js process in the same container.
 
-```bash
-# Deploy to Fly.io
-flyctl deploy
+Merging to `main` deploys automatically: once CI passes on `main`, `.github/workflows/deploy.yml` runs `flyctl deploy`, purges Cloudflare's cache (when its secrets are set) and checks that `/api/health` reports `ok`. It can also be run by hand from the Actions tab.
 
-# Purge Cloudflare cache after deploy
-./scripts/purge-cloudflare.sh
+The private admin path is never in the repo or the image: the frontend is built with a placeholder, and `startup.combined.sh` fills in the `VITE_ADMIN_BASE_PATH` Fly secret when the container starts (it refuses to start without it). Change it with `fly secrets set VITE_ADMIN_BASE_PATH=/your/path`, which restarts the app.
+
+Every PR also builds the production image (`Dockerfile.combined`), so a broken Dockerfile fails CI instead of a deploy.
+
+A manual deploy from a laptop works the same way:
+
+```bash
+flyctl deploy
+./scripts/purge-cloudflare.sh   # if the Cloudflare secrets aren't set in GitHub
 ```
 
 See `docs/deployment/` for full deployment guides.

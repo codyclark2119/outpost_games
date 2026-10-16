@@ -40,7 +40,7 @@ primary_region = 'dfw'  # Dallas region (optimal for Texas location)
     timeout = '5s'
     grace_period = '10s'
     method = 'GET'
-    path = '/'  # Check main page responds
+    path = '/api/health'  # Goes through nginx to the API, so it checks both
 
 [[vm]]
   cpu_kind = 'shared'  # Shared CPU (most cost-effective)

@@ -21,6 +21,20 @@ shutdown() {
 }
 trap 'exit 0' TERM INT
 trap shutdown EXIT
+# Put the private admin path (Fly secret) into the built frontend. Refuse to
+# start without it rather than serve the admin page at a guessable path.
+ADMIN_PATH="${VITE_ADMIN_BASE_PATH:-}"
+case "$ADMIN_PATH" in
+  /*) ;;
+  *) echo "VITE_ADMIN_BASE_PATH must be set as a Fly secret and start with /" >&2; exit 1 ;;
+esac
+if printf '%s' "$ADMIN_PATH" | grep -q '[^A-Za-z0-9/_.-]'; then
+  echo "VITE_ADMIN_BASE_PATH may only contain letters, digits, / _ . -" >&2
+  exit 1
+fi
+grep -rl __OUTPOST_ADMIN_BASE_PATH__ /usr/share/nginx/html | while read -r file; do
+  sed -i "s#__OUTPOST_ADMIN_BASE_PATH__#${ADMIN_PATH}#g" "$file"
+done
 cd /app/api
 node server.js &
 API_PID=$!
