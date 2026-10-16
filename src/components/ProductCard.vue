@@ -47,19 +47,21 @@
           <ShoppingBagIcon class="h-4 w-4" aria-hidden="true" />
           Buy online
         </button>
-        <BuyOnlineDialog :item="item" :open="buying" @close="buying = false" />
+        <BuyOnlineDialog v-if="buying" :item="item" :open="buying" @close="buying = false" />
       </div>
     </div>
   </article>
 </template>
 
 <script setup lang="ts">
-import { computed, ref } from 'vue'
+import { computed, defineAsyncComponent, ref } from 'vue'
 import { ShoppingBagIcon } from '@heroicons/vue/24/outline'
-import BuyOnlineDialog from './BuyOnlineDialog.vue'
 import { formatPrice, slugify, type SquarePublicItem } from '../stores/squareCatalog'
 import { gameMeta } from '../config/games'
 import { placeholderArt } from '../config/setSymbols'
+
+// Loaded on the first tap of "Buy online", not with every product grid.
+const BuyOnlineDialog = defineAsyncComponent(() => import('./BuyOnlineDialog.vue'))
 
 // subtitle: the set or game name shown above the title, when the context
 // around the card doesn't already make it obvious.

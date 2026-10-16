@@ -1,8 +1,10 @@
 name: Warm hours (Fly.io)
 
-# Keeps the outpost-games-rgv Fly machine(s) guaranteed-warm during business
-# hours (noon-midnight America/Chicago, daily) and lets them return to normal
-# wake-on-demand auto-sleep the rest of the day. fly.toml's
+# Starts the outpost-games-rgv Fly machine(s) at the start of business hours
+# (noon-midnight America/Chicago, daily). Fly's proxy would stop an idle
+# machine again within minutes; the server's own self-ping
+# (api/services/warmWindow.js) is what keeps it awake through the window.
+# At midnight it stops them, back to normal wake-on-demand auto-sleep. fly.toml's
 # auto_stop_machines/auto_start_machines/min_machines_running are left exactly
 # as-is (min_machines_running stays 0) — those knobs are idle-based, not
 # schedule-based, so they can't express "warm from noon to midnight" on their

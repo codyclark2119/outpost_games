@@ -2,7 +2,7 @@
 
 ## How production runs
 
-- **Fly.io** app `outpost-games-rgv` in `dfw`, one shared-CPU machine with 256 MB (`fly.toml`). It sleeps after about 5 idle minutes and wakes on the next request. `.github/workflows/warm-hours.yml` keeps it awake from noon to midnight Central.
+- **Fly.io** app `outpost-games-rgv` in `dfw`, one shared-CPU machine with 256 MB (`fly.toml`). It sleeps after about 5 idle minutes and wakes on the next request. From noon to midnight Central it stays awake: `.github/workflows/warm-hours.yml` starts it at noon and the server pings its own `fly.dev` address every 2 minutes (`api/services/warmWindow.js`; `WARM_WINDOW_SELF_PING=false` turns that off).
 - **One container** (`Dockerfile.combined`): Nginx serves the built Vue app and proxies `/api` to the Node API on `127.0.0.1:3001`. `startup.combined.sh` starts both and stops the container if either dies.
 - **Redis** is Upstash (`REDIS_URL`, TLS detected from `upstash.io`). Without Redis in production the API answers 503 rather than losing data.
 - **Cloudflare** sits in front of `outpostgamesrgv.com` (DNS, cache, HTTPS). Fly's own address, `https://outpost-games-rgv.fly.dev`, skips Cloudflare.
