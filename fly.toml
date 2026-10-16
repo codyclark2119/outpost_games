@@ -6,7 +6,7 @@
 # Region: Dallas (dfw)
 # Domain: outpostgamesrgv.com (Cloudflare CDN + Fly.io)
 # SSL: Let's Encrypt (auto-renewed)
-# Auto-sleep: Enabled (5 minute timeout)
+# Auto-sleep: Enabled (5 minute timeout); no volume, Redis is Upstash
 # Cost: $0.10-$1.94/month (with auto-sleep)
 #
 # See https://fly.io/docs/reference/configuration/ for information about how to use this file.
@@ -22,11 +22,6 @@ primary_region = 'dfw'  # Dallas region (optimal for Texas location)
   NODE_ENV = 'production'
   PORT = '8080'
   VITE_API_URL = '/api'  # API served from same domain
-
-[[mounts]]
-  source = 'outpost_redis_data'  # Persistent volume for Redis data
-  destination = '/data'
-  initial_size = '1gb'
 
 [http_service]
   internal_port = 80
