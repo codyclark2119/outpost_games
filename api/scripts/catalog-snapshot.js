@@ -18,9 +18,7 @@
 import fs from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { createSquarePosClient, loadSquareEnvironment } from '../squarePosClient.js'
-
-loadSquareEnvironment()
+import { createSquarePosClient } from '../square/index.js'
 
 const argValue = flag => {
   const index = process.argv.indexOf(flag)
