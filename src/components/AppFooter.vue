@@ -41,7 +41,10 @@
             {{ STORE_INFO.address.city }}, {{ STORE_INFO.address.state }}
             {{ STORE_INFO.address.zip }}
           </a>
-          <a :href="`mailto:${STORE_INFO.email}`" class="block break-all hover:text-white">
+          <a
+            :href="`mailto:${STORE_INFO.email}`"
+            class="inline-flex min-h-11 items-center break-all hover:text-white"
+          >
             {{ STORE_INFO.email }}
           </a>
         </address>
@@ -52,8 +55,12 @@
       <div class="page-shell space-y-3 py-6 text-xs text-slate-400">
         <div class="flex flex-wrap items-center gap-x-5 gap-y-2">
           <span>&copy; {{ currentYear }} The Outpost Games</span>
-          <router-link to="/terms" class="hover:text-white">Terms</router-link>
-          <router-link to="/privacy" class="hover:text-white">Privacy</router-link>
+          <router-link to="/terms" class="inline-flex min-h-11 items-center hover:text-white"
+            >Terms</router-link
+          >
+          <router-link to="/privacy" class="inline-flex min-h-11 items-center hover:text-white"
+            >Privacy</router-link
+          >
         </div>
         <p class="max-w-3xl leading-relaxed text-slate-500">
           The Outpost Games is an independent retailer and is not affiliated with, endorsed, or

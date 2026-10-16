@@ -14,23 +14,26 @@
       <SocialIcon name="linktree" class="h-4 w-4" />
       All our links
     </a>
-    <a
-      v-for="link in iconLinks"
-      :key="link.name"
-      :href="link.href"
-      target="_blank"
-      rel="noopener noreferrer"
-      :aria-label="link.label"
-      :title="link.label"
-      class="inline-flex h-11 w-11 items-center justify-center rounded-full border transition-colors"
-      :class="
-        dark
-          ? 'border-white/15 text-white/80 hover:border-white/40 hover:text-white'
-          : 'border-slate-200 bg-white text-slate-600 hover:border-outpost-navy hover:text-outpost-navy'
-      "
-    >
-      <SocialIcon :name="link.name" class="h-5 w-5" />
-    </a>
+    <!-- The icons wrap as one group, never leaving one stranded on its own line. -->
+    <div class="flex gap-2">
+      <a
+        v-for="link in iconLinks"
+        :key="link.name"
+        :href="link.href"
+        target="_blank"
+        rel="noopener noreferrer"
+        :aria-label="link.label"
+        :title="link.label"
+        class="inline-flex h-11 w-11 items-center justify-center rounded-full border transition-colors"
+        :class="
+          dark
+            ? 'border-white/15 text-white/80 hover:border-white/40 hover:text-white'
+            : 'border-slate-200 bg-white text-slate-600 hover:border-outpost-navy hover:text-outpost-navy'
+        "
+      >
+        <SocialIcon :name="link.name" class="h-5 w-5" />
+      </a>
+    </div>
   </div>
 </template>
 
