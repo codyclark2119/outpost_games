@@ -99,7 +99,7 @@
   }
 
   .chip {
-    @apply inline-flex shrink-0 items-center gap-1.5 rounded-full border border-slate-200 bg-white px-3.5 py-1.5 text-sm font-medium whitespace-nowrap text-slate-700 transition-colors duration-150 hover:border-outpost-navy/40;
+    @apply inline-flex min-h-10 shrink-0 items-center gap-1.5 rounded-full border border-slate-200 bg-white px-3.5 py-1.5 text-sm font-medium whitespace-nowrap text-slate-700 transition-colors duration-150 hover:border-outpost-navy/40;
   }
 
   .chip-active {
@@ -115,7 +115,7 @@
   }
 
   .text-link {
-    @apply inline-flex items-center gap-1 text-sm font-semibold text-outpost-navy underline-offset-4 hover:underline;
+    @apply inline-flex min-h-11 items-center gap-1 text-sm font-semibold text-outpost-navy underline-offset-4 hover:underline;
   }
 
   .form-input {

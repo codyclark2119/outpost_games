@@ -40,25 +40,21 @@
                 Special
               </span>
             </p>
-            <p class="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-1 text-sm text-slate-500">
+            <p class="mt-0.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-slate-500">
               <span class="font-semibold text-outpost-navy tabular-nums">{{ event.time }}</span>
-              <template v-if="event.gameTypeName">
-                <span aria-hidden="true">·</span>
-                <span class="inline-flex items-center gap-1.5">
-                  <span
-                    class="h-2 w-2 rounded-full"
-                    :style="{
-                      backgroundColor: gameMeta(event.gameTypeId ?? '', event.gameTypeName).accent,
-                    }"
-                    aria-hidden="true"
-                  ></span>
-                  {{ event.gameTypeName }}
-                </span>
-              </template>
-              <template v-if="!event.isWeekly && event.entry">
-                <span aria-hidden="true">·</span>
-                <span>${{ event.entry }} entry</span>
-              </template>
+              <!-- No "·" separators: on a narrow phone they end up dangling at the
+                   start or end of a wrapped line. The game's color dot does the job. -->
+              <span v-if="event.gameTypeName" class="inline-flex items-center gap-1.5">
+                <span
+                  class="h-2 w-2 rounded-full"
+                  :style="{
+                    backgroundColor: gameMeta(event.gameTypeId ?? '', event.gameTypeName).accent,
+                  }"
+                  aria-hidden="true"
+                ></span>
+                {{ event.gameTypeName }}
+              </span>
+              <span v-if="!event.isWeekly && event.entry">{{ entryLabel(event.entry) }}</span>
             </p>
             <p
               v-if="detailed && !event.isWeekly && event.description"
@@ -77,7 +73,7 @@
 import type { AgendaDay } from '../utils/eventOccurrences'
 import { storeDateParts } from '../utils/eventDateTime'
 import { gameMeta } from '../config/games'
-import { eventPath } from '../utils/eventLinks'
+import { entryLabel, eventPath } from '../utils/eventLinks'
 
 // detailed: also show special events' descriptions (Events page; Home stays
 // terse). Weekly nights are described once, in the Events page's weekly list.

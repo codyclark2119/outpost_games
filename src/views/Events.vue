@@ -57,7 +57,7 @@
                 <p class="font-semibold text-slate-800">{{ event.title }}</p>
                 <p class="mt-0.5 text-xs text-slate-500">
                   {{ storeDateParts(event.iso).weekday }} · {{ event.time }}
-                  <span v-if="event.entry"> · ${{ event.entry }} entry</span>
+                  <span v-if="event.entry"> · {{ entryLabel(event.entry) }}</span>
                   <span v-if="event.gameTypeName"> · {{ event.gameTypeName }}</span>
                 </p>
                 <p v-if="event.description" class="mt-1.5 line-clamp-3 text-sm text-slate-600">
@@ -125,7 +125,7 @@ import { useEventsStore } from '../stores/events'
 import { useWeeklyOverridesStore } from '../stores/weeklyOverrides'
 import { WEEKLY_SCHEDULE, type WeeklyScheduleEntry } from '../config/weeklySchedule'
 import { getAgenda } from '../utils/eventOccurrences'
-import { eventPath, upcomingSpecials } from '../utils/eventLinks'
+import { entryLabel, eventPath, upcomingSpecials } from '../utils/eventLinks'
 import {
   addDaysToISODate,
   eventStartISO,

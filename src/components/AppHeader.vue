@@ -44,7 +44,7 @@
       <div class="flex items-center gap-3">
         <a
           href="/#contact"
-          class="rounded-full bg-white/10 px-3 py-1.5 text-xs text-white/90 transition-colors hover:bg-white/15"
+          class="inline-flex min-h-10 items-center rounded-full bg-white/10 px-3.5 text-xs text-white/90 transition-colors hover:bg-white/15"
           @click.prevent="goToSection('contact')"
         >
           <StoreStatus compact />

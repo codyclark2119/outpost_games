@@ -35,19 +35,20 @@
       >
         {{ subtitle }}
       </p>
-      <h3 class="line-clamp-2 text-sm leading-snug font-medium text-slate-800">
+      <!-- Always two lines tall, so prices line up across a row. -->
+      <h3 class="line-clamp-2 min-h-[2.75em] text-sm leading-snug font-medium text-slate-800">
         {{ item.name }}
       </h3>
-      <p class="mt-auto pt-1 text-base font-semibold text-outpost-navy">
+      <p class="pt-1 text-base font-semibold text-outpost-navy">
         {{ formatPrice(item) }}
       </p>
-      <template v-if="canBuy">
-        <button type="button" class="btn-primary mt-2 w-full py-2 text-sm" @click="buying = true">
+      <div v-if="canBuy" class="mt-auto pt-2">
+        <button type="button" class="btn-primary w-full py-2.5 text-sm" @click="buying = true">
           <ShoppingBagIcon class="h-4 w-4" aria-hidden="true" />
           Buy online
         </button>
         <BuyOnlineDialog :item="item" :open="buying" @close="buying = false" />
-      </template>
+      </div>
     </div>
   </article>
 </template>
@@ -70,7 +71,9 @@ const props = defineProps<{
   subtitle?: string | null
   buyable?: boolean
 }>()
-const canBuy = computed(() => props.buyable && (props.item.onlineQuantity ?? 0) > 0)
+const canBuy = computed(
+  () => props.buyable && (props.item.priceCents ?? 0) > 0 && (props.item.onlineQuantity ?? 0) > 0
+)
 const buying = ref(false)
 const game = computed(() => gameMeta(slugify(props.item.categoryName), props.item.categoryName))
 const placeholder = computed(() => placeholderArt(props.item.setName, props.item.name))
