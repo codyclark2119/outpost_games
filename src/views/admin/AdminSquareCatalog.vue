@@ -47,20 +47,28 @@
         <button class="underline" @click="fetchCategories">Retry</button>
       </p>
       <p v-if="!filteredRows.length" class="text-gray-500 py-8">No matching products.</p>
-      <div class="space-y-3">
-        <CatalogCategoryGroup
-          v-for="group in groupedFilteredRows"
-          :key="group.name"
-          :group="group"
-          :selection-state="groupSelectionState(group)"
-          :expanded="expandedCategories.has(group.name)"
-          :selected-item-ids="selectedItemIds"
-          @select-group="toggleGroupSelection"
-          @toggle="toggleCategory"
-          @select="toggleItemSelection"
-          @edit="openEdit"
-        />
-      </div>
+      <section
+        v-for="section in catalogSections"
+        :key="section.title"
+        class="mb-8"
+        :aria-label="section.title"
+      >
+        <h2 class="font-display font-bold text-xl text-outpost-navy mb-3">{{ section.title }}</h2>
+        <div class="space-y-3">
+          <CatalogCategoryGroup
+            v-for="group in section.groups"
+            :key="group.name"
+            :group="group"
+            :selection-state="groupSelectionState(group)"
+            :expanded="expandedCategories.has(group.name)"
+            :selected-item-ids="selectedItemIds"
+            @select-group="toggleGroupSelection"
+            @toggle="toggleCategory"
+            @select="toggleItemSelection"
+            @edit="openEdit"
+          />
+        </div>
+      </section>
     </template>
 
     <BulkActionsBar
@@ -247,6 +255,15 @@ const confirmBulkDelete = async () => {
 
 const categoryManager = ref<InstanceType<typeof CategoryManager> | null>(null)
 const openCategoryPanel = () => categoryManager.value?.openCategoryPanel()
+const catalogSections = computed(() =>
+  [
+    { title: 'Card games', groups: groupedFilteredRows.value.games },
+    {
+      title: 'Snacks, accessories and tournaments',
+      groups: groupedFilteredRows.value.snacksAndAccessories,
+    },
+  ].filter(section => section.groups.length > 0)
+)
 const refreshCatalog = () => Promise.all([fetchRows(), fetchCategories()])
 
 const onProductSaved = () => {

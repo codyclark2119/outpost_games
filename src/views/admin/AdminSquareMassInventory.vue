@@ -45,7 +45,8 @@
             <span class="block text-sm text-gray-600">
               Full recount for conventions and other big stock swings — every tracked item in the
               checked categories is set to 0 unless you enter a count for it. Applies to whole
-              categories, regardless of the search above.
+              categories, regardless of the search above. Snacks and accessories are checked to
+              start; check card games too only when you are recounting them.
             </span>
           </span>
         </label>
@@ -53,6 +54,9 @@
         <div v-if="startFromZero" class="mt-4 pl-7">
           <div class="flex items-center gap-3 mb-2 text-sm">
             <span class="font-medium text-gray-700">Reset categories</span>
+            <button type="button" class="text-outpost-navy underline" @click="onlySnacks">
+              Snacks and accessories
+            </button>
             <button type="button" class="text-outpost-navy underline" @click="includeAll">
               All
             </button>
@@ -95,91 +99,104 @@
         <p class="text-gray-500">No trackable items match your search.</p>
       </div>
 
-      <!-- Category groups -->
-      <div v-else class="space-y-3">
-        <div
-          v-for="group in groupedTrackableItems"
-          :key="group.name"
-          class="bg-white rounded-xl shadow border border-gray-200 overflow-hidden"
+      <!-- Category groups: card games first, snacks and accessories after -->
+      <template v-else>
+        <section
+          v-for="section in sections"
+          :key="section.title"
+          class="mb-8"
+          :aria-label="section.title"
         >
-          <div
-            class="flex items-center gap-3 px-4 py-3 bg-outpost-navy text-white cursor-pointer select-none"
-            @click="toggleCategory(group.name)"
-          >
-            <span
-              class="text-lg transition-transform duration-200"
-              :class="expandedCategories.has(group.name) ? 'rotate-90' : ''"
-              >▶</span
+          <h2 class="font-display font-bold text-xl text-outpost-navy mb-3">{{ section.title }}</h2>
+          <div class="space-y-3">
+            <div
+              v-for="group in section.groups"
+              :key="group.name"
+              class="bg-white rounded-xl shadow border border-gray-200 overflow-hidden"
             >
-            <span class="font-display font-bold text-lg flex-1">{{ group.name }}</span>
-            <span
-              v-if="isResetCategory(group.name)"
-              class="text-xs font-semibold px-2 py-0.5 rounded bg-amber-400 text-outpost-navy"
-              >Reset to 0</span
-            >
-            <span class="text-xs text-white/60"
-              >{{ group.items.length }} item{{ group.items.length !== 1 ? 's' : '' }}</span
-            >
-          </div>
+              <div
+                class="flex items-center gap-3 px-4 py-3 bg-outpost-navy text-white cursor-pointer select-none"
+                @click="toggleCategory(group.name)"
+              >
+                <span
+                  class="text-lg transition-transform duration-200"
+                  :class="expandedCategories.has(group.name) ? 'rotate-90' : ''"
+                  >▶</span
+                >
+                <span class="font-display font-bold text-lg flex-1">{{ group.name }}</span>
+                <span
+                  v-if="isResetCategory(group.name)"
+                  class="text-xs font-semibold px-2 py-0.5 rounded bg-amber-400 text-outpost-navy"
+                  >Reset to 0</span
+                >
+                <span class="text-xs text-white/60"
+                  >{{ group.items.length }} item{{ group.items.length !== 1 ? 's' : '' }}</span
+                >
+              </div>
 
-          <div v-if="expandedCategories.has(group.name)" class="overflow-x-auto">
-            <table class="w-full text-sm">
-              <thead>
-                <tr
-                  class="border-b border-gray-200 text-left text-xs uppercase tracking-wide text-gray-500"
-                >
-                  <th class="px-3 py-3 sm:px-4">Item</th>
-                  <th class="hidden px-4 py-3 sm:table-cell">SKU</th>
-                  <th class="px-2 py-3 text-right sm:px-4">Now</th>
-                  <th class="px-3 py-3 text-right sm:px-4">New count</th>
-                </tr>
-              </thead>
-              <tbody>
-                <tr
-                  v-for="item in group.items"
-                  :key="item.id"
-                  class="border-b border-gray-100 last:border-0 hover:bg-gray-50"
-                  :class="{ 'bg-amber-50': isEdited(item.id) }"
-                >
-                  <td class="px-3 py-2.5 font-medium text-gray-800 sm:px-4">
-                    {{ item.displayName }}
-                    <span v-if="item.sku" class="block text-xs font-normal text-gray-500 sm:hidden">
-                      SKU {{ item.sku }}
-                    </span>
-                  </td>
-                  <td class="hidden px-4 py-2.5 text-gray-500 sm:table-cell">
-                    {{ item.sku || '—' }}
-                  </td>
-                  <td
-                    class="px-2 py-2.5 text-right sm:px-4"
-                    :class="
-                      isResetCategory(categoryOf(item)) && !isEdited(item.id)
-                        ? 'text-gray-400 line-through'
-                        : 'text-gray-700'
-                    "
-                  >
-                    {{ item.quantity ?? '—' }}
-                  </td>
-                  <td class="px-3 py-2.5 text-right sm:px-4">
-                    <input
-                      v-model="edits[item.id]"
-                      type="number"
-                      min="0"
-                      step="1"
-                      :placeholder="
-                        isResetCategory(categoryOf(item)) ? '0' : String(item.quantity ?? 0)
-                      "
-                      inputmode="numeric"
-                      :aria-label="`New count for ${item.displayName}`"
-                      class="input-field !w-20 py-1 text-right sm:!w-28"
-                    />
-                  </td>
-                </tr>
-              </tbody>
-            </table>
+              <div v-if="expandedCategories.has(group.name)" class="overflow-x-auto">
+                <table class="w-full text-sm">
+                  <thead>
+                    <tr
+                      class="border-b border-gray-200 text-left text-xs uppercase tracking-wide text-gray-500"
+                    >
+                      <th class="px-3 py-3 sm:px-4">Item</th>
+                      <th class="hidden px-4 py-3 sm:table-cell">SKU</th>
+                      <th class="px-2 py-3 text-right sm:px-4">Now</th>
+                      <th class="px-3 py-3 text-right sm:px-4">New count</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr
+                      v-for="item in group.items"
+                      :key="item.id"
+                      class="border-b border-gray-100 last:border-0 hover:bg-gray-50"
+                      :class="{ 'bg-amber-50': isEdited(item.id) }"
+                    >
+                      <td class="px-3 py-2.5 font-medium text-gray-800 sm:px-4">
+                        {{ item.displayName }}
+                        <span
+                          v-if="item.sku"
+                          class="block text-xs font-normal text-gray-500 sm:hidden"
+                        >
+                          SKU {{ item.sku }}
+                        </span>
+                      </td>
+                      <td class="hidden px-4 py-2.5 text-gray-500 sm:table-cell">
+                        {{ item.sku || '—' }}
+                      </td>
+                      <td
+                        class="px-2 py-2.5 text-right sm:px-4"
+                        :class="
+                          isResetCategory(categoryOf(item)) && !isEdited(item.id)
+                            ? 'text-gray-400 line-through'
+                            : 'text-gray-700'
+                        "
+                      >
+                        {{ item.quantity ?? '—' }}
+                      </td>
+                      <td class="px-3 py-2.5 text-right sm:px-4">
+                        <input
+                          v-model="edits[item.id]"
+                          type="number"
+                          min="0"
+                          step="1"
+                          :placeholder="
+                            isResetCategory(categoryOf(item)) ? '0' : String(item.quantity ?? 0)
+                          "
+                          inputmode="numeric"
+                          :aria-label="`New count for ${item.displayName}`"
+                          class="input-field !w-20 py-1 text-right sm:!w-28"
+                        />
+                      </td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
           </div>
-        </div>
-      </div>
+        </section>
+      </template>
     </template>
 
     <!-- Scan to count: camera sheet over the page; counts land in the table -->
@@ -274,7 +291,8 @@ import AdminPage from '../../components/admin/AdminPage.vue'
 import { useConfirmation } from '../../composables/useConfirmation'
 const { ask } = useConfirmation()
 import { squareAdminApi } from '../../services/squareAdminApi'
-import { ref, reactive, computed, onMounted } from 'vue'
+import { ref, reactive, computed, onMounted, watch } from 'vue'
+import { splitCategoryGroups, isSnacksOrAccessories } from '../../utils/adminCategoryGroups'
 import BarcodeScanner from '../../components/admin/BarcodeScanner.vue'
 import { findByBarcode } from '../../utils/barcode'
 
@@ -327,19 +345,30 @@ const groupByCategory = (list: SquareStockItem[]): CategoryGroup[] => {
     }
     group.items.push(item)
   }
-  return [...byName.values()].sort((a, b) => {
-    if (a.name === 'Uncategorized') return 1
-    if (b.name === 'Uncategorized') return -1
-    return a.name.localeCompare(b.name)
-  })
+  const { games, snacksAndAccessories } = splitCategoryGroups(
+    [...byName.values()],
+    group => group.items.length
+  )
+  return [...games, ...snacksAndAccessories]
 }
 
-const groupedTrackableItems = computed(() => groupByCategory(trackableItems.value))
+const sections = computed(() => {
+  const groups = groupByCategory(trackableItems.value)
+  return [
+    { title: 'Card games', groups: groups.filter(group => !isSnacksOrAccessories(group.name)) },
+    {
+      title: 'Snacks, accessories and tournaments',
+      groups: groups.filter(group => isSnacksOrAccessories(group.name)),
+    },
+  ].filter(section => section.groups.length > 0)
+})
 const allGroups = computed(() => groupByCategory(allTrackableItems.value))
 
 // "Start from zero" mode: every tracked item in a reset category is written
-// as 0 unless it has an entered count. Tracked as *excluded* categories so
-// the default is "everything", matching a full post-convention recount.
+// as 0 unless it has an entered count. Tracked as *excluded* categories.
+// Turning it on starts with only snacks and accessories checked: zeroing
+// those after a convention is the usual job, and wiping card game counts by
+// accident is the costly mistake.
 const startFromZero = ref(false)
 const excludedCategories = ref(new Set<string>())
 
@@ -349,6 +378,14 @@ const toggleResetCategory = (name: string) => {
   if (excludedCategories.value.has(name)) excludedCategories.value.delete(name)
   else excludedCategories.value.add(name)
 }
+const onlySnacks = () => {
+  excludedCategories.value = new Set(
+    allGroups.value.filter(group => !isSnacksOrAccessories(group.name)).map(group => group.name)
+  )
+}
+watch(startFromZero, on => {
+  if (on) onlySnacks()
+})
 const includeAll = () => excludedCategories.value.clear()
 const excludeAll = () => {
   excludedCategories.value = new Set(allGroups.value.map(group => group.name))
