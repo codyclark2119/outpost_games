@@ -5,11 +5,14 @@
     <div class="relative aspect-square bg-white">
       <img
         v-if="item.imageUrl"
-        :src="item.imageUrl"
+        :src="productImageSrc(item.imageUrl)"
+        :srcset="productImageSrcset(item.imageUrl)"
+        sizes="(min-width: 640px) 270px, 50vw"
         :alt="item.name"
         class="absolute inset-0 h-full w-full object-contain p-3"
         loading="lazy"
         decoding="async"
+        @error="fallBackToOriginal($event, item.imageUrl)"
       />
       <!-- No photo in Square yet: the set's symbol (or the shop logo) on a tile
            tinted with the game's accent, so it reads as intentional. -->
@@ -59,6 +62,7 @@ import { ShoppingBagIcon } from '@heroicons/vue/24/outline'
 import { formatPrice, slugify, type SquarePublicItem } from '../stores/squareCatalog'
 import { gameMeta } from '../config/games'
 import { placeholderArt } from '../config/setSymbols'
+import { productImageSrc, productImageSrcset, fallBackToOriginal } from '../utils/productImage'
 
 // Loaded on the first tap of "Buy online", not with every product grid.
 const BuyOnlineDialog = defineAsyncComponent(() => import('./BuyOnlineDialog.vue'))

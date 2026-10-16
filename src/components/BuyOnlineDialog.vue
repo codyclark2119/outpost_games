@@ -10,7 +10,8 @@
         <div class="flex items-start gap-4">
           <img
             v-if="item.imageUrl"
-            :src="item.imageUrl"
+            :src="productImageSrc(item.imageUrl)"
+            @error="fallBackToOriginal($event, item.imageUrl)"
             alt=""
             class="h-20 w-20 shrink-0 rounded-xl border border-slate-200 object-contain p-1"
           />
@@ -84,6 +85,7 @@ import { computed, ref, watch } from 'vue'
 import { Dialog, DialogPanel, DialogTitle } from '@headlessui/vue'
 import { LockClosedIcon, MinusIcon, PlusIcon, XMarkIcon } from '@heroicons/vue/24/outline'
 import { formatPrice, type SquarePublicItem } from '../stores/squareCatalog'
+import { productImageSrc, fallBackToOriginal } from '../utils/productImage'
 import { apiFetch, ApiError } from '../services/api'
 
 const props = defineProps<{ item: SquarePublicItem; open: boolean }>()
