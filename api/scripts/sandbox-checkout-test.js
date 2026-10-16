@@ -4,13 +4,15 @@
 // pays the link's order with Square's sandbox test card, then confirms the
 // product's stock count went down by the quantity bought.
 //
-// Usage (from api/, with the SQUARE_SANDBOX_* variables in api/.env):
+// Usage (from api/, with the SQUARE_SANDBOX_* variables in the repo-root .env):
 //   SQUARE_ENV=sandbox node scripts/sandbox-checkout-test.js
 //   SQUARE_ENV=sandbox node scripts/sandbox-checkout-test.js <variationId>
 //
 // Without a variation id it picks the first tracked, priced Magic product
-// that has at least one unit sellable online. Refuses to run unless
-// SQUARE_ENV=sandbox, since it takes a real payment otherwise.
+// that has at least one unit sellable online. If none does, it raises the
+// first tracked, priced Magic product's sandbox count to its reserve + 2 so
+// there is something to buy. Refuses to run unless SQUARE_ENV=sandbox, since
+// it takes a real payment otherwise.
 
 import crypto from 'node:crypto'
 import {
@@ -19,9 +21,10 @@ import {
   createSquarePosClient,
   getSquareInventoryReport,
   listSquareInventory,
+  adjustSquareInventoryCount,
   createSquarePaymentLink,
 } from '../squarePosClient.js'
-import { isMagicCategory, onlineQuantity } from '../onlineSales.js'
+import { isMagicCategory, onlineQuantity, shopReserve } from '../onlineSales.js'
 
 loadSquareEnvironment()
 if (process.env.SQUARE_ENV !== 'sandbox') {
@@ -41,20 +44,29 @@ const countOf = async variationId => {
 
 const report = await getSquareInventoryReport(process.env)
 const wanted = process.argv[2]
-const product = report.items.find(item =>
-  wanted
-    ? item.id === wanted
-    : isMagicCategory(item.categoryName) &&
-      item.trackInventory &&
-      item.sellable &&
-      item.priceCents > 0 &&
-      onlineQuantity(item.quantity, item.displayName) > 0
+const candidates = report.items.filter(
+  item =>
+    isMagicCategory(item.categoryName) &&
+    item.trackInventory &&
+    item.sellable &&
+    item.priceCents > 0 &&
+    !/\bsingles\b/i.test(item.displayName)
 )
+let product = wanted
+  ? report.items.find(item => item.id === wanted)
+  : candidates.find(item => onlineQuantity(item.quantity, item.displayName) > 0)
+if (!product && !wanted && candidates.length) {
+  product = candidates[0]
+  const quantity = shopReserve(product.displayName) + 2
+  console.log(`No Magic product had stock to sell online; setting the sandbox count of`)
+  console.log(`${product.displayName} to ${quantity} (was ${product.quantity ?? 0}).`)
+  await adjustSquareInventoryCount(product.id, { quantity }, process.env)
+}
 if (!product) {
   console.error(
     wanted
       ? `No variation ${wanted} in the sandbox catalog.`
-      : 'No Magic product in the sandbox has stock to sell online. Raise one count above its reserve (5 for packs, 1 otherwise) and rerun.'
+      : 'The sandbox has no tracked, priced Magic product to test with.'
   )
   process.exit(1)
 }
