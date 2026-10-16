@@ -1,8 +1,10 @@
 #!/usr/bin/env node
 // End-to-end check of online ordering against the Square SANDBOX: makes a
 // checkout link for one Magic product the same way POST /api/checkout does,
-// pays the link's order with Square's sandbox test card, then confirms the
-// product's stock count went down by the quantity bought.
+// waits while you pay it in a browser with Square's sandbox test card, then
+// confirms the product's stock count went down by the quantity bought.
+// (A checkout link's order stays a DRAFT until a buyer pays on the hosted
+// page, so it can't be paid from code with the Payments API.)
 //
 // Usage (from api/, with the SQUARE_SANDBOX_* variables in the repo-root .env):
 //   SQUARE_ENV=sandbox node scripts/sandbox-checkout-test.js
@@ -14,7 +16,6 @@
 // there is something to buy. Refuses to run unless SQUARE_ENV=sandbox, since
 // it takes a real payment otherwise.
 
-import crypto from 'node:crypto'
 import {
   loadSquareEnvironment,
   resolveSquareCredentials,
@@ -81,31 +82,25 @@ const link = await createSquarePaymentLink(
 )
 console.log(`Checkout link: ${link.url}`)
 
-const { order } = await client.request(`/v2/orders/${link.orderId}`)
-console.log(`Order ${order.id}: ${order.total_money.amount} ${order.total_money.currency}`)
+console.log('')
+console.log('Open that link and pay with the sandbox test card 4111 1111 1111 1111')
+console.log('(any future expiry, any CVV, any ZIP). Waiting up to 5 minutes for the payment…')
 
-const { payment } = await client.request('/v2/payments', {
-  method: 'POST',
-  body: {
-    idempotency_key: crypto.randomUUID(),
-    source_id: 'cnon:card-nonce-ok', // Square's sandbox "approved card" nonce
-    amount_money: order.total_money,
-    order_id: order.id,
-    location_id: credentials.locationId,
-  },
-})
-console.log(`Payment ${payment.id}: ${payment.status}`)
-
-// Square applies the stock change asynchronously after payment.
 let after = before
-for (let attempt = 0; attempt < 10 && after === before; attempt++) {
-  await new Promise(resolve => setTimeout(resolve, 2000))
+for (let attempt = 0; attempt < 60 && after === before; attempt++) {
+  await new Promise(resolve => setTimeout(resolve, 5000))
   after = await countOf(product.id)
 }
+const { order } = await client.request(`/v2/orders/${link.orderId}`)
+console.log(`Order ${order.id}: ${order.state}`)
 console.log(`On hand after: ${after}`)
 if (after === before - 1) {
   console.log('PASS: a paid online order lowered the stock count by 1.')
 } else {
-  console.log(`FAIL: expected ${before - 1}, got ${after}.`)
+  console.log(
+    after === before
+      ? 'FAIL: no stock change within 5 minutes (was the link paid?).'
+      : `FAIL: expected ${before - 1}, got ${after}.`
+  )
   process.exit(1)
 }
