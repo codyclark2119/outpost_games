@@ -20,7 +20,7 @@ export interface SquarePublicItem {
   itemCreatedAt: string | null
   // How many can be bought online through Square checkout. Zero unless an
   // admin switched the item on (Magic only for now), and always leaves some
-  // on the shelf for walk-ins. See api/onlineSales.js.
+  // on the shelf for walk-ins. See api/lib/onlineSales.js.
   onlineQuantity?: number
 }
 

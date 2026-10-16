@@ -136,22 +136,26 @@ See `local-dev/README.md` for details.
 │   ├── App.vue
 │   └── style.css          # Tailwind + brand theme variables
 ├── api/
-│   ├── server.js             # Express API (events, weekly overrides, Square routes)
-│   ├── auth.js                # Redis-backed admin session auth
+│   ├── server.js              # App setup and route mounting
+│   ├── loadEnv.js             # Loads the repo-root .env (imported first everywhere)
+│   ├── storeConfig.json       # Opening hours + timezone, shared with the frontend
+│   ├── routes/                # HTTP routes, one file per area
 │   ├── square/                # Square API client, one file per job (import from square/index.js)
-│   ├── inventoryExport.js     # Monthly inventory .xlsx export + scheduler
-│   ├── mailClient.js          # Gmail SMTP wrapper (nodemailer)
-│   └── scripts/               # Maintenance CLI tools — see "Square POS Catalog Admin" below
-├── .github/workflows/
-│   └── warm-hours.yml     # Cron that pins the Fly machine(s) awake during business hours
-├── local-dev/             # Docker dev environment
-├── scripts/               # Deployment utilities
-├── docs/                  # Deployment documentation
-├── public/                # Static assets (robots.txt, sitemap, manifest)
-├── Dockerfile             # Frontend (Nginx static)
-├── Dockerfile.combined    # Combined container (Nginx + Node.js API) — used in prod
-├── docker-compose.prod.yml
-├── fly.toml               # Fly.io production config
+│   ├── services/              # Redis store, sessions, catalog cache, monthly export, mail, warm-hours ping
+│   ├── lib/                   # Pure rules: online-sales reserves, event share/calendar builders, site URL
+│   ├── schemas/               # Request validation
+│   ├── middleware/            # Error handling
+│   ├── scripts/               # Maintenance CLI tools — see "Square POS Catalog Admin" below
+│   └── tests/
+├── .github/workflows/         # ci.yml (verify + image build), deploy.yml (auto-deploy), warm-hours.yml
+├── local-dev/                 # Docker dev environment
+├── scripts/                   # purge-cloudflare.sh
+├── docs/DEPLOYMENT.md         # How production runs and how to deploy, roll back and debug
+├── public/                    # Static assets (robots.txt, sitemap, manifest)
+├── Dockerfile.combined        # Production container (Nginx + Node.js API)
+├── startup.combined.sh        # Container entrypoint: fills in the admin path, starts API + Nginx
+├── Dockerfile.dev             # Frontend image for local-dev
+├── fly.toml                   # Fly.io production config
 └── nginx.*.conf           # Nginx configs for various environments
 ```
 
@@ -228,7 +232,7 @@ Talks directly to the shop's real Square point-of-sale account (catalog + invent
 
 **Categories vs. reporting category**: an item's `categories` (array) and `reporting_category` (single value) are independent fields on Square's side — the Dashboard, POS, and reports all read `reporting_category` as _the_ category, but it doesn't follow `categories` automatically. `updateSquareCatalogItem()` keeps both in sync on every category change; if you're debugging a category edit that "didn't stick," check whether these two have drifted apart on the raw catalog object.
 
-**Monthly inventory export**: on the 1st of each month (store-local time), `api/inventoryExport.js` builds an `.xlsx` snapshot of the Square inventory report — non-snack items, sorted by stock status → category → quantity (lowest stock first, to surface aging stock) — and emails it via Gmail SMTP (`api/mailClient.js`) to `theoutpostgamingrgv@gmail.com`. Requires `GMAIL_USER`/`GMAIL_APP_PASSWORD` (see Environment Variables); idle with a log warning until set. Manual trigger for testing: `POST /api/admin/inventory-export/run` (admin auth).
+**Monthly inventory export**: on the 1st of each month (store-local time), `api/services/inventoryExport.js` builds an `.xlsx` snapshot of the Square inventory report — non-snack items, sorted by stock status → category → quantity (lowest stock first, to surface aging stock) — and emails it via Gmail SMTP (`api/services/mail.js`) to `theoutpostgamingrgv@gmail.com`. Requires `GMAIL_USER`/`GMAIL_APP_PASSWORD` (see Environment Variables); idle with a log warning until set. Manual trigger for testing: `POST /api/admin/inventory-export/run` (admin auth).
 
 **Uploading a product image**: Square's `CreateCatalogImage` endpoint _appends_ the new image to the target's `image_ids` rather than replacing or prepending it (confirmed live) — but every read path here treats `image_ids[0]` as "the" image. `uploadSquareCatalogImage()` does a follow-up write to move the new image to the front of that array; without it, a freshly uploaded image would never actually display anywhere (admin or public page) even though the upload itself "succeeded."
 
@@ -293,7 +297,7 @@ flyctl deploy
 ./scripts/purge-cloudflare.sh   # if the Cloudflare secrets aren't set in GitHub
 ```
 
-See `docs/deployment/` for full deployment guides.
+See [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md) for secrets, rollback and troubleshooting.
 
 ### Warm Hours
 
@@ -306,7 +310,7 @@ See `docs/deployment/` for full deployment guides.
 
 **DST**: GitHub Actions cron has no timezone support and runs in UTC, so the workflow uses one fixed UTC time per job, chosen so the window is never caught cold — see the comment block at the top of `warm-hours.yml` for the full noon/midnight → UTC table. Net effect: the store is never cold during business hours; the only cost is up to ~1 extra warm hour/day around whichever DST boundary doesn't line up exactly (a few cents).
 
-**To change the warm-hours window later**: edit the two `cron:` lines in `warm-hours.yml` (and `WARM_WINDOW_START_HOUR` in `api/server.js` if the optional self-ping fallback is enabled) — that file's comment block has the conversion math.
+**To change the warm-hours window later**: edit the two `cron:` lines in `warm-hours.yml` (and `WARM_WINDOW_START_HOUR` in `api/services/warmWindow.js` if the optional self-ping fallback is enabled) — that file's comment block has the conversion math.
 
 **One manual step required**: create a Fly deploy token and add it as a repo secret:
 

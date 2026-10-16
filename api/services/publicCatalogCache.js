@@ -1,6 +1,6 @@
-import storeConfig from './storeConfig.json' with { type: 'json' }
-import { AppError } from './middleware/errorHandler.js'
-import { createValue } from './services/persistence.js'
+import storeConfig from '../storeConfig.json' with { type: 'json' }
+import { AppError } from '../middleware/errorHandler.js'
+import { createValue } from './persistence.js'
 // ─── Public Square catalog cache ─────────────────────────────────────────────
 // The public Products page reads live Square inventory, but hitting Square on
 // every page view would be slow for customers and needless load on the POS
@@ -12,7 +12,7 @@ import { createValue } from './services/persistence.js'
 // the store, stock genuinely moving) at once an hour; outside open hours the
 // catalog can't realistically change, so refreshes back off to once a day.
 
-import { getSquareConfigurationStatus, getPublicSquareCatalog } from './square/index.js'
+import { getSquareConfigurationStatus, getPublicSquareCatalog } from '../square/index.js'
 
 const CACHE_KEY = 'outpost:square:public-catalog'
 const STORE_TIMEZONE = storeConfig.timeZone

@@ -12,8 +12,8 @@ import { getSquareInventoryReport } from '../square/index.js'
 import {
   getCachedPublicSquareCatalog,
   refreshSquarePublicCatalog,
-} from '../squarePublicCatalogCache.js'
-import { requireAdminAuth } from '../auth.js'
+} from '../services/publicCatalogCache.js'
+import { requireAdminAuth } from '../services/auth.js'
 
 export function mountSquare(app, store) {
   app.use('/api/square', (req, res, next) => {
@@ -39,7 +39,7 @@ export function mountSquare(app, store) {
 
   // Public, cached, read-only catalog for the customer-facing Products page —
   // deliberately not requireAdminAuth. Never calls Square directly on request;
-  // always served from squarePublicCatalogCache's Redis/memory cache, which
+  // always served from the public catalog cache's Redis/memory cache, which
   // refreshes itself in the background per its store-hours-aware TTL.
   const { enabledItemIds } = mountOnlineSales(app, store)
 
@@ -60,7 +60,7 @@ export function mountSquare(app, store) {
   // Fire-and-forget: called after every admin write that could change what the
   // public Products page shows (image, name, price, category, stock, deletion).
   // Without this, an admin's edit only reaches customers once the store-hours
-  // TTL in squarePublicCatalogCache.js next expires (up to an hour open, a day
+  // TTL in services/publicCatalogCache.js next expires (up to an hour open, a day
   // closed) — which reads as "the save didn't work" even though it did.
   const invalidatePublicCatalog = () => {
     refreshSquarePublicCatalog().catch(() => {}) // failure is already logged inside refreshSquarePublicCatalog

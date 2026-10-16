@@ -1,10 +1,10 @@
 import crypto from 'node:crypto'
-import { requireAdminAuth } from '../auth.js'
+import { requireAdminAuth } from '../services/auth.js'
 import { asyncRoute, AppError } from '../middleware/errorHandler.js'
 import { createCollection } from '../services/persistence.js'
 import { validateEvent } from '../schemas/events.js'
 import { object, string, invalid, validIsoDate } from '../schemas/validation.js'
-import { buildEventIcs, buildEventShareHtml, eventDateISO } from '../eventShare.js'
+import { buildEventIcs, buildEventShareHtml, eventDateISO } from '../lib/eventShare.js'
 export function validateOverride(body) {
   object(body, ['weeklyEventId', 'date', 'reason'], ['weeklyEventId', 'date'])
   string(body.weeklyEventId, 'weeklyEventId')

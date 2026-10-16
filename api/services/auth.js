@@ -1,5 +1,5 @@
-import { assertPersistence, requiresPersistence, unavailable } from './services/persistence.js'
-import { asyncRoute } from './middleware/errorHandler.js'
+import { assertPersistence, requiresPersistence, unavailable } from './persistence.js'
+import { asyncRoute } from '../middleware/errorHandler.js'
 // ─── Admin session auth ───────────────────────────────────────────────────────
 // Opaque server-side sessions (not JWT) so a login can be revoked immediately by
 // deleting its Redis key — matters for an admin panel with catalog write access.

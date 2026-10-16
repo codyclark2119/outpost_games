@@ -1,6 +1,6 @@
 import type { SquareStockItem } from '../services/squareAdminTypes'
 
-// Mirrors barcodeVariants in api/squarePosClient.js (the API can't be imported
+// Mirrors barcodeVariants in api/square/catalog.js (the API can't be imported
 // here): UPC-A and EAN-13 are the same code with and without a leading 0, and
 // a scanner may report either spelling.
 export const barcodeVariants = (code: string) => {

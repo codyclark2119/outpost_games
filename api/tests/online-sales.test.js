@@ -2,7 +2,7 @@ import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { mountOnlineSales } from '../routes/onlineSales.js'
 import { errorHandler } from '../middleware/errorHandler.js'
-import { isMagicCategory, isPackSized, onlineQuantity, shopReserve } from '../onlineSales.js'
+import { isMagicCategory, isPackSized, onlineQuantity, shopReserve } from '../lib/onlineSales.js'
 
 process.env.SQUARE_ENV = 'sandbox'
 process.env.SQUARE_SANDBOX_ACCESS_TOKEN = 'fake-token'

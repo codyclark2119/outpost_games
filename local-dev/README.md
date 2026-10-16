@@ -104,12 +104,12 @@ docker-compose ps
 
 ## 🆚 Production vs Development
 
-| Aspect   | Local Development    | Production                |
-| -------- | -------------------- | ------------------------- |
-| Config   | `docker-compose.yml` | `docker-compose.prod.yml` |
-| Nginx    | `nginx.conf`         | `nginx.prod.conf`         |
-| Domain   | outpostgamesrgv.test | outpostgamesrgv.com       |
-| Location | `local-dev/`         | Project root              |
+| Aspect   | Local Development    | Production                                                    |
+| -------- | -------------------- | ------------------------------------------------------------- |
+| Config   | `docker-compose.yml` | `fly.toml` + `Dockerfile.combined` (see `docs/DEPLOYMENT.md`) |
+| Nginx    | `nginx.conf`         | `nginx.combined.conf`                                         |
+| Domain   | outpostgamesrgv.test | outpostgamesrgv.com                                           |
+| Location | `local-dev/`         | Project root                                                  |
 
 ## 💡 Tips
 

@@ -1,7 +1,7 @@
 import { dependencyError } from '../middleware/errorHandler.js'
-import { requireAdminAuth } from '../auth.js'
-import { runMonthlyInventoryExport } from '../inventoryExport.js'
-import { isMailConfigured, MailNotConfiguredError } from '../mailClient.js'
+import { requireAdminAuth } from '../services/auth.js'
+import { runMonthlyInventoryExport } from '../services/inventoryExport.js'
+import { isMailConfigured, MailNotConfiguredError } from '../services/mail.js'
 
 export function mountInventoryExport(app) {
   // Manual trigger for the monthly inventory export — lets an admin test the

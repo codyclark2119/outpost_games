@@ -24,7 +24,7 @@ import {
   adjustSquareInventoryCount,
   createSquarePaymentLink,
 } from '../square/index.js'
-import { isMagicCategory, onlineQuantity, shopReserve } from '../onlineSales.js'
+import { isMagicCategory, onlineQuantity, shopReserve } from '../lib/onlineSales.js'
 
 if (process.env.SQUARE_ENV !== 'sandbox') {
   console.error('Refusing to run: set SQUARE_ENV=sandbox. This script pays for an order.')

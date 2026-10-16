@@ -1,6 +1,11 @@
 import { asyncRoute } from '../middleware/errorHandler.js'
 import { object, string } from '../schemas/validation.js'
-import { verifyCredentials, createSession, destroySession, requireAdminAuth } from '../auth.js'
+import {
+  verifyCredentials,
+  createSession,
+  destroySession,
+  requireAdminAuth,
+} from '../services/auth.js'
 
 export function mountAuth(app, loginRateLimiter) {
   // ─── Admin auth ──────────────────────────────────────────────────────────────
