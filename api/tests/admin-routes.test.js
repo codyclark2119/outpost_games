@@ -12,7 +12,6 @@ const event = {
   entry: '0',
   description: 'Bring a deck',
 }
-const listing = { name: 'Card', setName: 'Set', price: 1, quantityInStock: 0 }
 function harness(dependencies = {}) {
   const routes = new Map()
   const app = Object.fromEntries(
@@ -105,7 +104,6 @@ test('production persistence unavailable rejects every record mutation', async (
   for (const [route, body] of [
     ['events', event],
     ['weekly-overrides', { weeklyEventId: 'weekly', date: '2026-09-09' }],
-    ['tcgplayer-listings', listing],
   ]) {
     assert.equal((await request('post', `/api/${route}`, body)).status, 503)
     assert.equal(
@@ -113,19 +111,8 @@ test('production persistence unavailable rejects every record mutation', async (
       503
     )
   }
-  assert.equal((await request('delete', '/api/tcgplayer-listings')).status, 503)
 })
-test('listing zero quantity and zero price survive, unknown updates are rejected', async () => {
-  const request = harness()
-  const created = await request('post', '/api/tcgplayer-listings', listing)
-  assert.equal(created.body.quantityInStock, 0)
-  const updated = await request('put', '/api/tcgplayer-listings/:id', { price: 0 }, 'admin', {
-    id: created.body.id,
-  })
-  assert.equal(updated.body.priceDisplay, '$0.00')
-  assert.equal((await request('put', '/api/tcgplayer-listings/:id', { id: 'changed' })).status, 400)
-})
-test('Redis write failure returns 503 and never claims a listing was created', async () => {
+test('Redis write failure returns 503 and never claims a record was created', async () => {
   const client = {
     watch: async () => {},
     get: async () => null,
@@ -143,7 +130,7 @@ test('Redis write failure returns 503 and never claims a listing was created', a
     executeIsolated: async fn => fn(client),
   }
   const request = harness({ persistent: true, redisClient: client, isRedisConnected: () => true })
-  assert.equal((await request('post', '/api/tcgplayer-listings', listing)).status, 503)
+  assert.equal((await request('post', '/api/events', event)).status, 503)
 })
 test('missing session returns 401', async () => {
   const result = await dispatch([requireAdminAuth], { method: 'GET', path: '/admin', cookies: {} })

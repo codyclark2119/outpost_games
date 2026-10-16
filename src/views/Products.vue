@@ -120,54 +120,6 @@
             </div>
           </section>
         </template>
-
-        <!-- Featured single cards (TCGPlayer) — independent of the Square
-             catalog and hidden until SINGLE_CARD_LISTINGS_LIVE is flipped. -->
-        <section v-if="SINGLE_CARD_LISTINGS_LIVE" class="border-t border-slate-200 py-8">
-          <h2 class="section-title">Featured single cards</h2>
-          <p class="mt-1 text-slate-600">Premium singles available through TCGPlayer.</p>
-
-          <ProductGridSkeleton v-if="loadingListings" class="mt-4" :count="5" />
-          <p v-else-if="listingsError" class="mt-4 text-slate-600">
-            {{ listingsError }}
-            <button type="button" class="underline" @click="fetchTCGPlayerListings">
-              Try again
-            </button>
-          </p>
-          <p v-else-if="cardListings.length === 0" class="mt-4 text-slate-600">
-            No listings available right now.
-          </p>
-          <div v-else class="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-3 sm:gap-4 lg:grid-cols-5">
-            <a
-              v-for="card in cardListings"
-              :key="card.id"
-              :href="card.productUrl"
-              target="_blank"
-              rel="noopener noreferrer"
-              class="flex flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white hover:border-outpost-navy/40"
-            >
-              <div class="aspect-[5/7] bg-slate-100">
-                <img
-                  v-if="card.imageUrl"
-                  :src="card.imageUrl"
-                  :alt="card.name"
-                  class="h-full w-full object-cover"
-                  loading="lazy"
-                />
-              </div>
-              <div class="flex flex-1 flex-col gap-1 p-3">
-                <p class="truncate text-[11px] font-semibold text-slate-500 uppercase">
-                  {{ card.setName }}
-                </p>
-                <h3 class="line-clamp-2 text-sm font-medium text-slate-800">{{ card.name }}</h3>
-                <p class="text-xs text-slate-500">{{ card.foiling }} · {{ card.condition }}</p>
-                <p class="mt-auto pt-1 font-semibold text-outpost-navy">
-                  {{ card.priceDisplay || `$${card.price.toFixed(2)}` }}
-                </p>
-              </div>
-            </a>
-          </div>
-        </section>
       </div>
     </template>
   </div>
@@ -177,11 +129,10 @@
 import { ref, computed, watch, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { MagnifyingGlassIcon, ArrowRightIcon } from '@heroicons/vue/24/outline'
-import { apiFetch } from '../services/api'
 import { useSquareCatalogStore, matchesSearch, slugify } from '../stores/squareCatalog'
 import { gameMeta } from '../config/games'
 import { usePageMeta } from '../composables/usePageMeta'
-import { PRODUCTS_CATALOG_LIVE, SINGLE_CARD_LISTINGS_LIVE } from '../config/featureFlags'
+import { PRODUCTS_CATALOG_LIVE } from '../config/featureFlags'
 import PageHeader from '../components/PageHeader.vue'
 import GameNav from '../components/GameNav.vue'
 import ProductCard from '../components/ProductCard.vue'
@@ -191,7 +142,7 @@ import ComingSoonPanel from '../components/ComingSoonPanel.vue'
 usePageMeta({
   title: 'Products — The Outpost Games',
   description:
-    'In-stock singles and sealed product for Magic, Pokémon, One Piece, Gundam, and Riftbound at The Outpost Games in Rio Grande City, TX.',
+    'In-stock sealed product for Magic, Pokémon, One Piece, Gundam, and Riftbound at The Outpost Games in Rio Grande City, TX.',
   path: '/products',
 })
 
@@ -219,39 +170,7 @@ const searchResults = computed(() =>
   searchTerm.value ? catalogStore.items.filter(item => matchesSearch(item, searchTerm.value)) : []
 )
 
-// TCGPlayer listings (only fetched while SINGLE_CARD_LISTINGS_LIVE is on)
-interface CardListing {
-  id: string
-  name: string
-  setName: string
-  imageUrl?: string
-  foiling: string
-  condition: string
-  price: number
-  priceDisplay: string
-  quantityInStock: number
-  productUrl: string
-}
-const cardListings = ref<CardListing[]>([])
-const loadingListings = ref(false)
-const listingsError = ref<string | null>(null)
-
-const fetchTCGPlayerListings = async () => {
-  loadingListings.value = true
-  listingsError.value = null
-  try {
-    const data = await apiFetch<{ listings: CardListing[] }>('/tcgplayer-listings')
-    cardListings.value = data.listings || []
-  } catch (error) {
-    console.error('TCGPlayer listings fetch error:', error)
-    listingsError.value = 'Failed to load card listings.'
-  } finally {
-    loadingListings.value = false
-  }
-}
-
 onMounted(() => {
   if (PRODUCTS_CATALOG_LIVE) catalogStore.ensureCatalog()
-  if (SINGLE_CARD_LISTINGS_LIVE) fetchTCGPlayerListings()
 })
 </script>

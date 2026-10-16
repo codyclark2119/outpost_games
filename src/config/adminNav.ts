@@ -11,7 +11,6 @@ import {
   ClipboardDocumentListIcon,
   ChartBarIcon,
   TableCellsIcon,
-  RectangleStackIcon,
 } from '@heroicons/vue/24/outline'
 
 // Every admin screen, named for the job it does rather than the system behind
@@ -85,18 +84,6 @@ export const ADMIN_TASKS = {
     hint: 'How the shop is selling over time',
     icon: ChartBarIcon,
   },
-  singles: {
-    routeName: 'AdminTCGPlayer',
-    title: 'Featured singles',
-    hint: 'Single cards linked to TCGplayer',
-    icon: RectangleStackIcon,
-  },
-  addSingle: {
-    routeName: 'AdminTCGPlayerAdd',
-    title: 'Add a featured single',
-    hint: 'Link a new card from TCGplayer',
-    icon: PlusCircleIcon,
-  },
 } satisfies Record<string, AdminTask>
 
 export const ADMIN_TASK_GROUPS: AdminTaskGroup[] = [
@@ -111,10 +98,6 @@ export const ADMIN_TASK_GROUPS: AdminTaskGroup[] = [
   {
     heading: 'Products',
     tasks: [ADMIN_TASKS.catalog, ADMIN_TASKS.sales],
-  },
-  {
-    heading: 'Single cards',
-    tasks: [ADMIN_TASKS.singles, ADMIN_TASKS.addSingle],
   },
 ]
 

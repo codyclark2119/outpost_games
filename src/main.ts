@@ -88,16 +88,6 @@ const routes = [
     component: () => import('./views/admin/AdminWeeklySchedule.vue'),
   },
   {
-    path: `${ADMIN_BASE_PATH}/tcgplayer`,
-    name: 'AdminTCGPlayer',
-    component: () => import('./views/admin/AdminTCGPlayerPage.vue'),
-  },
-  {
-    path: `${ADMIN_BASE_PATH}/tcgplayer/add`,
-    name: 'AdminTCGPlayerAdd',
-    component: () => import('./views/admin/AdminTCGPlayerAdd.vue'),
-  },
-  {
     path: `${ADMIN_BASE_PATH}/square-stock`,
     name: 'AdminSquareStock',
     component: () => import('./views/admin/AdminSquareStock.vue'),

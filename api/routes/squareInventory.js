@@ -95,7 +95,7 @@ export function mountSquareInventory(
   // Quick Restock — persisted box-of-sealed-packs -> loose-pack pairings.
   // Square has no native "kit"/bundle concept for this (confirmed via Square's
   // own developer forum), so the relationship itself lives here in Redis, same
-  // convention as outpost:tcgplayer:listings — plain flat CRUD, no TTL/
+  // convention as outpost:events — plain flat CRUD, no TTL/
   // orchestration complexity.
   const mappingsStore = createCollection(
     { redisClient, isRedisConnected, persistent: requireProductionPersistence },

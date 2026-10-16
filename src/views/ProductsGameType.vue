@@ -177,7 +177,7 @@ useHead(() => ({
   meta: [
     {
       name: 'description',
-      content: `In-stock ${meta.value.title} singles and sealed product at The Outpost Games in Rio Grande City, TX.`,
+      content: `In-stock ${meta.value.title} sealed product at The Outpost Games in Rio Grande City, TX.`,
     },
   ],
   link: [{ rel: 'canonical', href: `${SITE_URL}/products/${typeId.value}` }],

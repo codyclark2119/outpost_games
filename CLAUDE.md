@@ -69,7 +69,6 @@ Tailwind v4 does **not** support `@apply` with custom theme tokens in scoped com
 Express server with Redis for persistence, falls back to module-level in-memory variables if Redis is unreachable. Resource types:
 
 - `outpost:events` — CRUD for special tournament events
-- `outpost:tcgplayer:listings` — manually managed TCGPlayer card listings (seller ID `61af7a3a`)
 - `outpost:weeklyOverrides` — per-date hide overrides for recurring weekly events (see below)
 
 Frontend reads `VITE_API_URL` (defaults to `/api`). In dev, Vite proxies `/api` → `http://localhost:3001`.
@@ -78,7 +77,7 @@ Frontend reads `VITE_API_URL` (defaults to `/api`). In dev, Vite proxies `/api` 
 
 - `src/stores/events.ts` — `SpecialEvent` interface (id, title, date, time, entry, description, gameTypeId?, gameTypeName?, isVisible?). Note `upcomingEvents` is the **raw** API list despite the name — nothing in the store drops events whose date has passed, so every consumer filters for itself (`Events.vue`, `Home.vue`, and both admin list views each do their own date check). Anything new that renders events publicly must do the same or it will advertise finished tournaments.
 - `src/stores/weeklyOverrides.ts` — per-date hide overrides for `WEEKLY_SCHEDULE` entries
-- `src/stores/squareCatalog.ts` — live Square inventory for the public `/products` page (the shop's only product catalog — see "Square POS integration" below). Views call `ensureCatalog()` on mount, not `fetchCatalog()`: it reuses an in-memory copy younger than 5 minutes and re-requests otherwise. Freshness is tracked with its own client-side `loadedAt`, not the `fetchedAt` in the response — that one reports when the *API* last polled Square and can already be an hour old on arrival. `sections` groups items by top-level category (one per game); each section's `sets` are keyed by the slug of the set *name*, not the Square category id, because Square allows duplicate-named categories (e.g. "Foundations" vs "Foundations ") and a shopper should see one chip for both. Also exports `newest` (Home's New arrivals), `matchesSearch`, `formatPrice`, `releaseMs`.
+- `src/stores/squareCatalog.ts` — live Square inventory for the public `/products` page (the shop's only product catalog — see "Square POS integration" below). Views call `ensureCatalog()` on mount, not `fetchCatalog()`: it reuses an in-memory copy younger than 5 minutes and re-requests otherwise. Freshness is tracked with its own client-side `loadedAt`, not the `fetchedAt` in the response — that one reports when the _API_ last polled Square and can already be an hour old on arrival. `sections` groups items by top-level category (one per game); each section's `sets` are keyed by the slug of the set _name_, not the Square category id, because Square allows duplicate-named categories (e.g. "Foundations" vs "Foundations ") and a shopper should see one chip for both. Also exports `newest` (Home's New arrivals), `matchesSearch`, `formatPrice`, `releaseMs`.
 - `src/config/games.ts` — display names and accent colors per game slug (`gameMeta(slug, squareName)`). Cosmetic only: a category missing here still appears everywhere under its Square name.
 - `src/config/setSymbols.ts` — stand-in art for products with no Square photo: the set's symbol from `src/assets/set-symbols/<set-slug>.webp` (matched by the item's set name, or by the set appearing in the product name), else the shop badge. Covering a new set is just dropping its symbol file in there. Prices of $0/none render as "Ask in store" (`formatPrice`).
 - `src/stores/cart.ts` — cart state (reserved for future e-commerce, not wired to checkout)
@@ -105,8 +104,6 @@ Every route below is built from `ADMIN_BASE_PATH` (`src/config/adminPath.ts`) in
 | `/x/outpostAdmin/events` | `AdminEvents.vue` | Manage events (list + edit modal) |
 | `/x/outpostAdmin/events/add` | `AdminEventsAdd.vue` | Add event form |
 | `/x/outpostAdmin/weekly-schedule` | `AdminWeeklySchedule.vue` | Hide one occurrence of a recurring weekly event for a specific date |
-| `/x/outpostAdmin/tcgplayer` | `AdminTCGPlayerPage.vue` | Manage card listings |
-| `/x/outpostAdmin/tcgplayer/add` | `AdminTCGPlayerAdd.vue` | Add card listing |
 | `/x/outpostAdmin/square-catalog` | `AdminSquareCatalog.vue` | Edit Square items/variations/categories/images |
 | `/x/outpostAdmin/square-stock` | `AdminSquareStock.vue` | Read-only Square inventory report, CSV export |
 | `/x/outpostAdmin/square-sales` | `AdminSquareSales.vue` | Revenue/order/AOV trend charts, top-products table |
@@ -185,15 +182,15 @@ Opening hours live in `api/storeConfig.json` (`openHours`, weekday → `["17:30"
 
 ## Environment Variables
 
-| Variable                   | Description                                                                                                                                          | Default                            |
-| -------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------- |
-| `VITE_API_URL`             | Frontend API base                                                                                                                                    | `/api`                             |
-| `REDIS_URL`                | Redis connection (supports `rediss://` for TLS)                                                                                                      | `redis://redis:6379`               |
-| `API_PORT`                 | API port                                                                                                                                             | `3001`                             |
-| `SQUARESPACE_API_KEY`      | Read-only Squarespace key (scopes `products:read`, `inventory:read`); integration idle if unset                                                      | —                                  |
-| `SQUARESPACE_USER_AGENT`   | Descriptive User-Agent for Commerce API calls                                                                                                        | `TheOutpostGames-Website/1.0`      |
-| `SQUARESPACE_CACHE_TTL_MS` | Cache TTL before background refresh                                                                                                                  | `900000` (15 min)                  |
-| `GMAIL_USER`               | Gmail account sending the monthly inventory export (requires 2FA + an App Password); export job idle if unset                                        | —                                  |
-| `GMAIL_APP_PASSWORD`       | App Password for `GMAIL_USER` (Google Account > Security > App Passwords)                                                                            | —                                  |
-| `MAIL_TO`                  | Destination address for the monthly inventory export                                                                                                 | `theoutpostgamingrgv@gmail.com`    |
-| `VITE_PRODUCTS_PAGE_LIVE`  | Frontend build-time flag — show the live Square-backed `/products` page instead of "Coming Soon"                                                     | `false`                            |
+| Variable                   | Description                                                                                                   | Default                         |
+| -------------------------- | ------------------------------------------------------------------------------------------------------------- | ------------------------------- |
+| `VITE_API_URL`             | Frontend API base                                                                                             | `/api`                          |
+| `REDIS_URL`                | Redis connection (supports `rediss://` for TLS)                                                               | `redis://redis:6379`            |
+| `API_PORT`                 | API port                                                                                                      | `3001`                          |
+| `SQUARESPACE_API_KEY`      | Read-only Squarespace key (scopes `products:read`, `inventory:read`); integration idle if unset               | —                               |
+| `SQUARESPACE_USER_AGENT`   | Descriptive User-Agent for Commerce API calls                                                                 | `TheOutpostGames-Website/1.0`   |
+| `SQUARESPACE_CACHE_TTL_MS` | Cache TTL before background refresh                                                                           | `900000` (15 min)               |
+| `GMAIL_USER`               | Gmail account sending the monthly inventory export (requires 2FA + an App Password); export job idle if unset | —                               |
+| `GMAIL_APP_PASSWORD`       | App Password for `GMAIL_USER` (Google Account > Security > App Passwords)                                     | —                               |
+| `MAIL_TO`                  | Destination address for the monthly inventory export                                                          | `theoutpostgamingrgv@gmail.com` |
+| `VITE_PRODUCTS_PAGE_LIVE`  | Frontend build-time flag — show the live Square-backed `/products` page instead of "Coming Soon"              | `false`                         |
