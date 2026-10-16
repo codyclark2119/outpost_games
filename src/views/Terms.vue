@@ -42,10 +42,10 @@
           4. Third-Party Links &amp; Services
         </h2>
         <p class="text-slate-600">
-          This site links to and may display data from third-party platforms, including TCGPlayer,
-          Facebook, Discord, and Google Maps. We don't control these services and aren't responsible
-          for their content, availability, or policies. Use of any third-party platform is governed
-          by that platform's own terms.
+          This site links to and may display data from third-party platforms, including Facebook,
+          Discord, and Google Maps. We don't control these services and aren't responsible for their
+          content, availability, or policies. Use of any third-party platform is governed by that
+          platform's own terms.
         </p>
       </section>
 

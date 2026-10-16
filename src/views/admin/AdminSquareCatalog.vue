@@ -1,77 +1,67 @@
 <template>
-  <div class="min-h-screen bg-gray-50 py-12 pb-28">
-    <div class="container mx-auto px-4">
-      <div class="max-w-6xl mx-auto">
-        <!-- Header -->
-        <div class="flex flex-wrap justify-between items-center mb-8 gap-4">
-          <div>
-            <h1 class="font-display text-4xl font-bold text-gray-800">Square Catalog Editor</h1>
-            <p class="text-gray-600 mt-1">Edit product details directly in Square POS</p>
-          </div>
-          <router-link :to="{ name: 'AdminDashboard' }" class="btn-secondary px-4 py-2">
-            ← Dashboard
-          </router-link>
-        </div>
-
-        <p v-if="success" role="status" class="text-green-700 mb-4">{{ success }}</p>
-        <!-- Loading -->
-        <div v-if="loading && rows.length === 0" class="text-center py-16">
-          <div
-            class="inline-block animate-spin rounded-full h-10 w-10 border-b-2 border-outpost-gold"
-          ></div>
-          <p class="mt-4 text-gray-600">Loading catalog…</p>
-        </div>
-
-        <!-- Error -->
-        <div v-else-if="fetchError" class="card text-center py-10">
-          <p class="text-red-600 mb-4">{{ fetchError }}</p>
-          <button class="btn-primary px-6 py-2" @click="fetchRows">Retry</button>
-        </div>
-
-        <template v-else>
-          <div class="mb-4 flex justify-between items-center gap-4">
-            <input
-              v-model="search"
-              type="text"
-              placeholder="Search by name or SKU…"
-              class="input-field max-w-sm"
-            />
-            <div class="flex items-center gap-3">
-              <button
-                type="button"
-                class="btn-secondary px-4 py-2 text-sm whitespace-nowrap"
-                @click="openCategoryPanel"
-              >
-                Manage Categories
-              </button>
-              <p class="text-gray-500 text-sm whitespace-nowrap">
-                {{ filteredRows.length }} of {{ rows.length }} items
-              </p>
-            </div>
-          </div>
-
-          <p v-if="categoriesError" class="text-amber-800 mb-4" role="alert">
-            Categories are unavailable.
-            <button class="underline" @click="fetchCategories">Retry</button>
-          </p>
-          <p v-if="!filteredRows.length" class="text-gray-500 py-8">No matching products.</p>
-          <div class="space-y-3">
-            <CatalogCategoryGroup
-              v-for="group in groupedFilteredRows"
-              :key="group.name"
-              :group="group"
-              :selection-state="groupSelectionState(group)"
-              :expanded="expandedCategories.has(group.name)"
-              :selected-item-ids="selectedItemIds"
-              @select-group="toggleGroupSelection"
-              @toggle="toggleCategory"
-              @select="toggleItemSelection"
-              @edit="openEdit"
-            />
-          </div>
-        </template>
-      </div>
+  <AdminPage
+    title="Products & photos"
+    subtitle="Change names, prices, photos, and what shows on the website."
+    width="wide"
+    bottom-bar
+  >
+    <p v-if="success" role="status" class="text-green-700 mb-4">{{ success }}</p>
+    <!-- Loading -->
+    <div v-if="loading && rows.length === 0" class="text-center py-16">
+      <div
+        class="inline-block animate-spin rounded-full h-10 w-10 border-b-2 border-outpost-gold"
+      ></div>
+      <p class="mt-4 text-gray-600">Loading catalog…</p>
     </div>
+
+    <!-- Error -->
+    <div v-else-if="fetchError" class="card text-center py-10">
+      <p class="text-red-600 mb-4">{{ fetchError }}</p>
+      <button class="btn-primary px-6 py-2" @click="fetchRows">Retry</button>
+    </div>
+
+    <template v-else>
+      <div class="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <input
+          v-model="search"
+          type="search"
+          placeholder="Search by name or SKU…"
+          class="input-field sm:max-w-sm"
+        />
+        <div class="flex items-center justify-between gap-3">
+          <button
+            type="button"
+            class="btn-secondary px-4 py-2 text-sm whitespace-nowrap"
+            @click="openCategoryPanel"
+          >
+            Manage categories
+          </button>
+          <p class="text-gray-500 text-sm whitespace-nowrap">
+            {{ filteredRows.length }} of {{ rows.length }} items
+          </p>
+        </div>
+      </div>
+
+      <p v-if="categoriesError" class="text-amber-800 mb-4" role="alert">
+        Categories are unavailable.
+        <button class="underline" @click="fetchCategories">Retry</button>
+      </p>
+      <p v-if="!filteredRows.length" class="text-gray-500 py-8">No matching products.</p>
+      <div class="space-y-3">
+        <CatalogCategoryGroup
+          v-for="group in groupedFilteredRows"
+          :key="group.name"
+          :group="group"
+          :selection-state="groupSelectionState(group)"
+          :expanded="expandedCategories.has(group.name)"
+          :selected-item-ids="selectedItemIds"
+          @select-group="toggleGroupSelection"
+          @toggle="toggleCategory"
+          @select="toggleItemSelection"
+          @edit="openEdit"
+        />
+      </div>
+    </template>
 
     <BulkActionsBar
       v-model="bulkReleasedAt"
@@ -142,10 +132,11 @@
       @refresh="onProductSaved"
       @categories-changed="fetchCategories"
     />
-  </div>
+  </AdminPage>
 </template>
 
 <script setup lang="ts">
+import AdminPage from '../../components/admin/AdminPage.vue'
 import BulkActionsBar from '../../components/admin/catalog/BulkActionsBar.vue'
 import AdminDialog from '../../components/admin/AdminDialog.vue'
 import { ref, reactive, computed, onMounted } from 'vue'

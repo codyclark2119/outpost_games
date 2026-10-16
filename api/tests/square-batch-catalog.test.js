@@ -7,7 +7,7 @@ import {
   batchDeleteSquareCatalogObjects,
 } from '../squarePosClient.js'
 
-const FAKE_ENV = { SQUARE_ACCESS_TOKEN: 'fake-token', SQUARE_ENV: 'sandbox' }
+const FAKE_ENV = { SQUARE_SANDBOX_ACCESS_TOKEN: 'fake-token', SQUARE_ENV: 'sandbox' }
 
 const withMockedFetch = async (responses, run) => {
   const original = globalThis.fetch

@@ -29,11 +29,10 @@
         <h2 class="mb-2 text-lg font-semibold text-outpost-navy">Third-Party Services</h2>
         <p class="text-slate-600">
           This site loads fonts from Google Fonts, which may process your IP address to serve font
-          files. We also link out to Facebook, Discord, Google Maps, and TCGPlayer — if you follow
-          those links, your interactions there are governed by each service's own privacy policy,
-          not this one. Our product/inventory display may also be sourced from our Squarespace
-          commerce backend, used only to reflect what we sell and have in stock, not to collect
-          information about you.
+          files. We also link out to Facebook, Discord, and Google Maps — if you follow those links,
+          your interactions there are governed by each service's own privacy policy, not this one.
+          Our product/inventory display may also be sourced from our Squarespace commerce backend,
+          used only to reflect what we sell and have in stock, not to collect information about you.
         </p>
       </section>
 

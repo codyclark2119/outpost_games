@@ -31,13 +31,13 @@
           <tr
             class="border-b border-gray-200 text-left text-xs uppercase tracking-wide text-gray-500"
           >
-            <th class="px-4 py-3 w-8"></th>
-            <th class="px-4 py-3">Item</th>
-            <th class="px-4 py-3">SKU</th>
-            <th class="px-4 py-3 text-right">Price</th>
-            <th class="px-4 py-3 text-right">Qty</th>
-            <th class="px-4 py-3">Status</th>
-            <th class="px-4 py-3"></th>
+            <th class="w-8 py-3 pr-1 pl-3 sm:px-4"><span class="sr-only">Select</span></th>
+            <th class="px-2 py-3 sm:px-4">Item</th>
+            <th class="hidden px-4 py-3 sm:table-cell">SKU</th>
+            <th class="hidden px-4 py-3 text-right sm:table-cell">Price</th>
+            <th class="px-2 py-3 text-right sm:px-4">Qty</th>
+            <th class="hidden px-4 py-3 md:table-cell">Status</th>
+            <th class="py-3 pr-3 pl-1 sm:px-4"><span class="sr-only">Edit</span></th>
           </tr>
         </thead>
         <tbody>

@@ -113,8 +113,6 @@ See `local-dev/README.md` for details.
 │   │       ├── AdminEvents.vue         # Manage special events
 │   │       ├── AdminEventsAdd.vue      # Add event
 │   │       ├── AdminWeeklySchedule.vue # Hide one occurrence of a recurring weekly event
-│   │       ├── AdminTCGPlayerPage.vue  # Manage single card listings
-│   │       ├── AdminTCGPlayerAdd.vue   # Add card listing
 │   │       ├── AdminSquareCatalog.vue      # Square catalog editor (items/variations/categories/images)
 │   │       ├── AdminSquareStock.vue        # Square stock report (CSV export)
 │   │       ├── AdminSquareSales.vue        # Square sales-over-time charts
@@ -138,7 +136,7 @@ See `local-dev/README.md` for details.
 │   ├── App.vue
 │   └── style.css          # Tailwind + brand theme variables
 ├── api/
-│   ├── server.js             # Express API (events, TCGPlayer listings, Square routes)
+│   ├── server.js             # Express API (events, weekly overrides, Square routes)
 │   ├── auth.js                # Redis-backed admin session auth
 │   ├── squarePosClient.js     # Square Catalog/Inventory API client
 │   ├── squareOrdersClient.js  # Square Orders API client (sales reporting)
@@ -176,8 +174,6 @@ The admin is intentionally not linked from the public navigation. Access it at:
 | Manage Events         | `/x/outpostAdmin/events`                | Edit/delete special tournament events                                                                                                                          |
 | Add Event             | `/x/outpostAdmin/events/add`            | Create event with game type association                                                                                                                        |
 | Weekly Schedule       | `/x/outpostAdmin/weekly-schedule`       | Hide one occurrence of a recurring weekly event for a specific date                                                                                            |
-| Manage Listings       | `/x/outpostAdmin/tcgplayer`             | Edit/delete featured single card listings                                                                                                                      |
-| Add Listing           | `/x/outpostAdmin/tcgplayer/add`         | Add a TCGPlayer card listing                                                                                                                                   |
 | Square Catalog        | `/x/outpostAdmin/square-catalog`        | Edit Square items/variations, categories, images, deletion                                                                                                     |
 | Square Stock Report   | `/x/outpostAdmin/square-stock`          | Read-only inventory report, CSV export                                                                                                                         |
 | Square Sales          | `/x/outpostAdmin/square-sales`          | Revenue/order/AOV trends, category + payment-method + day-of-week/hour-of-day breakdowns, and a sortable/filterable top-products table with per-product profit |
@@ -197,12 +193,6 @@ POST   /api/events
 PUT    /api/events/:id
 DELETE /api/events/:id
 
-# TCGPlayer card listings
-GET    /api/tcgplayer-listings
-POST   /api/tcgplayer-listings
-PUT    /api/tcgplayer-listings/:id
-DELETE /api/tcgplayer-listings/:id
-
 # Square POS (admin auth required except /status)
 GET  /api/square/status
 GET  /api/square/inventory-report
@@ -213,23 +203,6 @@ POST /api/square/products/:itemId/image
 POST /api/square/products/:itemId/inventory
 POST /api/square/inventory/batch
 POST /api/admin/inventory-export/run   # manual trigger for the monthly xlsx export
-```
-
-Add a listing via curl:
-
-```bash
-curl -X POST http://localhost:3001/api/tcgplayer-listings \
-  -H "Content-Type: application/json" \
-  -d '{
-    "name": "Lightning Bolt",
-    "setName": "Modern Masters 2015",
-    "price": 5.99,
-    "condition": "NM",
-    "foiling": "Normal",
-    "quantityInStock": 4,
-    "imageUrl": "https://cards.scryfall.io/normal/front/...",
-    "productUrl": "https://www.tcgplayer.com/product/..."
-  }'
 ```
 
 ---
