@@ -92,6 +92,7 @@ The public site is a single page (`Home.vue`) plus two standalone routes. `/abou
 | `/products` | `Products.vue` — sticky game chips (`GameNav`), cross-game search (`?q=`), one swipeable preview row per game with "View all" |
 | `/products/:typeId` | `ProductsGameType.vue` — one game: search, sort, set chips; filters mirrored to `?q=`, `?sort=`, `?set=`. `/products/bandai` redirects to `/products` (see Bandai note below) |
 | `/events` | `Events.vue` |
+| `/events/:id` | `EventDetail.vue` — one special event: details, Add to calendar, Share. Hidden, unknown or finished events show a friendly "not on the calendar" panel |
 | `/terms` | `Terms.vue` |
 | `/privacy` | `Privacy.vue` |
 
@@ -156,11 +157,16 @@ Grouping is manual: `PUT /api/squarespace/products/:productId/assignment` tags a
 
 `SpecialEvent` stores `gameTypeId` and `gameTypeName` (replaces the old `setId` field which was never persisted). Admin forms populate the game type dropdown from the live Square catalog's top-level categories (`src/stores/squareCatalog.ts`, the same source `Products.vue` uses) — a category with no in-stock items today won't appear as an option — with a "Custom…" option for one-off events.
 
+### Event sharing and calendar files
+
+`src/utils/eventLinks.ts` owns everything about linking to one special event, including `upcomingSpecials()` (visible, not-yet-started, soonest first), which `Events.vue`, `NextEventSpotlight.vue` and the detail page all share. Share buttons (`EventActions.vue`) hand out `/api/share/events/:id`, not `/events/:id`. That API page carries the event's own title and description as OG tags and then forwards to `/events/:id`, because Discord/Facebook/iMessage previews never run the SPA's JavaScript. `/api/events/:id/calendar.ics` serves an iCalendar file (4-hour default length, since events have no end time). Both are mounted from `api/routes/records.js` on the same events collection, with the builders in `api/eventShare.js`, and both treat hidden events as not found. `api/eventShare.js` keeps its own copy of the store address, which must match `STORE_INFO.address`.
+
 ### Home page
 
 Business-first and data-driven — the old WPN marketing-poster carousel (and its `/api/marketing-posters` endpoint and `public/wpn-assets/` images) was removed.
 
 - Hero: what the shop is, live open/closed status (`StoreStatus.vue`), shop/events/directions actions
+- Next big event: `NextEventSpotlight.vue`, the soonest visible special within 45 days, with details/calendar/share buttons; renders nothing when there isn't one
 - This week: `getAgenda()` (`src/utils/eventOccurrences.ts`) for the next 7 days — specials plus weekly entries, honoring per-date overrides — rendered by `AgendaList.vue` (also used by `/events`)
 - Shop by game: one tile per live catalog section, falling back to the headline games when the catalog is empty or not live
 - New arrivals: newest in-stock items from `squareCatalog.newest`, preferring ones with a photo

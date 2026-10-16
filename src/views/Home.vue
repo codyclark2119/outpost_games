@@ -63,6 +63,8 @@
       </div>
     </section>
 
+    <NextEventSpotlight :events="eventsStore.upcomingEvents" :now="now" />
+
     <!-- This week -->
     <section class="page-shell py-10 sm:py-14">
       <SectionHeading eyebrow="This week" title="At the shop" to="/events" link-label="Calendar" />
@@ -261,6 +263,7 @@ import badgeUrl from '../assets/outpost-badge.webp'
 import StoreStatus from '../components/StoreStatus.vue'
 import SectionHeading from '../components/SectionHeading.vue'
 import AgendaList from '../components/AgendaList.vue'
+import NextEventSpotlight from '../components/NextEventSpotlight.vue'
 import ProductCard from '../components/ProductCard.vue'
 import SocialLinks from '../components/SocialLinks.vue'
 import { useEventsStore } from '../stores/events'

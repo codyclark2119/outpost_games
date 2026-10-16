@@ -38,6 +38,11 @@ const routes = [
     name: 'Events',
     component: () => import('./views/Events.vue'),
   },
+  {
+    path: '/events/:id',
+    name: 'EventDetail',
+    component: () => import('./views/EventDetail.vue'),
+  },
   // About/Contact folded into the single-page Home as anchor sections —
   // redirect old bookmarks/inbound links rather than 404 them.
   { path: '/about', redirect: () => ({ path: '/', hash: '#about' }) },

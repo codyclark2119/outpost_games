@@ -4,6 +4,7 @@ import { asyncRoute, AppError } from '../middleware/errorHandler.js'
 import { createCollection } from '../services/persistence.js'
 import { validateEvent } from '../schemas/events.js'
 import { object, string, invalid, validIsoDate } from '../schemas/validation.js'
+import { buildEventIcs, buildEventShareHtml, eventDateISO } from '../eventShare.js'
 export function validateOverride(body) {
   object(body, ['weeklyEventId', 'date', 'reason'], ['weeklyEventId', 'date'])
   string(body.weeklyEventId, 'weeklyEventId')
@@ -25,6 +26,9 @@ export function mountRecords(app, dependencies) {
     ['weekly-overrides', 'outpost:weeklyOverrides', validateOverride],
   ]) {
     const collection = createCollection(dependencies, key)
+    // Mounted before /:id so the extra path segment is never read as an id;
+    // shares this collection so the dev memory fallback sees the same events.
+    if (route === 'events') mountEventShare(app, collection)
     app.get(
       `/api/${route}`,
       asyncRoute(async (_req, res) => res.json(await collection.read()))
@@ -74,4 +78,36 @@ export function mountRecords(app, dependencies) {
       })
     )
   }
+}
+
+// Public, read-only views of one event for sharing: a calendar file and a
+// link-preview page. Hidden or unknown events are treated as not found, so a
+// draft never leaks through a guessed id.
+function mountEventShare(app, collection) {
+  const findPublic = async id => {
+    const event = (await collection.read()).find(e => e.id === id)
+    return event && event.isVisible !== false ? event : null
+  }
+  app.get(
+    '/api/events/:id/calendar.ics',
+    asyncRoute(async (req, res) => {
+      const event = await findPublic(req.params.id)
+      const ics = event && buildEventIcs(event)
+      if (!ics) throw new AppError(404, 'Event not found')
+      const slug = (event.title.toLowerCase().match(/[a-z0-9]+/g) || ['event']).join('-')
+      res
+        .type('text/calendar; charset=utf-8')
+        .set('Content-Disposition', `inline; filename="${slug}.ics"`)
+        .send(ics)
+    })
+  )
+  app.get(
+    '/api/share/events/:id',
+    asyncRoute(async (req, res) => {
+      const event = await findPublic(req.params.id)
+      // A stale share link still lands somewhere useful.
+      if (!event || !eventDateISO(event.date)) return res.redirect(302, '/events')
+      res.type('html').set('Cache-Control', 'public, max-age=300').send(buildEventShareHtml(event))
+    })
+  )
 }

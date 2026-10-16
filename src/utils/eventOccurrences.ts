@@ -12,6 +12,8 @@ import {
 } from './eventDateTime'
 export interface FeaturedDayEvent {
   key: string
+  // Specials only: the event's id, for linking to its own page.
+  eventId?: string
   title: string
   time: string
   entry: string
@@ -52,6 +54,7 @@ const eventsOnDate = (
     )
     .map(e => ({
       key: `special-${e.id}`,
+      eventId: e.id,
       title: e.title,
       time: e.time,
       entry: e.entry,

@@ -26,7 +26,13 @@
         <ul class="space-y-3">
           <li v-for="event in day.events" :key="event.key">
             <p class="font-semibold text-slate-800">
-              {{ event.title }}
+              <router-link
+                v-if="event.eventId"
+                :to="eventPath(event.eventId)"
+                class="underline decoration-slate-300 underline-offset-2 hover:decoration-outpost-navy"
+                >{{ event.title }}</router-link
+              >
+              <template v-else>{{ event.title }}</template>
               <span
                 v-if="!event.isWeekly"
                 class="ml-1 inline-block rounded-full bg-outpost-gold/15 px-2 py-0.5 align-middle text-[11px] font-semibold text-outpost-gold-text"
@@ -71,6 +77,7 @@
 import type { AgendaDay } from '../utils/eventOccurrences'
 import { storeDateParts } from '../utils/eventDateTime'
 import { gameMeta } from '../config/games'
+import { eventPath } from '../utils/eventLinks'
 
 // detailed: also show special events' descriptions (Events page; Home stays
 // terse). Weekly nights are described once, in the Events page's weekly list.
