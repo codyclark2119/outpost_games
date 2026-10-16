@@ -1,197 +1,192 @@
 <template>
-  <div class="min-h-screen bg-gray-50 py-6 pb-28 sm:py-12">
-    <div class="container mx-auto px-4">
-      <div class="max-w-6xl mx-auto">
-        <!-- Header -->
-        <div class="flex flex-wrap justify-between items-center mb-8 gap-4">
-          <div>
-            <h1 class="font-display text-3xl font-bold text-gray-800 sm:text-4xl">
-              Mass Inventory Update
-            </h1>
-            <p class="text-gray-600 mt-1">
-              Correct many on-hand counts in one save ({{ report?.environment || '…' }})
-            </p>
-          </div>
-          <router-link :to="{ name: 'AdminDashboard' }" class="btn-secondary px-4 py-2">
-            ← Dashboard
-          </router-link>
-        </div>
+  <AdminPage
+    title="Count lots of stock"
+    subtitle="Type in the real shelf counts, then save them all at once."
+    width="wide"
+    bottom-bar
+  >
+    <!-- Loading -->
+    <div v-if="loading && items.length === 0" class="text-center py-16">
+      <div
+        class="inline-block animate-spin rounded-full h-10 w-10 border-b-2 border-outpost-gold"
+      ></div>
+      <p class="mt-4 text-gray-600">Loading inventory…</p>
+    </div>
 
-        <!-- Loading -->
-        <div v-if="loading && items.length === 0" class="text-center py-16">
-          <div
-            class="inline-block animate-spin rounded-full h-10 w-10 border-b-2 border-outpost-gold"
-          ></div>
-          <p class="mt-4 text-gray-600">Loading inventory…</p>
-        </div>
+    <!-- Error -->
+    <div v-else-if="fetchError" class="card text-center py-10">
+      <p class="text-red-600 mb-4">{{ fetchError }}</p>
+      <button class="btn-primary px-6 py-2" @click="fetchReport">Retry</button>
+    </div>
 
-        <!-- Error -->
-        <div v-else-if="fetchError" class="card text-center py-10">
-          <p class="text-red-600 mb-4">{{ fetchError }}</p>
-          <button class="btn-primary px-6 py-2" @click="fetchReport">Retry</button>
-        </div>
+    <template v-else>
+      <!-- Search + scan to count -->
+      <div class="card p-4 mb-6 flex flex-wrap gap-2">
+        <input
+          v-model="search"
+          type="text"
+          placeholder="Search by name or SKU…"
+          class="input-field min-w-0 flex-1"
+        />
+        <button type="button" class="btn-primary px-4" @click="scanning = true">
+          Scan to count
+        </button>
+      </div>
 
-        <template v-else>
-          <!-- Search + scan to count -->
-          <div class="card p-4 mb-6 flex flex-wrap gap-2">
-            <input
-              v-model="search"
-              type="text"
-              placeholder="Search by name or SKU…"
-              class="input-field min-w-0 flex-1"
-            />
-            <button type="button" class="btn-primary px-4" @click="scanning = true">
-              Scan to count
+      <!-- Start from zero -->
+      <div
+        class="card p-4 mb-6 border"
+        :class="startFromZero ? 'border-amber-300 bg-amber-50' : 'border-transparent'"
+      >
+        <label class="flex items-start gap-3 cursor-pointer">
+          <input v-model="startFromZero" type="checkbox" class="mt-1 h-4 w-4" />
+          <span>
+            <span class="font-semibold text-gray-800">Start from zero</span>
+            <span class="block text-sm text-gray-600">
+              Full recount for conventions and other big stock swings — every tracked item in the
+              checked categories is set to 0 unless you enter a count for it. Applies to whole
+              categories, regardless of the search above.
+            </span>
+          </span>
+        </label>
+
+        <div v-if="startFromZero" class="mt-4 pl-7">
+          <div class="flex items-center gap-3 mb-2 text-sm">
+            <span class="font-medium text-gray-700">Reset categories</span>
+            <button type="button" class="text-outpost-navy underline" @click="includeAll">
+              All
+            </button>
+            <button type="button" class="text-outpost-navy underline" @click="excludeAll">
+              None
             </button>
           </div>
-
-          <!-- Start from zero -->
-          <div
-            class="card p-4 mb-6 border"
-            :class="startFromZero ? 'border-amber-300 bg-amber-50' : 'border-transparent'"
-          >
-            <label class="flex items-start gap-3 cursor-pointer">
-              <input v-model="startFromZero" type="checkbox" class="mt-1 h-4 w-4" />
-              <span>
-                <span class="font-semibold text-gray-800">Start from zero</span>
-                <span class="block text-sm text-gray-600">
-                  Full recount for conventions and other big stock swings — every tracked item in
-                  the checked categories is set to 0 unless you enter a count for it. Applies to
-                  whole categories, regardless of the search above.
-                </span>
-              </span>
-            </label>
-
-            <div v-if="startFromZero" class="mt-4 pl-7">
-              <div class="flex items-center gap-3 mb-2 text-sm">
-                <span class="font-medium text-gray-700">Reset categories</span>
-                <button type="button" class="text-outpost-navy underline" @click="includeAll">
-                  All
-                </button>
-                <button type="button" class="text-outpost-navy underline" @click="excludeAll">
-                  None
-                </button>
-              </div>
-              <div class="flex flex-wrap gap-2">
-                <label
-                  v-for="group in allGroups"
-                  :key="group.name"
-                  class="flex items-center gap-2 px-3 py-1.5 rounded-full border text-sm cursor-pointer"
-                  :class="
-                    isResetCategory(group.name)
-                      ? 'border-amber-400 bg-white text-gray-800'
-                      : 'border-gray-200 bg-gray-50 text-gray-400'
-                  "
-                >
-                  <input
-                    type="checkbox"
-                    :checked="isResetCategory(group.name)"
-                    @change="toggleResetCategory(group.name)"
-                  />
-                  {{ group.name }}
-                  <span class="text-xs text-gray-400">{{ group.items.length }}</span>
-                </label>
-              </div>
-            </div>
-          </div>
-
-          <div v-if="saveError" class="card py-4 px-4 mb-6 border border-red-200 bg-red-50">
-            <p class="text-red-600 text-sm">{{ saveError }}</p>
-          </div>
-          <div v-if="saveSuccess" class="card py-4 px-4 mb-6 border border-green-200 bg-green-50">
-            <p class="text-green-700 text-sm">Saved {{ lastSavedCount }} corrected count(s).</p>
-          </div>
-
-          <!-- Empty state -->
-          <div v-if="trackableItems.length === 0" class="card text-center py-12">
-            <p class="text-gray-500">No trackable items match your search.</p>
-          </div>
-
-          <!-- Category groups -->
-          <div v-else class="space-y-3">
-            <div
-              v-for="group in groupedTrackableItems"
+          <div class="flex flex-wrap gap-2">
+            <label
+              v-for="group in allGroups"
               :key="group.name"
-              class="bg-white rounded-xl shadow border border-gray-200 overflow-hidden"
+              class="flex items-center gap-2 px-3 py-1.5 rounded-full border text-sm cursor-pointer"
+              :class="
+                isResetCategory(group.name)
+                  ? 'border-amber-400 bg-white text-gray-800'
+                  : 'border-gray-200 bg-gray-50 text-gray-400'
+              "
             >
-              <div
-                class="flex items-center gap-3 px-4 py-3 bg-outpost-navy text-white cursor-pointer select-none"
-                @click="toggleCategory(group.name)"
-              >
-                <span
-                  class="text-lg transition-transform duration-200"
-                  :class="expandedCategories.has(group.name) ? 'rotate-90' : ''"
-                  >▶</span
-                >
-                <span class="font-display font-bold text-lg flex-1">{{ group.name }}</span>
-                <span
-                  v-if="isResetCategory(group.name)"
-                  class="text-xs font-semibold px-2 py-0.5 rounded bg-amber-400 text-outpost-navy"
-                  >Reset to 0</span
-                >
-                <span class="text-xs text-white/60"
-                  >{{ group.items.length }} item{{ group.items.length !== 1 ? 's' : '' }}</span
-                >
-              </div>
-
-              <div v-if="expandedCategories.has(group.name)" class="overflow-x-auto">
-                <table class="w-full text-sm">
-                  <thead>
-                    <tr
-                      class="border-b border-gray-200 text-left text-xs uppercase tracking-wide text-gray-500"
-                    >
-                      <th class="px-4 py-3">Item</th>
-                      <th class="px-4 py-3">SKU</th>
-                      <th class="px-4 py-3 text-right">Current Qty</th>
-                      <th class="px-4 py-3 text-right">New Qty</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    <tr
-                      v-for="item in group.items"
-                      :key="item.id"
-                      class="border-b border-gray-100 last:border-0 hover:bg-gray-50"
-                      :class="{ 'bg-amber-50': isEdited(item.id) }"
-                    >
-                      <td class="px-4 py-2.5 font-medium text-gray-800">{{ item.displayName }}</td>
-                      <td class="px-4 py-2.5 text-gray-500">{{ item.sku || '—' }}</td>
-                      <td
-                        class="px-4 py-2.5 text-right"
-                        :class="
-                          isResetCategory(categoryOf(item)) && !isEdited(item.id)
-                            ? 'text-gray-400 line-through'
-                            : 'text-gray-700'
-                        "
-                      >
-                        {{ item.quantity ?? '—' }}
-                      </td>
-                      <td class="px-4 py-2.5 text-right">
-                        <input
-                          v-model="edits[item.id]"
-                          type="number"
-                          min="0"
-                          step="1"
-                          :placeholder="
-                            isResetCategory(categoryOf(item)) ? '0' : String(item.quantity ?? 0)
-                          "
-                          class="input-field !w-28 text-right py-1"
-                        />
-                      </td>
-                    </tr>
-                  </tbody>
-                </table>
-              </div>
-            </div>
+              <input
+                type="checkbox"
+                :checked="isResetCategory(group.name)"
+                @change="toggleResetCategory(group.name)"
+              />
+              {{ group.name }}
+              <span class="text-xs text-gray-400">{{ group.items.length }}</span>
+            </label>
           </div>
-        </template>
+        </div>
       </div>
-    </div>
+
+      <div v-if="saveError" class="card py-4 px-4 mb-6 border border-red-200 bg-red-50">
+        <p class="text-red-600 text-sm">{{ saveError }}</p>
+      </div>
+      <div v-if="saveSuccess" class="card py-4 px-4 mb-6 border border-green-200 bg-green-50">
+        <p class="text-green-700 text-sm">Saved {{ lastSavedCount }} corrected count(s).</p>
+      </div>
+
+      <!-- Empty state -->
+      <div v-if="trackableItems.length === 0" class="card text-center py-12">
+        <p class="text-gray-500">No trackable items match your search.</p>
+      </div>
+
+      <!-- Category groups -->
+      <div v-else class="space-y-3">
+        <div
+          v-for="group in groupedTrackableItems"
+          :key="group.name"
+          class="bg-white rounded-xl shadow border border-gray-200 overflow-hidden"
+        >
+          <div
+            class="flex items-center gap-3 px-4 py-3 bg-outpost-navy text-white cursor-pointer select-none"
+            @click="toggleCategory(group.name)"
+          >
+            <span
+              class="text-lg transition-transform duration-200"
+              :class="expandedCategories.has(group.name) ? 'rotate-90' : ''"
+              >▶</span
+            >
+            <span class="font-display font-bold text-lg flex-1">{{ group.name }}</span>
+            <span
+              v-if="isResetCategory(group.name)"
+              class="text-xs font-semibold px-2 py-0.5 rounded bg-amber-400 text-outpost-navy"
+              >Reset to 0</span
+            >
+            <span class="text-xs text-white/60"
+              >{{ group.items.length }} item{{ group.items.length !== 1 ? 's' : '' }}</span
+            >
+          </div>
+
+          <div v-if="expandedCategories.has(group.name)" class="overflow-x-auto">
+            <table class="w-full text-sm">
+              <thead>
+                <tr
+                  class="border-b border-gray-200 text-left text-xs uppercase tracking-wide text-gray-500"
+                >
+                  <th class="px-3 py-3 sm:px-4">Item</th>
+                  <th class="hidden px-4 py-3 sm:table-cell">SKU</th>
+                  <th class="px-2 py-3 text-right sm:px-4">Now</th>
+                  <th class="px-3 py-3 text-right sm:px-4">New count</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr
+                  v-for="item in group.items"
+                  :key="item.id"
+                  class="border-b border-gray-100 last:border-0 hover:bg-gray-50"
+                  :class="{ 'bg-amber-50': isEdited(item.id) }"
+                >
+                  <td class="px-3 py-2.5 font-medium text-gray-800 sm:px-4">
+                    {{ item.displayName }}
+                    <span v-if="item.sku" class="block text-xs font-normal text-gray-500 sm:hidden">
+                      SKU {{ item.sku }}
+                    </span>
+                  </td>
+                  <td class="hidden px-4 py-2.5 text-gray-500 sm:table-cell">
+                    {{ item.sku || '—' }}
+                  </td>
+                  <td
+                    class="px-2 py-2.5 text-right sm:px-4"
+                    :class="
+                      isResetCategory(categoryOf(item)) && !isEdited(item.id)
+                        ? 'text-gray-400 line-through'
+                        : 'text-gray-700'
+                    "
+                  >
+                    {{ item.quantity ?? '—' }}
+                  </td>
+                  <td class="px-3 py-2.5 text-right sm:px-4">
+                    <input
+                      v-model="edits[item.id]"
+                      type="number"
+                      min="0"
+                      step="1"
+                      :placeholder="
+                        isResetCategory(categoryOf(item)) ? '0' : String(item.quantity ?? 0)
+                      "
+                      inputmode="numeric"
+                      :aria-label="`New count for ${item.displayName}`"
+                      class="input-field !w-20 py-1 text-right sm:!w-28"
+                    />
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </template>
 
     <!-- Scan to count: camera sheet over the page; counts land in the table -->
     <transition name="fade">
       <div
         v-if="scanning"
-        class="fixed inset-0 z-30 flex flex-col justify-end bg-black/40 sm:justify-center"
+        class="fixed inset-0 z-50 flex flex-col justify-end bg-black/40 sm:justify-center"
         @click.self="scanning = false"
       >
         <div
@@ -204,7 +199,7 @@
             <div>
               <h2 class="font-semibold text-gray-900">Scan to count</h2>
               <p class="text-xs text-gray-500">
-                Each scan adds one to that item's New Qty. Scan every unit on the shelf.
+                Each scan adds one to that item's new count. Scan every unit on the shelf.
               </p>
             </div>
             <button type="button" class="btn-secondary px-3 py-1.5" @click="scanning = false">
@@ -245,7 +240,7 @@
     <transition name="fade">
       <div
         v-if="pendingChanges.length > 0"
-        class="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 shadow-lg py-4 z-20"
+        class="admin-action-bar fixed left-0 right-0 bg-white border-t border-gray-200 shadow-lg py-4 z-20"
       >
         <div class="container mx-auto px-4">
           <div class="max-w-6xl mx-auto flex items-center justify-between gap-4">
@@ -271,10 +266,11 @@
         </div>
       </div>
     </transition>
-  </div>
+  </AdminPage>
 </template>
 
 <script setup lang="ts">
+import AdminPage from '../../components/admin/AdminPage.vue'
 import { useConfirmation } from '../../composables/useConfirmation'
 const { ask } = useConfirmation()
 import { squareAdminApi } from '../../services/squareAdminApi'

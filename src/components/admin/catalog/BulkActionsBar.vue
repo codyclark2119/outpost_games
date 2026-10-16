@@ -3,7 +3,7 @@
   <transition name="fade">
     <div
       v-if="selectedCount > 0"
-      class="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 shadow-lg py-4 z-20"
+      class="admin-action-bar fixed left-0 right-0 bg-white border-t border-gray-200 shadow-lg py-4 z-20"
     >
       <div class="container mx-auto px-4">
         <div class="max-w-6xl mx-auto flex flex-wrap items-center justify-between gap-4">

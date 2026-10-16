@@ -1,359 +1,99 @@
 <template>
-  <div class="min-h-screen bg-gray-50 py-12">
-    <div class="container mx-auto px-4">
-      <div class="max-w-4xl mx-auto">
-        <div class="flex justify-between items-center mb-12">
-          <h1 class="font-display text-4xl font-bold text-gray-800">Admin Dashboard</h1>
-          <div class="flex items-center gap-3">
-            <span v-if="auth.username" class="text-sm text-gray-500"
-              >Signed in as {{ auth.username }}</span
-            >
-            <button class="btn-secondary px-4 py-2" @click="handleLogout">Log Out</button>
-          </div>
-        </div>
-
-        <!-- Square POS -->
-        <div class="mb-10">
-          <h2
-            class="font-display text-sm font-bold uppercase tracking-widest text-gray-400 mb-4 pl-1"
-          >
-            Square POS
-          </h2>
-          <div class="grid grid-cols-1 sm:grid-cols-2 gap-5">
-            <router-link
-              :to="{ name: 'AdminSquareScan' }"
-              class="card hover:shadow-xl transition-all duration-300"
-            >
-              <div class="text-center">
-                <div
-                  class="w-14 h-14 bg-outpost-navy rounded-full flex items-center justify-center mx-auto mb-3"
-                >
-                  <svg
-                    class="w-7 h-7 text-white"
-                    fill="none"
-                    stroke="currentColor"
-                    viewBox="0 0 24 24"
-                  >
-                    <path
-                      stroke-linecap="round"
-                      stroke-linejoin="round"
-                      stroke-width="2"
-                      d="M4 7V5a1 1 0 011-1h2M17 4h2a1 1 0 011 1v2M20 17v2a1 1 0 01-1 1h-2M7 20H5a1 1 0 01-1-1v-2M8 8v8M11 8v8M14 8v8M17 8v8"
-                    />
-                  </svg>
-                </div>
-                <h3 class="font-display font-semibold text-lg mb-1">Scan Barcode</h3>
-                <p class="text-gray-500 text-sm">
-                  Look up, count, or link a barcode with your camera
-                </p>
-              </div>
-            </router-link>
-
-            <router-link
-              :to="{ name: 'AdminSquareStock' }"
-              class="card hover:shadow-xl transition-all duration-300"
-            >
-              <div class="text-center">
-                <div
-                  class="w-14 h-14 bg-emerald-600 rounded-full flex items-center justify-center mx-auto mb-3"
-                >
-                  <svg
-                    class="w-7 h-7 text-white"
-                    fill="none"
-                    stroke="currentColor"
-                    viewBox="0 0 24 24"
-                  >
-                    <path
-                      stroke-linecap="round"
-                      stroke-linejoin="round"
-                      stroke-width="2"
-                      d="M9 17V9m4 8V5m4 12v-6M5 21h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v14a2 2 0 002 2z"
-                    />
-                  </svg>
-                </div>
-                <h3 class="font-display font-semibold text-lg mb-1">Stock Report</h3>
-                <p class="text-gray-500 text-sm">View and export live Square inventory</p>
-              </div>
-            </router-link>
-
-            <router-link
-              :to="{ name: 'AdminSquareCatalog' }"
-              class="card hover:shadow-xl transition-all duration-300"
-            >
-              <div class="text-center">
-                <div
-                  class="w-14 h-14 bg-emerald-700 rounded-full flex items-center justify-center mx-auto mb-3"
-                >
-                  <svg
-                    class="w-7 h-7 text-white"
-                    fill="none"
-                    stroke="currentColor"
-                    viewBox="0 0 24 24"
-                  >
-                    <path
-                      stroke-linecap="round"
-                      stroke-linejoin="round"
-                      stroke-width="2"
-                      d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"
-                    />
-                  </svg>
-                </div>
-                <h3 class="font-display font-semibold text-lg mb-1">Catalog Editor</h3>
-                <p class="text-gray-500 text-sm">Edit product details in Square POS</p>
-              </div>
-            </router-link>
-
-            <router-link
-              :to="{ name: 'AdminSquareSales' }"
-              class="card hover:shadow-xl transition-all duration-300"
-            >
-              <div class="text-center">
-                <div
-                  class="w-14 h-14 bg-blue-600 rounded-full flex items-center justify-center mx-auto mb-3"
-                >
-                  <svg
-                    class="w-7 h-7 text-white"
-                    fill="none"
-                    stroke="currentColor"
-                    viewBox="0 0 24 24"
-                  >
-                    <path
-                      stroke-linecap="round"
-                      stroke-linejoin="round"
-                      stroke-width="2"
-                      d="M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zm12-3c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zM9 10l12-3"
-                    />
-                  </svg>
-                </div>
-                <h3 class="font-display font-semibold text-lg mb-1">Sales Over Time</h3>
-                <p class="text-gray-500 text-sm">Chart revenue trends and top products</p>
-              </div>
-            </router-link>
-
-            <router-link
-              :to="{ name: 'AdminSquareMassInventory' }"
-              class="card hover:shadow-xl transition-all duration-300"
-            >
-              <div class="text-center">
-                <div
-                  class="w-14 h-14 bg-orange-600 rounded-full flex items-center justify-center mx-auto mb-3"
-                >
-                  <svg
-                    class="w-7 h-7 text-white"
-                    fill="none"
-                    stroke="currentColor"
-                    viewBox="0 0 24 24"
-                  >
-                    <path
-                      stroke-linecap="round"
-                      stroke-linejoin="round"
-                      stroke-width="2"
-                      d="M4 4h16v4H4V4zm0 6h16v10H4V10zm4 3h8"
-                    />
-                  </svg>
-                </div>
-                <h3 class="font-display font-semibold text-lg mb-1">Mass Inventory Update</h3>
-                <p class="text-gray-500 text-sm">Correct many stock counts in one save</p>
-              </div>
-            </router-link>
-
-            <router-link
-              :to="{ name: 'AdminSquareRestock' }"
-              class="card hover:shadow-xl transition-all duration-300"
-            >
-              <div class="text-center">
-                <div
-                  class="w-14 h-14 bg-teal-600 rounded-full flex items-center justify-center mx-auto mb-3"
-                >
-                  <svg
-                    class="w-7 h-7 text-white"
-                    fill="none"
-                    stroke="currentColor"
-                    viewBox="0 0 24 24"
-                  >
-                    <path
-                      stroke-linecap="round"
-                      stroke-linejoin="round"
-                      stroke-width="2"
-                      d="M20 12V8H6a2 2 0 01-2-2c0-1.1.9-2 2-2h12v4M4 6v12a2 2 0 002 2h14v-4M18 12a2 2 0 100 4 2 2 0 000-4z"
-                    />
-                  </svg>
-                </div>
-                <h3 class="font-display font-semibold text-lg mb-1">Quick Restock</h3>
-                <p class="text-gray-500 text-sm">Open a box, restock loose packs in one click</p>
-              </div>
-            </router-link>
-          </div>
-        </div>
-
-        <!-- Events -->
-        <div class="mb-10">
-          <h2
-            class="font-display text-sm font-bold uppercase tracking-widest text-gray-400 mb-4 pl-1"
-          >
-            Events
-          </h2>
-          <div class="grid grid-cols-1 sm:grid-cols-2 gap-5">
-            <router-link
-              :to="{ name: 'AdminEvents' }"
-              class="card hover:shadow-xl transition-all duration-300"
-            >
-              <div class="text-center">
-                <div
-                  class="w-14 h-14 bg-teal-500 rounded-full flex items-center justify-center mx-auto mb-3"
-                >
-                  <svg
-                    class="w-7 h-7 text-white"
-                    fill="none"
-                    stroke="currentColor"
-                    viewBox="0 0 24 24"
-                  >
-                    <path
-                      stroke-linecap="round"
-                      stroke-linejoin="round"
-                      stroke-width="2"
-                      d="M4 6h16M4 10h16M4 14h16M4 18h16"
-                    />
-                  </svg>
-                </div>
-                <h3 class="font-display font-semibold text-lg mb-1">Manage Events</h3>
-                <p class="text-gray-500 text-sm">Edit and delete tournament events</p>
-              </div>
-            </router-link>
-
-            <router-link
-              :to="{ name: 'AdminEventsAdd' }"
-              class="card hover:shadow-xl transition-all duration-300"
-            >
-              <div class="text-center">
-                <div
-                  class="w-14 h-14 bg-teal-600 rounded-full flex items-center justify-center mx-auto mb-3"
-                >
-                  <svg
-                    class="w-7 h-7 text-white"
-                    fill="none"
-                    stroke="currentColor"
-                    viewBox="0 0 24 24"
-                  >
-                    <path
-                      stroke-linecap="round"
-                      stroke-linejoin="round"
-                      stroke-width="2"
-                      d="M12 6v6m0 0v6m0-6h6m-6 0H6"
-                    />
-                  </svg>
-                </div>
-                <h3 class="font-display font-semibold text-lg mb-1">Add Event</h3>
-                <p class="text-gray-500 text-sm">Create a new tournament or special event</p>
-              </div>
-            </router-link>
-
-            <router-link
-              :to="{ name: 'AdminWeeklySchedule' }"
-              class="card hover:shadow-xl transition-all duration-300"
-            >
-              <div class="text-center">
-                <div
-                  class="w-14 h-14 bg-teal-700 rounded-full flex items-center justify-center mx-auto mb-3"
-                >
-                  <svg
-                    class="w-7 h-7 text-white"
-                    fill="none"
-                    stroke="currentColor"
-                    viewBox="0 0 24 24"
-                  >
-                    <path
-                      stroke-linecap="round"
-                      stroke-linejoin="round"
-                      stroke-width="2"
-                      d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"
-                    />
-                  </svg>
-                </div>
-                <h3 class="font-display font-semibold text-lg mb-1">Weekly Schedule</h3>
-                <p class="text-gray-500 text-sm">Hide a recurring event for one specific date</p>
-              </div>
-            </router-link>
-          </div>
-        </div>
-
-        <!-- Single Card Listings -->
-        <div class="mb-10">
-          <h2
-            class="font-display text-sm font-bold uppercase tracking-widest text-gray-400 mb-4 pl-1"
-          >
-            Single Card Listings
-          </h2>
-          <div class="grid grid-cols-1 sm:grid-cols-2 gap-5">
-            <router-link
-              :to="{ name: 'AdminTCGPlayer' }"
-              class="card hover:shadow-xl transition-all duration-300"
-            >
-              <div class="text-center">
-                <div
-                  class="w-14 h-14 bg-purple-600 rounded-full flex items-center justify-center mx-auto mb-3"
-                >
-                  <svg
-                    class="w-7 h-7 text-white"
-                    fill="none"
-                    stroke="currentColor"
-                    viewBox="0 0 24 24"
-                  >
-                    <path
-                      stroke-linecap="round"
-                      stroke-linejoin="round"
-                      stroke-width="2"
-                      d="M4 6h16M4 10h16M4 14h16M4 18h16"
-                    />
-                  </svg>
-                </div>
-                <h3 class="font-display font-semibold text-lg mb-1">Manage Listings</h3>
-                <p class="text-gray-500 text-sm">Edit and delete featured single cards</p>
-              </div>
-            </router-link>
-
-            <router-link
-              :to="{ name: 'AdminTCGPlayerAdd' }"
-              class="card hover:shadow-xl transition-all duration-300"
-            >
-              <div class="text-center">
-                <div
-                  class="w-14 h-14 bg-purple-700 rounded-full flex items-center justify-center mx-auto mb-3"
-                >
-                  <svg
-                    class="w-7 h-7 text-white"
-                    fill="none"
-                    stroke="currentColor"
-                    viewBox="0 0 24 24"
-                  >
-                    <path
-                      stroke-linecap="round"
-                      stroke-linejoin="round"
-                      stroke-width="2"
-                      d="M12 6v6m0 0v6m0-6h6m-6 0H6"
-                    />
-                  </svg>
-                </div>
-                <h3 class="font-display font-semibold text-lg mb-1">Add Listing</h3>
-                <p class="text-gray-500 text-sm">Add a new single card to the listings</p>
-              </div>
-            </router-link>
-          </div>
-        </div>
+  <AdminPage
+    :title="auth.username ? `Hi, ${auth.username}` : 'Admin home'"
+    subtitle="What do you need to do?"
+    :back="false"
+  >
+    <!-- What's on this week, so the first screen answers "is tonight set up right?" -->
+    <section class="mb-8" aria-labelledby="this-week">
+      <div class="mb-3 flex items-baseline justify-between gap-3">
+        <h2 id="this-week" class="text-sm font-bold tracking-wide text-gray-500 uppercase">
+          This week at the shop
+        </h2>
+        <router-link :to="{ name: 'AdminEvents' }" class="text-sm font-semibold text-outpost-navy">
+          All events
+        </router-link>
       </div>
-    </div>
-  </div>
+      <p v-if="!agendaLoaded" class="rounded-2xl bg-white p-4 text-sm text-gray-500">Loading…</p>
+      <AgendaList v-else-if="agenda.length" :days="agenda" />
+      <div v-else class="rounded-2xl border border-gray-200 bg-white p-4 text-sm text-gray-600">
+        Nothing on the calendar for the next 7 days.
+        <router-link
+          :to="{ name: 'AdminEventsAdd' }"
+          class="font-semibold text-outpost-navy underline"
+          >Add an event</router-link
+        >
+      </div>
+    </section>
+
+    <section
+      v-for="group in ADMIN_TASK_GROUPS"
+      :key="group.heading"
+      class="mb-8"
+      :aria-labelledby="`group-${group.heading}`"
+    >
+      <h2
+        :id="`group-${group.heading}`"
+        class="mb-3 text-sm font-bold tracking-wide text-gray-500 uppercase"
+      >
+        {{ group.heading }}
+      </h2>
+      <ul class="grid gap-2 md:grid-cols-2">
+        <li v-for="task in group.tasks" :key="task.routeName">
+          <router-link
+            :to="{ name: task.routeName }"
+            class="flex min-h-16 items-center gap-4 rounded-2xl border border-gray-200 bg-white p-4 shadow-sm transition-colors hover:border-outpost-gold active:bg-gray-50"
+          >
+            <span
+              class="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-outpost-navy text-outpost-gold"
+            >
+              <component :is="task.icon" class="h-6 w-6" aria-hidden="true" />
+            </span>
+            <span class="min-w-0 flex-1">
+              <span class="block font-semibold text-gray-900">{{ task.title }}</span>
+              <span class="block text-sm text-gray-500">{{ task.hint }}</span>
+            </span>
+            <ChevronRightIcon class="h-5 w-5 shrink-0 text-gray-400" aria-hidden="true" />
+          </router-link>
+        </li>
+      </ul>
+    </section>
+
+    <router-link
+      to="/"
+      class="inline-flex min-h-11 items-center gap-2 text-sm font-semibold text-outpost-navy md:hidden"
+    >
+      <ArrowTopRightOnSquareIcon class="h-5 w-5" aria-hidden="true" />
+      View the public site
+    </router-link>
+  </AdminPage>
 </template>
 
 <script setup lang="ts">
-import { useRouter } from 'vue-router'
+import { computed, onMounted, ref } from 'vue'
+import { ChevronRightIcon, ArrowTopRightOnSquareIcon } from '@heroicons/vue/24/outline'
+import AdminPage from '../../components/admin/AdminPage.vue'
+import AgendaList from '../../components/AgendaList.vue'
+import { ADMIN_TASK_GROUPS } from '../../config/adminNav'
+import { WEEKLY_SCHEDULE } from '../../config/weeklySchedule'
 import { useAuthStore } from '../../stores/auth'
+import { useEventsStore } from '../../stores/events'
+import { useWeeklyOverridesStore } from '../../stores/weeklyOverrides'
+import { getAgenda } from '../../utils/eventOccurrences'
 
-const router = useRouter()
 const auth = useAuthStore()
+const eventsStore = useEventsStore()
+const overridesStore = useWeeklyOverridesStore()
 
-const handleLogout = async () => {
-  await auth.logout()
-  router.push({ name: 'AdminLogin' })
-}
+const agendaLoaded = ref(false)
+const agenda = computed(() =>
+  getAgenda(eventsStore.upcomingEvents, WEEKLY_SCHEDULE, overridesStore.overrides, { days: 7 })
+)
+
+onMounted(async () => {
+  // Either list failing still leaves a useful agenda (weekly nights alone, or
+  // specials without overrides), so neither blocks the other.
+  await Promise.allSettled([eventsStore.fetchEvents(), overridesStore.fetchOverrides()])
+  agendaLoaded.value = true
+})
 </script>

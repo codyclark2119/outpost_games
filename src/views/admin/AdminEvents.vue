@@ -1,489 +1,265 @@
 <template>
-  <div class="min-h-screen bg-gray-50 py-12">
-    <div class="container mx-auto px-4">
-      <div class="max-w-4xl mx-auto">
-        <!-- Header -->
-        <div class="flex flex-wrap justify-between items-center mb-8 gap-4">
-          <div>
-            <h1 class="font-display text-4xl font-bold text-gray-800">Manage Events</h1>
-            <p class="text-gray-600 mt-1">Edit, delete, and review current and historical events</p>
-          </div>
-          <div class="flex gap-3">
-            <router-link :to="{ name: 'AdminEventsAdd' }" class="btn-primary px-4 py-2">
-              + Add Event
-            </router-link>
-            <router-link :to="{ name: 'AdminDashboard' }" class="btn-secondary px-4 py-2">
-              ← Dashboard
-            </router-link>
-          </div>
-        </div>
+  <AdminPage title="Events" subtitle="Change, hide, or remove special events.">
+    <template #actions>
+      <router-link
+        :to="{ name: 'AdminEventsAdd' }"
+        class="btn-primary flex-1 px-4 py-3 sm:flex-none"
+      >
+        + Add an event
+      </router-link>
+      <router-link
+        :to="{ name: 'AdminWeeklySchedule' }"
+        class="btn-secondary flex-1 px-4 py-3 sm:flex-none"
+      >
+        Skip a weekly night
+      </router-link>
+    </template>
 
-        <!-- Loading -->
-        <div
-          v-if="eventsStore.loading && eventsStore.upcomingEvents.length === 0"
-          class="text-center py-16"
-        >
-          <div
-            class="inline-block animate-spin rounded-full h-10 w-10 border-b-2 border-outpost-gold"
-          ></div>
-          <p class="mt-4 text-gray-600">Loading events…</p>
-        </div>
-
-        <!-- Error -->
-        <div v-else-if="eventsStore.error" class="card text-center py-10">
-          <p class="text-red-600 mb-4">{{ eventsStore.error }}</p>
-          <button class="btn-primary px-6 py-2" @click="eventsStore.fetchEvents()">Retry</button>
-        </div>
-
-        <template v-else>
-          <div class="flex justify-between items-center mb-4">
-            <p class="text-gray-600 text-sm">
-              {{ upcomingEventsFiltered.length }} upcoming event{{
-                upcomingEventsFiltered.length !== 1 ? 's' : ''
-              }}
-            </p>
-          </div>
-
-          <!-- Empty state -->
-          <div v-if="upcomingEventsFiltered.length === 0" class="card text-center py-12">
-            <p class="text-gray-500 mb-4">No upcoming events.</p>
-            <router-link :to="{ name: 'AdminEventsAdd' }" class="btn-primary px-6 py-2">
-              Add First Event
-            </router-link>
-          </div>
-
-          <!-- Events list -->
-          <div v-else class="space-y-3">
-            <div
-              v-for="event in upcomingEventsFiltered"
-              :key="event.id"
-              class="bg-white rounded-xl shadow border border-gray-200 p-5 flex flex-col sm:flex-row sm:items-start gap-4 hover:border-outpost-gold transition-colors"
-              :class="{ 'opacity-60': event.isVisible === false }"
-            >
-              <!-- Date badge -->
-              <div
-                class="flex-shrink-0 bg-outpost-navy text-white rounded-lg px-4 py-3 text-center min-w-[80px]"
-              >
-                <div class="text-xs uppercase tracking-wide opacity-70">
-                  {{ monthOf(event.date) }}
-                </div>
-                <div class="font-display font-bold text-2xl leading-none">
-                  {{ dayOf(event.date) }}
-                </div>
-                <div class="text-xs opacity-70">{{ yearOf(event.date) }}</div>
-              </div>
-
-              <!-- Details -->
-              <div class="flex-grow min-w-0">
-                <div class="flex flex-wrap items-center gap-2">
-                  <h3 class="font-display font-bold text-lg text-gray-800">{{ event.title }}</h3>
-                  <span
-                    v-if="event.isVisible === false"
-                    class="inline-block text-xs px-2 py-0.5 rounded-full font-medium bg-gray-200 text-gray-600"
-                  >
-                    Hidden
-                  </span>
-                </div>
-                <p class="text-gray-600 text-sm mt-0.5">
-                  {{ event.time }} · Entry: ${{ event.entry }}
-                </p>
-                <p class="text-gray-500 text-sm mt-1 line-clamp-2">{{ event.description }}</p>
-              </div>
-
-              <!-- Actions -->
-              <div class="flex gap-2 flex-shrink-0 sm:flex-col">
-                <button
-                  class="p-1.5 rounded transition-colors self-center sm:self-start"
-                  :class="
-                    event.isVisible === false
-                      ? 'text-white/40 hover:text-outpost-gold bg-outpost-navy'
-                      : 'text-outpost-gold hover:text-outpost-gold-light bg-outpost-navy'
-                  "
-                  :title="
-                    event.isVisible === false ? 'Hidden — click to show' : 'Visible — click to hide'
-                  "
-                  @click="toggleEventVisibility(event)"
-                >
-                  <EyeIcon v-if="event.isVisible !== false" class="w-5 h-5" />
-                  <EyeSlashIcon v-else class="w-5 h-5" />
-                </button>
-                <button
-                  class="px-4 py-1.5 bg-outpost-navy text-white rounded-lg hover:bg-outpost-navy-light text-sm font-medium transition-colors"
-                  @click="openEdit(event)"
-                >
-                  Edit
-                </button>
-                <button
-                  class="px-4 py-1.5 bg-red-50 text-red-600 border border-red-200 rounded-lg hover:bg-red-100 text-sm font-medium transition-colors"
-                  @click="confirmDelete(event)"
-                >
-                  Delete
-                </button>
-              </div>
-            </div>
-          </div>
-
-          <div v-if="pastEventsFiltered.length" class="mt-10">
-            <h2 class="font-display text-xl font-bold text-gray-800 mb-3">Past Events</h2>
-            <p class="text-sm text-gray-500 mb-4">
-              History is retained until you explicitly delete an event.
-            </p>
-            <div class="space-y-3 opacity-80">
-              <div
-                v-for="event in pastEventsFiltered"
-                :key="event.id"
-                class="bg-white rounded-xl border border-gray-200 p-4 flex items-center justify-between gap-4"
-              >
-                <div>
-                  <p class="font-semibold text-gray-800">{{ event.title }}</p>
-                  <p class="text-sm text-gray-500">{{ event.date }} · {{ event.time }}</p>
-                </div>
-                <div class="flex gap-2">
-                  <button class="btn-secondary px-3 py-2" @click="openEdit(event)">Edit</button>
-                  <button
-                    class="bg-red-500 hover:bg-red-600 text-white px-3 py-2 rounded-lg"
-                    @click="confirmDelete(event)"
-                  >
-                    Delete
-                  </button>
-                </div>
-              </div>
-            </div>
-          </div>
-        </template>
-      </div>
+    <div
+      v-if="eventsStore.loading && eventsStore.upcomingEvents.length === 0"
+      class="py-16 text-center"
+      role="status"
+    >
+      <div
+        class="inline-block h-10 w-10 animate-spin rounded-full border-b-2 border-outpost-gold"
+      ></div>
+      <p class="mt-4 text-gray-600">Loading events…</p>
     </div>
 
-    <!-- Edit Modal -->
-    <teleport to="body">
-      <transition name="modal-fade">
-        <div
-          v-if="editModal.open"
-          class="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4"
-          @click.self="closeEdit"
+    <template v-else>
+      <!-- A failed save shows here, above the list, instead of replacing it. -->
+      <div
+        v-if="eventsStore.error"
+        class="mb-4 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-red-200 bg-red-50 p-4"
+        role="alert"
+      >
+        <p class="text-sm text-red-700">{{ eventsStore.error }}</p>
+        <button type="button" class="btn-secondary px-4 py-2" @click="eventsStore.fetchEvents()">
+          Try again
+        </button>
+      </div>
+
+      <h2 class="mb-3 text-sm font-bold tracking-wide text-gray-500 uppercase">
+        Coming up ({{ upcoming.length }})
+      </h2>
+
+      <div v-if="upcoming.length === 0" class="card py-10 text-center">
+        <p class="mb-4 text-gray-500">No special events coming up.</p>
+        <router-link :to="{ name: 'AdminEventsAdd' }" class="btn-primary px-6 py-3">
+          Add an event
+        </router-link>
+      </div>
+
+      <ul v-else class="space-y-3">
+        <li
+          v-for="event in upcoming"
+          :key="event.id"
+          class="rounded-2xl border bg-white p-4 shadow-sm"
+          :class="event.isVisible === false ? 'border-dashed border-gray-300' : 'border-gray-200'"
         >
-          <div
-            class="bg-white rounded-2xl shadow-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto"
-            @click.stop
-          >
-            <div class="p-6">
-              <h2 class="font-display text-xl font-bold mb-5 text-gray-800">Edit Event</h2>
-
-              <form class="space-y-4" @submit.prevent="saveEdit">
-                <div>
-                  <label class="block text-sm font-medium text-gray-700 mb-1">Event Title</label>
-                  <input v-model="editForm.title" type="text" required class="input-field" />
-                </div>
-
-                <div class="grid grid-cols-2 gap-4">
-                  <div>
-                    <label class="block text-sm font-medium text-gray-700 mb-1">Date</label>
-                    <input v-model="editForm.dateISO" type="date" required class="input-field" />
-                  </div>
-                  <div>
-                    <label class="block text-sm font-medium text-gray-700 mb-1">Time</label>
-                    <select v-model="editForm.time" required class="input-field">
-                      <option v-for="t in timeOptions" :key="t" :value="t">{{ t }}</option>
-                    </select>
-                  </div>
-                </div>
-
-                <div>
-                  <label class="block text-sm font-medium text-gray-700 mb-1">Entry Fee</label>
-                  <select v-model="editForm.entry" required class="input-field">
-                    <option v-for="fee in entryFeeOptions" :key="fee.value" :value="fee.value">
-                      {{ fee.label }}
-                    </option>
-                  </select>
-                </div>
-
-                <div>
-                  <label class="block text-sm font-medium text-gray-700 mb-1">Description</label>
-                  <textarea
-                    v-model="editForm.description"
-                    required
-                    rows="3"
-                    class="input-field resize-none"
-                  ></textarea>
-                </div>
-
-                <div>
-                  <label class="block text-sm font-medium text-gray-700 mb-1"
-                    >Game Type (Optional)</label
-                  >
-                  <select v-model="editForm.gameTypeId" class="input-field">
-                    <option value="">No specific game type</option>
-                    <option v-for="t in catalogTypes" :key="t.id" :value="t.id">
-                      {{ t.name }}
-                    </option>
-                    <option value="custom">Custom…</option>
-                  </select>
-                </div>
-                <div v-if="editForm.gameTypeId === 'custom'">
-                  <label class="block text-sm font-medium text-gray-700 mb-1"
-                    >Custom Game Type *</label
-                  >
-                  <input
-                    v-model="editForm.customGameType"
-                    type="text"
-                    class="input-field"
-                    placeholder="e.g., Flesh and Blood"
-                  />
-                </div>
-
-                <div v-if="editError" class="text-red-600 text-sm">{{ editError }}</div>
-
-                <div class="flex gap-3 justify-end pt-2">
-                  <button type="button" class="btn-secondary px-5 py-2" @click="closeEdit">
-                    Cancel
-                  </button>
-                  <button type="submit" class="btn-primary px-5 py-2" :disabled="saving">
-                    {{ saving ? 'Saving…' : 'Save Changes' }}
-                  </button>
-                </div>
-              </form>
+          <div class="flex gap-4">
+            <div
+              class="flex h-16 w-14 shrink-0 flex-col items-center justify-center rounded-xl text-white"
+              :class="event.isVisible === false ? 'bg-gray-400' : 'bg-outpost-navy'"
+            >
+              <span class="text-xs uppercase opacity-80">{{ monthOf(event.date) }}</span>
+              <span class="font-display text-2xl leading-none font-bold">{{
+                dayOf(event.date)
+              }}</span>
             </div>
-          </div>
-        </div>
-      </transition>
-    </teleport>
-
-    <!-- Delete confirm modal -->
-    <teleport to="body">
-      <transition name="modal-fade">
-        <div
-          v-if="deleteModal.open"
-          class="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4"
-          @click.self="deleteModal.open = false"
-        >
-          <div class="bg-white rounded-2xl shadow-2xl w-full max-w-sm p-6 text-center" @click.stop>
-            <h2 class="font-display text-lg font-bold mb-2 text-gray-800">Delete Event?</h2>
-            <p class="text-gray-600 text-sm mb-6">
-              "{{ deleteModal.title }}" will be permanently removed.
-            </p>
-            <div class="flex gap-3 justify-center">
-              <button class="btn-secondary px-5 py-2" @click="deleteModal.open = false">
-                Cancel
-              </button>
-              <button
-                class="bg-red-500 hover:bg-red-600 text-white font-semibold px-5 py-2 rounded-lg transition-colors"
-                :disabled="saving"
-                @click="executeDelete"
+            <div class="min-w-0 flex-1">
+              <h3 class="font-semibold text-gray-900">{{ event.title }}</h3>
+              <p class="text-sm text-gray-600">
+                {{ weekdayOf(event.date) }} · {{ event.time }} · {{ feeLabel(event.entry) }}
+              </p>
+              <p
+                class="mt-1 inline-flex items-center gap-1 text-xs font-semibold"
+                :class="event.isVisible === false ? 'text-gray-500' : 'text-green-700'"
               >
-                {{ saving ? 'Deleting…' : 'Delete' }}
-              </button>
+                <component
+                  :is="event.isVisible === false ? EyeSlashIcon : EyeIcon"
+                  class="h-4 w-4"
+                  aria-hidden="true"
+                />
+                {{
+                  event.isVisible === false ? 'Hidden from the website' : 'Showing on the website'
+                }}
+              </p>
             </div>
           </div>
-        </div>
-      </transition>
-    </teleport>
-  </div>
+          <div class="mt-4 grid grid-cols-3 gap-2">
+            <button type="button" class="action-btn" @click="openEdit(event)">Edit</button>
+            <button
+              type="button"
+              class="action-btn"
+              :disabled="busyId === event.id"
+              @click="toggleVisibility(event)"
+            >
+              {{ event.isVisible === false ? 'Show' : 'Hide' }}
+            </button>
+            <button type="button" class="action-btn danger" @click="remove(event)">Delete</button>
+          </div>
+        </li>
+      </ul>
+
+      <details v-if="past.length" class="mt-10">
+        <summary
+          class="flex min-h-11 cursor-pointer items-center text-sm font-bold tracking-wide text-gray-500 uppercase"
+        >
+          Past events ({{ past.length }})
+        </summary>
+        <p class="mt-1 mb-3 text-sm text-gray-500">Kept for your records until you delete them.</p>
+        <ul class="space-y-2">
+          <li
+            v-for="event in past"
+            :key="event.id"
+            class="flex items-center justify-between gap-3 rounded-xl border border-gray-200 bg-white p-3"
+          >
+            <div class="min-w-0">
+              <p class="truncate font-semibold text-gray-800">{{ event.title }}</p>
+              <p class="text-sm text-gray-500">{{ event.date }}</p>
+            </div>
+            <div class="flex shrink-0 gap-2">
+              <button type="button" class="action-btn px-3" @click="openEdit(event)">Edit</button>
+              <button type="button" class="action-btn danger px-3" @click="remove(event)">
+                Delete
+              </button>
+            </div>
+          </li>
+        </ul>
+      </details>
+    </template>
+
+    <AdminDialog :open="editing !== null" title="Edit event" @close="editing = null">
+      <div class="p-5 sm:p-6">
+        <h2 class="mb-5 font-display text-xl font-bold text-gray-800">Edit event</h2>
+        <EventForm
+          ref="formRef"
+          :event="editing"
+          submit-label="Save changes"
+          cancel-label="Cancel"
+          :saving="saving"
+          @submit="saveEdit"
+          @cancel="editing = null"
+        />
+      </div>
+    </AdminDialog>
+  </AdminPage>
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, computed, onMounted } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import { EyeIcon, EyeSlashIcon } from '@heroicons/vue/24/outline'
+import AdminPage from '../../components/admin/AdminPage.vue'
+import AdminDialog from '../../components/admin/AdminDialog.vue'
+import EventForm, { type EventPayload } from '../../components/admin/EventForm.vue'
+import { useConfirmation } from '../../composables/useConfirmation'
 import { useEventsStore, type SpecialEvent } from '../../stores/events'
 import { useSquareCatalogStore } from '../../stores/squareCatalog'
 import { eventDateToISO, getStoreTodayISO } from '../../utils/eventDateTime'
 
 const eventsStore = useEventsStore()
 const catalogStore = useSquareCatalogStore()
+const { ask } = useConfirmation()
 
-// Same game types shown on the public Products page — sourced from Square's
-// live top-level categories (via squareCatalog.ts), not the retired manual
-// catalog. A category with zero in-stock items today won't appear here
-// either, matching Products.vue's own behavior exactly.
-const catalogTypes = computed(() =>
-  catalogStore.sections.map(section => ({ id: section.slug, name: section.name }))
-)
-
-// ── Date helpers ──────────────────────────────────────────────────────────────
-const dateForDisplay = (date: string): Date | null => {
+const parts = (date: string, opts: Intl.DateTimeFormatOptions) => {
   const iso = eventDateToISO(date)
-  return iso ? new Date(`${iso}T12:00:00Z`) : null
+  return iso
+    ? new Date(`${iso}T12:00:00Z`).toLocaleDateString('en-US', { ...opts, timeZone: 'UTC' })
+    : '—'
 }
-const monthOf = (date: string) =>
-  dateForDisplay(date)?.toLocaleDateString('en-US', { month: 'short', timeZone: 'UTC' }) ?? '—'
-const dayOf = (date: string) =>
-  dateForDisplay(date)?.toLocaleDateString('en-US', { day: 'numeric', timeZone: 'UTC' }) ?? '—'
-const yearOf = (date: string) =>
-  dateForDisplay(date)?.toLocaleDateString('en-US', { year: 'numeric', timeZone: 'UTC' }) ??
-  'Invalid'
-const formatDateToReadable = (iso: string) =>
-  new Date(`${iso}T12:00:00Z`).toLocaleDateString('en-US', {
-    year: 'numeric',
-    month: 'long',
-    day: 'numeric',
-    timeZone: 'UTC',
-  })
-const parseReadableDateToISO = (date: string) => eventDateToISO(date) ?? ''
+const monthOf = (date: string) => parts(date, { month: 'short' })
+const dayOf = (date: string) => parts(date, { day: 'numeric' })
+const weekdayOf = (date: string) => parts(date, { weekday: 'long' })
+const feeLabel = (entry: string) => (Number(entry) ? `$${Number(entry)} entry` : 'Free')
 
+const sorted = computed(() =>
+  eventsStore.upcomingEvents
+    .map(e => ({ e, iso: eventDateToISO(e.date) }))
+    .filter((x): x is { e: SpecialEvent; iso: string } => x.iso !== null)
+    .sort((a, b) => a.iso.localeCompare(b.iso))
+)
 const todayISO = computed(() => getStoreTodayISO())
-const upcomingEventsFiltered = computed(() =>
-  eventsStore.upcomingEvents.filter(e => {
-    const d = eventDateToISO(e.date)
-    return d !== null && d >= todayISO.value
-  })
-)
-const pastEventsFiltered = computed(() =>
-  eventsStore.upcomingEvents.filter(e => {
-    const d = eventDateToISO(e.date)
-    return d !== null && d < todayISO.value
-  })
+const upcoming = computed(() => sorted.value.filter(x => x.iso >= todayISO.value).map(x => x.e))
+const past = computed(() =>
+  sorted.value
+    .filter(x => x.iso < todayISO.value)
+    .map(x => x.e)
+    .reverse()
 )
 
-// ── Options ───────────────────────────────────────────────────────────────────
-const timeOptions = computed(() => {
-  const times: string[] = []
-  for (let hour = 18; hour <= 22; hour++) {
-    for (const minute of [0, 30]) {
-      if (hour === 22 && minute === 30) break
-      const h = hour % 12 === 0 ? 12 : hour % 12
-      const m = minute.toString().padStart(2, '0')
-      times.push(`${h}:${m} PM`)
-    }
-  }
-  return times
-})
-
-const entryFeeOptions = computed(() => {
-  const fees: { label: string; value: string }[] = [{ label: 'Free', value: '0.00' }]
-  for (let i = 5; i <= 100; i += 5) fees.push({ label: `$${i}.00`, value: i.toFixed(2) })
-  return fees
-})
-
-// ── Edit modal ────────────────────────────────────────────────────────────────
-const editModal = reactive({ open: false, id: '' })
-const editForm = reactive({
-  title: '',
-  dateISO: '',
-  time: '',
-  entry: '',
-  description: '',
-  gameTypeId: '',
-  customGameType: '',
-})
-const editError = ref('')
+// ── Edit ──────────────────────────────────────────────────────────────────────
+const editing = ref<SpecialEvent | null>(null)
+const formRef = ref<InstanceType<typeof EventForm> | null>(null)
 const saving = ref(false)
 
 const openEdit = (event: SpecialEvent) => {
-  editModal.id = event.id
-  editForm.title = event.title
-  editForm.dateISO = parseReadableDateToISO(event.date)
-  editForm.time = event.time
-  editForm.entry = event.entry
-  editForm.description = event.description
-  // Restore game type: if stored id matches a catalog type, use it; else treat as custom
-  if (!event.gameTypeId) {
-    editForm.gameTypeId = ''
-    editForm.customGameType = ''
-  } else if (event.gameTypeId === 'custom') {
-    editForm.gameTypeId = 'custom'
-    editForm.customGameType = event.gameTypeName || ''
-  } else {
-    editForm.gameTypeId = event.gameTypeId
-    editForm.customGameType = ''
-  }
-  editError.value = ''
-  editModal.open = true
+  editing.value = event
 }
 
-const closeEdit = () => {
-  editModal.open = false
-}
-
-const saveEdit = async () => {
-  if (editForm.gameTypeId === 'custom' && !editForm.customGameType.trim()) {
-    editError.value = 'Please enter a custom game type name'
-    return
-  }
-  if (saving.value) return
+const saveEdit = async (payload: EventPayload) => {
+  if (!editing.value || saving.value) return
   saving.value = true
-  editError.value = ''
   try {
-    let gameTypeId: string | undefined
-    let gameTypeName: string | undefined
-    if (editForm.gameTypeId === 'custom') {
-      gameTypeId = 'custom'
-      gameTypeName = editForm.customGameType.trim()
-    } else if (editForm.gameTypeId) {
-      gameTypeId = editForm.gameTypeId
-      gameTypeName = catalogTypes.value.find(t => t.id === editForm.gameTypeId)?.name
-    }
-    await eventsStore.updateEvent(editModal.id, {
-      title: editForm.title,
-      date: formatDateToReadable(editForm.dateISO),
-      time: editForm.time,
-      entry: editForm.entry,
-      description: editForm.description,
-      gameTypeId,
-      gameTypeName,
-    })
-    closeEdit()
+    await eventsStore.updateEvent(editing.value.id, payload)
+    editing.value = null
   } catch (e) {
-    editError.value = e instanceof Error ? e.message : 'Save failed'
+    formRef.value?.setError(e instanceof Error ? e.message : 'The changes could not be saved.')
   } finally {
     saving.value = false
   }
 }
 
-// ── Visibility toggle ─────────────────────────────────────────────────────────
-const toggleEventVisibility = async (event: SpecialEvent) => {
-  await eventsStore.updateEvent(event.id, { isVisible: event.isVisible === false }).catch(() => {})
-}
-
-// ── Delete modal ──────────────────────────────────────────────────────────────
-const deleteModal = reactive({ open: false, id: '', title: '' })
-
-const confirmDelete = (event: SpecialEvent) => {
-  deleteModal.id = event.id
-  deleteModal.title = event.title
-  deleteModal.open = true
-}
-
-const executeDelete = async () => {
-  if (saving.value) return
-  saving.value = true
+// ── Show / hide ───────────────────────────────────────────────────────────────
+const busyId = ref<string | null>(null)
+const toggleVisibility = async (event: SpecialEvent) => {
+  busyId.value = event.id
   try {
-    await eventsStore.deleteEvent(deleteModal.id)
-    deleteModal.open = false
+    await eventsStore.updateEvent(event.id, { isVisible: event.isVisible === false })
   } catch {
-    deleteModal.open = false // the store error is visible in the page's retry panel
+    // The store's error banner above the list explains what went wrong.
   } finally {
-    saving.value = false
+    busyId.value = null
   }
+}
+
+// ── Delete ────────────────────────────────────────────────────────────────────
+const remove = async (event: SpecialEvent) => {
+  const ok = await ask(
+    `Delete “${event.title}” for good? To take it off the website but keep it, use Hide instead.`
+  )
+  if (!ok) return
+  await eventsStore.deleteEvent(event.id).catch(() => {})
 }
 
 onMounted(async () => {
   await eventsStore.fetchEvents()
-  if (catalogStore.items.length === 0) await catalogStore.fetchCatalog()
+  await catalogStore.ensureCatalog()
 })
 </script>
 
 <style scoped>
-.input-field {
-  width: 100%;
-  padding: 0.5rem 1rem;
-  border: 1px solid #d1d5db;
+.action-btn {
+  min-height: 2.75rem;
   border-radius: 0.5rem;
+  border: 1px solid #d1d5db;
+  background: #fff;
+  padding: 0 0.75rem;
   font-size: 0.875rem;
-  line-height: 1.25rem;
-  transition:
-    box-shadow 0.15s,
-    border-color 0.15s;
+  font-weight: 600;
+  color: #16304a;
 }
-.input-field:focus {
-  outline: none;
-  border-color: transparent;
-  box-shadow: 0 0 0 2px #16304a;
+.action-btn:hover {
+  background: #f3f4f6;
 }
-.modal-fade-enter-active,
-.modal-fade-leave-active {
-  transition: opacity 0.2s ease;
+.action-btn:disabled {
+  opacity: 0.5;
 }
-.modal-fade-enter-from,
-.modal-fade-leave-to {
-  opacity: 0;
+.action-btn.danger {
+  border-color: #fecaca;
+  color: #b91c1c;
+}
+.action-btn.danger:hover {
+  background: #fef2f2;
 }
 </style>
