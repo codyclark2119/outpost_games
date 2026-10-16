@@ -131,7 +131,7 @@ Talks directly to the shop's live Square point-of-sale account (catalog, invento
 - `api/inventoryExport.js` + `api/mailClient.js` — monthly `.xlsx` inventory export (non-snack items, sorted by stock status → category → quantity), emailed via Gmail SMTP to `theoutpostgamingrgv@gmail.com` on the 1st of the month (store-local time). Scheduler runs hourly and no-ops until `GMAIL_USER`/`GMAIL_APP_PASSWORD` are set. Manual trigger: `POST /api/admin/inventory-export/run` (admin auth).
 - **Inventory counts are read as `IN_STOCK` only**: `listSquareInventory` passes `states: ['IN_STOCK']`. Without it Square also returns a variation's `RETURNED_BY_CUSTOMER`/`WASTE` counts as separate rows, and every caller keys counts by variation id alone — so a stale returns count silently became "the" on-hand quantity.
 - **One top-level category per game**: the public catalog groups by top-level Square category, so every game must be its own root category. Bandai was formerly a publisher umbrella over One Piece, Gundam, Digimon, and Union Arena; those were promoted to top level on 2026-10-05 and the Bandai category left empty. Put a new game at the root, never under a publisher.
-- **Public product page** (`/products`, `/products/:typeId`): `api/squarePublicCatalogCache.js` (store-hours-aware TTL cache, Redis-backed like the Squarespace cache below) wraps `getPublicSquareCatalog` and exposes `GET /api/square/public-catalog`. Sections lead with `PINNED_CATEGORY_ORDER` (Magic, Pokémon, One Piece, Gundam, Riftbound), then everything else by stock on hand; category names are compared trimmed and case-insensitively. `src/stores/squareCatalog.ts` consumes it; `Products.vue`/`ProductsGameType.vue` render straight from Square inventory. Gated behind `VITE_PRODUCTS_PAGE_LIVE` (see Environment Variables) — flip that to `true` and rebuild once ready to go public; until then both views show `ComingSoonPanel`.
+- **Public product page** (`/products`, `/products/:typeId`): `api/squarePublicCatalogCache.js` (store-hours-aware TTL cache, Redis-backed) wraps `getPublicSquareCatalog` and exposes `GET /api/square/public-catalog`. Sections lead with `PINNED_CATEGORY_ORDER` (Magic, Pokémon, One Piece, Gundam, Riftbound), then everything else by stock on hand; category names are compared trimmed and case-insensitively. `src/stores/squareCatalog.ts` consumes it; `Products.vue`/`ProductsGameType.vue` render straight from Square inventory. Gated behind `VITE_PRODUCTS_PAGE_LIVE` (see Environment Variables) — flip that to `true` and rebuild once ready to go public; until then both views show `ComingSoonPanel`.
   - **Cache invalidation on admin writes**: every `/api/square/*` admin mutation (image upload, product update, delete, inventory adjust) calls `invalidatePublicCatalog()` (a small wrapper around `refreshSquarePublicCatalog()`) right after it succeeds. Without this, an edit only reaches the public page once the store-hours TTL next expires (up to an hour open, a day closed) — which reads as "the save didn't work" from the admin's perspective even though Square itself updated fine. Adding a new admin mutation route that changes catalog data should call this too.
 
 ### Online ordering (Square checkout links)
@@ -142,27 +142,6 @@ Shoppers can buy some products on the site, pay on a Square-hosted checkout page
 - **Opt-in** is per Square ITEM, stored in Redis (`outpost:onlineSales`, rows `{ itemId, enabledAt }`), not as a Square custom attribute, so it needs no one-time Square setup. Admins flip it on `/x/outpostAdmin/online-sales` (`GET`/`PUT /api/square/online-sales`).
 - **Public catalog**: `getPublicSquareCatalog` computes each item's `onlineQuantity`; the `/api/square/public-catalog` route zeroes it for items not switched on. If the opt-in list can't be read, nothing is buyable (fails closed). `ProductCard` shows "Buy online" only with its `buyable` prop (off on Home, where the card is itself a link) and `onlineQuantity > 0`.
 - **Checkout**: `POST /api/checkout` `{ itemId, variationId, quantity }` (public, rate-limited) re-checks every rule against live Square data, not the cache, then calls `createSquarePaymentLink` (`/v2/online-checkout/payment-links`) with the variation as a catalog line item, so a paid order lowers Square stock like any sale. 409 with `available` when there isn't enough. Square sends the buyer back to `${PUBLIC_SITE_URL}/order/thanks`. Nothing is reserved until payment, so two buyers can race for the last online unit; the shop reserve absorbs that.
-
-### Squarespace integration (legacy — superseded by the Square POS integration above, read-only, additive)
-
-A parallel, read-only product source backed by the shop's Squarespace store — wiring the UI to it is intentionally deferred. Logic is split into three modules:
-
-- `api/squarespaceClient.js` — HTTP layer. Native `fetch`/`AbortController` (no deps). Paginated GETs (loop on `cursor` until `hasNextPage` is false, 200-page safety cap), 10s timeout, retry+backoff on 429/502/503/504 only, 401 surfaced as `SquarespaceNotAuthorizedError`. Exports `listAllProducts()`, `listAllInventory()`, `isConfigured()`. Note the different version prefixes: Products = `v2`, Inventory = `1.0`. Auth is sourced from `SQUARESPACE_API_KEY` if set, else a live OAuth access token from `squarespaceOAuth.js`.
-- `api/squarespaceCache.js` — orchestration/cache/merge (Redis-with-memory-fallback, same convention as every other resource in `api/server.js`, via `initSquarespaceCache({ redisClient, isRedisConnected })` from server.js). Merges inventory into products by `variantId`→`sku` (InventoryItem has no productId). Computes per-product `inStock`/`visible` (`isVisible && in-stock`, DIGITAL always in stock) + `totalQuantity`. Redis keys `outpost:squarespace:cache` and `outpost:squarespace:assignments`. TTL-based background refresh (default 15 min). On startup it refreshes once **only if configured** (either auth option below) — otherwise it logs one warning and stays idle.
-- `api/squarespaceOAuth.js` — OAuth 2.0 authorization-code flow, only needed on plans without Developer API Keys (`SQUARESPACE_API_KEY`). Scope is read-only: `website.products.read,website.inventory.read`. Redis key `outpost:squarespace:oauth:tokens` (access token ~30min, refresh token ~7 days and **rotates on every use** — both must be persisted on every refresh). `getValidAccessToken()` auto-refreshes ~10s before expiry; throws `SquarespaceNotAuthorizedError` if the one-time human step hasn't happened yet or the refresh token died.
-
-Grouping is manual: `PUT /api/squarespace/products/:productId/assignment` tags a product with an opaque, admin-chosen `typeId`/`setId` (no catalog to validate against since the manual product catalog was retired); no auto-derivation from tags/storePageId.
-
-**One-time setup once OAuth credentials arrive** (skip if using `SQUARESPACE_API_KEY` instead): set `SQUARESPACE_CLIENT_ID`/`SQUARESPACE_CLIENT_SECRET`/`SQUARESPACE_REDIRECT_URI`, deploy, then visit `/api/squarespace/oauth/authorize` once in a browser to grant access.
-
-| Route                                                 | Purpose                                                                                         |
-| ----------------------------------------------------- | ----------------------------------------------------------------------------------------------- |
-| `GET /api/squarespace/products`                       | `{ fetchedAt, products }` merged catalog, each with its `assignment`                            |
-| `POST /api/squarespace/refresh`                       | Force sync; 503 if unconfigured/unauthorized, 502 on upstream failure                           |
-| `GET /api/squarespace/status`                         | Cache status + `oauth: { configured, authorized, accessTokenExpiresAt, refreshTokenExpiresAt }` |
-| `PUT /api/squarespace/products/:productId/assignment` | Body `{ typeId, setId }` (null to unassign)                                                     |
-| `GET /api/squarespace/oauth/authorize`                | Redirects to Squarespace's consent screen (one-time human step)                                 |
-| `GET /api/squarespace/oauth/callback`                 | OAuth redirect_uri — exchanges the one-time code for tokens                                     |
 
 ### Events game type association
 
@@ -199,15 +178,12 @@ Opening hours live in `api/storeConfig.json` (`openHours`, weekday → `["17:30"
 
 ## Environment Variables
 
-| Variable                   | Description                                                                                                   | Default                         |
-| -------------------------- | ------------------------------------------------------------------------------------------------------------- | ------------------------------- |
-| `VITE_API_URL`             | Frontend API base                                                                                             | `/api`                          |
-| `REDIS_URL`                | Redis connection (supports `rediss://` for TLS)                                                               | `redis://redis:6379`            |
-| `API_PORT`                 | API port                                                                                                      | `3001`                          |
-| `SQUARESPACE_API_KEY`      | Read-only Squarespace key (scopes `products:read`, `inventory:read`); integration idle if unset               | —                               |
-| `SQUARESPACE_USER_AGENT`   | Descriptive User-Agent for Commerce API calls                                                                 | `TheOutpostGames-Website/1.0`   |
-| `SQUARESPACE_CACHE_TTL_MS` | Cache TTL before background refresh                                                                           | `900000` (15 min)               |
-| `GMAIL_USER`               | Gmail account sending the monthly inventory export (requires 2FA + an App Password); export job idle if unset | —                               |
-| `GMAIL_APP_PASSWORD`       | App Password for `GMAIL_USER` (Google Account > Security > App Passwords)                                     | —                               |
-| `MAIL_TO`                  | Destination address for the monthly inventory export                                                          | `theoutpostgamingrgv@gmail.com` |
-| `VITE_PRODUCTS_PAGE_LIVE`  | Frontend build-time flag — show the live Square-backed `/products` page instead of "Coming Soon"              | `false`                         |
+| Variable                  | Description                                                                                                   | Default                         |
+| ------------------------- | ------------------------------------------------------------------------------------------------------------- | ------------------------------- |
+| `VITE_API_URL`            | Frontend API base                                                                                             | `/api`                          |
+| `REDIS_URL`               | Redis connection (supports `rediss://` for TLS)                                                               | `redis://redis:6379`            |
+| `API_PORT`                | API port                                                                                                      | `3001`                          |
+| `GMAIL_USER`              | Gmail account sending the monthly inventory export (requires 2FA + an App Password); export job idle if unset | —                               |
+| `GMAIL_APP_PASSWORD`      | App Password for `GMAIL_USER` (Google Account > Security > App Passwords)                                     | —                               |
+| `MAIL_TO`                 | Destination address for the monthly inventory export                                                          | `theoutpostgamingrgv@gmail.com` |
+| `VITE_PRODUCTS_PAGE_LIVE` | Frontend build-time flag — show the live Square-backed `/products` page instead of "Coming Soon"              | `false`                         |

@@ -2,7 +2,6 @@ import storeConfig from './storeConfig.json' with { type: 'json' }
 import { mountRecords } from './routes/records.js'
 import { errorHandler, AppError } from './middleware/errorHandler.js'
 import { requiresPersistence } from './services/persistence.js'
-import { mountSquarespace } from './routes/squarespace.js'
 import { mountInventoryExport } from './routes/inventoryExport.js'
 import { mountSquare } from './routes/square.js'
 import { mountAuth } from './routes/auth.js'
@@ -38,9 +37,6 @@ import cors from 'cors'
 import cookieParser from 'cookie-parser'
 import rateLimit from 'express-rate-limit'
 import { createClient } from 'redis'
-import { initSquarespaceCache, bootstrapSquarespaceCache } from './squarespaceCache.js'
-import { initSquarespaceOAuth } from './squarespaceOAuth.js'
-
 import {
   initSquarePublicCatalogCache,
   bootstrapSquarePublicCatalogCache,
@@ -143,11 +139,8 @@ redisClient.on('reconnecting', () => console.log('🔄 Reconnecting to Redis...'
 let redisConnected = false
 const requireProductionPersistence = requiresPersistence()
 
-// Wire the Squarespace cache + OAuth token store to server.js's single Redis
-// client + the live connection flag (passed as a getter so it always reads
-// the current value).
-initSquarespaceCache({ redisClient, isRedisConnected: () => redisConnected })
-initSquarespaceOAuth({ redisClient, isRedisConnected: () => redisConnected })
+// Wire each module to server.js's single Redis client + the live connection
+// flag (passed as a getter so it always reads the current value).
 initSquarePublicCatalogCache({ redisClient, isRedisConnected: () => redisConnected })
 initAuth({ redisClient, isRedisConnected: () => redisConnected })
 initInventoryExport({ redisClient, isRedisConnected: () => redisConnected })
@@ -166,9 +159,8 @@ initInventoryExport({ redisClient, isRedisConnected: () => redisConnected })
       err.message
     )
   } finally {
-    // Kick off the initial Squarespace refresh once the Redis state is settled
-    // (connected or not). No-ops with a one-time warning if no API key is set.
-    bootstrapSquarespaceCache()
+    // Kick off the initial catalog refresh once the Redis state is settled
+    // (connected or not).
     bootstrapSquarePublicCatalogCache()
     // Checks hourly for the 1st of the month (store-local time); no-ops until
     // GMAIL_USER/GMAIL_APP_PASSWORD are configured.
@@ -206,8 +198,6 @@ mountSquare(app, {
 })
 
 mountInventoryExport(app)
-
-mountSquarespace(app)
 
 // ─── Warm-hours self-ping (belt-and-suspenders) ─────────────────────────────
 // The .github/workflows/warm-hours.yml cron is the primary mechanism that

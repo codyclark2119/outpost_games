@@ -3,7 +3,7 @@ import { asyncRoute } from './middleware/errorHandler.js'
 // ─── Admin session auth ───────────────────────────────────────────────────────
 // Opaque server-side sessions (not JWT) so a login can be revoked immediately by
 // deleting its Redis key — matters for an admin panel with catalog write access.
-// Mirrors the Redis-with-in-memory-fallback convention used by squarespaceCache.js:
+// Mirrors the Redis-with-in-memory-fallback convention used by every other Redis-backed module:
 // the shared Redis client + a live "connected" flag are injected via initAuth().
 
 import crypto from 'node:crypto'

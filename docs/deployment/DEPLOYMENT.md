@@ -320,7 +320,6 @@ curl http://localhost:3001/api/health
 ## 📚 Additional Resources
 
 - **Full Documentation**: [DOCKER_SETUP.md](../../DOCKER_SETUP.md)
-- **WPN Assets Guide**: [WPN_ASSET_ACCESS_GUIDE.md](WPN_ASSET_ACCESS_GUIDE.md)
 - **Main README**: [README.md](README.md)
 
 ---

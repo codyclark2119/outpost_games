@@ -305,21 +305,6 @@ export const getSquareConfigurationStatus = (env = process.env) => {
   }
 }
 
-export const testSquareConnection = async (env = process.env) => {
-  const client = clientFromEnv(env)
-  const payload = await client.request('/v2/locations')
-  return {
-    ok: true,
-    environment: client.environment,
-    locationCount: payload.locations?.length || 0,
-    locations: (payload.locations || []).slice(0, 5).map(location => ({
-      id: location.id,
-      name: location.name,
-      status: location.status,
-    })),
-  }
-}
-
 export const listSquareCatalogItems = async (env = process.env) => {
   const client = clientFromEnv(env)
 
