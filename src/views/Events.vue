@@ -38,32 +38,34 @@
       <section v-if="laterSpecials.length">
         <h2 class="section-title">Later on</h2>
         <ul class="mt-4 grid gap-3 sm:grid-cols-2">
-          <li
-            v-for="event in laterSpecials"
-            :key="event.id"
-            class="flex gap-4 rounded-2xl border border-slate-200 bg-white p-4"
-          >
-            <div
-              class="flex h-14 w-12 shrink-0 flex-col items-center justify-center rounded-xl bg-slate-100 text-slate-700"
+          <li v-for="event in laterSpecials" :key="event.id">
+            <router-link
+              :to="eventPath(event.id)"
+              class="flex h-full gap-4 rounded-2xl border border-slate-200 bg-white p-4 transition-colors hover:border-outpost-navy/40"
             >
-              <span class="text-[10px] font-semibold tracking-wider uppercase opacity-80">
-                {{ storeDateParts(event.iso).month }}
-              </span>
-              <span class="text-lg leading-none font-bold">
-                {{ storeDateParts(event.iso).day }}
-              </span>
-            </div>
-            <div class="min-w-0">
-              <p class="font-semibold text-slate-800">{{ event.title }}</p>
-              <p class="mt-0.5 text-xs text-slate-500">
-                {{ storeDateParts(event.iso).weekday }} · {{ event.time }}
-                <span v-if="event.entry"> · ${{ event.entry }} entry</span>
-                <span v-if="event.gameTypeName"> · {{ event.gameTypeName }}</span>
-              </p>
-              <p v-if="event.description" class="mt-1.5 line-clamp-3 text-sm text-slate-600">
-                {{ event.description }}
-              </p>
-            </div>
+              <div
+                class="flex h-14 w-12 shrink-0 flex-col items-center justify-center rounded-xl bg-slate-100 text-slate-700"
+              >
+                <span class="text-[10px] font-semibold tracking-wider uppercase opacity-80">
+                  {{ storeDateParts(event.iso).month }}
+                </span>
+                <span class="text-lg leading-none font-bold">
+                  {{ storeDateParts(event.iso).day }}
+                </span>
+              </div>
+              <div class="min-w-0">
+                <p class="font-semibold text-slate-800">{{ event.title }}</p>
+                <p class="mt-0.5 text-xs text-slate-500">
+                  {{ storeDateParts(event.iso).weekday }} · {{ event.time }}
+                  <span v-if="event.entry"> · ${{ event.entry }} entry</span>
+                  <span v-if="event.gameTypeName"> · {{ event.gameTypeName }}</span>
+                </p>
+                <p v-if="event.description" class="mt-1.5 line-clamp-3 text-sm text-slate-600">
+                  {{ event.description }}
+                </p>
+                <p class="mt-2 text-sm font-semibold text-outpost-navy">Details &amp; calendar</p>
+              </div>
+            </router-link>
           </li>
         </ul>
       </section>
@@ -123,12 +125,11 @@ import { useEventsStore } from '../stores/events'
 import { useWeeklyOverridesStore } from '../stores/weeklyOverrides'
 import { WEEKLY_SCHEDULE, type WeeklyScheduleEntry } from '../config/weeklySchedule'
 import { getAgenda } from '../utils/eventOccurrences'
+import { eventPath, upcomingSpecials } from '../utils/eventLinks'
 import {
   addDaysToISODate,
-  eventDateToISO,
   eventStartISO,
   getStoreTodayISO,
-  hasEventStarted,
   storeDateParts,
 } from '../utils/eventDateTime'
 import { nextOccurrenceOf, toISODate } from '../utils/weeklySchedule'
@@ -168,22 +169,12 @@ const agenda = computed(() =>
   })
 )
 
-// Visible specials that haven't started yet, soonest first. The store's
-// upcomingEvents is the raw list, so finished events are dropped here.
-const upcomingSpecials = computed(() =>
-  eventsStore.upcomingEvents
-    .filter(event => event.isVisible !== false)
-    .map(event => ({ ...event, iso: eventDateToISO(event.date) }))
-    .filter((event): event is typeof event & { iso: string } =>
-      Boolean(event.iso && !hasEventStarted(event.iso, event.time, now.value))
-    )
-    .sort((a, b) => a.iso.localeCompare(b.iso))
-)
+const upcoming = computed(() => upcomingSpecials(eventsStore.upcomingEvents, now.value))
 
 // The ones beyond the agenda window, which the agenda itself doesn't show.
 const laterSpecials = computed(() => {
   const windowEndISO = addDaysToISODate(getStoreTodayISO(now.value), AGENDA_DAYS)
-  return upcomingSpecials.value.filter(event => event.iso >= windowEndISO)
+  return upcoming.value.filter(event => event.iso >= windowEndISO)
 })
 
 // A weekly entry hidden (via an admin override) on its next occurrence.
@@ -214,7 +205,7 @@ onMounted(reload)
 // Dynamic Event structured data for upcoming specials — unlike the site-wide
 // static LocalBusiness JSON-LD in index.html, this reflects live store data.
 const eventsJsonLd = computed(() =>
-  upcomingSpecials.value.map(event => ({
+  upcoming.value.map(event => ({
     '@context': 'https://schema.org',
     '@type': 'Event',
     name: event.title,
@@ -236,7 +227,7 @@ const eventsJsonLd = computed(() =>
       '@type': 'Offer',
       price: event.entry,
       priceCurrency: 'USD',
-      url: `${SITE_URL}/events`,
+      url: `${SITE_URL}${eventPath(event.id)}`,
     },
     description: event.description,
   }))
