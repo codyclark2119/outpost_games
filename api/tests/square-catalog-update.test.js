@@ -5,7 +5,7 @@ import {
   updateSquareCatalogItem,
   deleteSquareCatalogVariation,
   SquareVersionMismatchError,
-} from '../squarePosClient.js'
+} from '../square/index.js'
 
 const FAKE_ENV = { SQUARE_SANDBOX_ACCESS_TOKEN: 'fake-token', SQUARE_ENV: 'sandbox' }
 

@@ -17,17 +17,15 @@
 // it takes a real payment otherwise.
 
 import {
-  loadSquareEnvironment,
   resolveSquareCredentials,
   createSquarePosClient,
   getSquareInventoryReport,
   listSquareInventory,
   adjustSquareInventoryCount,
   createSquarePaymentLink,
-} from '../squarePosClient.js'
+} from '../square/index.js'
 import { isMagicCategory, onlineQuantity, shopReserve } from '../onlineSales.js'
 
-loadSquareEnvironment()
 if (process.env.SQUARE_ENV !== 'sandbox') {
   console.error('Refusing to run: set SQUARE_ENV=sandbox. This script pays for an order.')
   process.exit(1)

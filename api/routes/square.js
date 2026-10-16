@@ -7,7 +7,7 @@ import { dependencyError } from '../middleware/errorHandler.js'
 import { validateSquareMutation } from '../schemas/square.js'
 import { unavailable } from '../services/persistence.js'
 
-import { getSquareInventoryReport } from '../squarePosClient.js'
+import { getSquareInventoryReport } from '../square/index.js'
 
 import {
   getCachedPublicSquareCatalog,
@@ -15,7 +15,7 @@ import {
 } from '../squarePublicCatalogCache.js'
 import { requireAdminAuth } from '../auth.js'
 
-export function mountSquare(app, { redisClient, isRedisConnected, requireProductionPersistence }) {
+export function mountSquare(app, store) {
   app.use('/api/square', (req, res, next) => {
     if (['POST', 'PUT', 'DELETE'].includes(req.method))
       return requireAdminAuth(req, res, error =>
@@ -24,7 +24,7 @@ export function mountSquare(app, { redisClient, isRedisConnected, requireProduct
     next()
   })
   app.use('/api/square/restock-mappings', (req, res, next) => {
-    if (requireProductionPersistence && !isRedisConnected()) return next(unavailable())
+    if (store.persistent && !store.isRedisConnected()) return next(unavailable())
     next()
   })
 
@@ -41,11 +41,7 @@ export function mountSquare(app, { redisClient, isRedisConnected, requireProduct
   // deliberately not requireAdminAuth. Never calls Square directly on request;
   // always served from squarePublicCatalogCache's Redis/memory cache, which
   // refreshes itself in the background per its store-hours-aware TTL.
-  const { enabledItemIds } = mountOnlineSales(app, {
-    redisClient,
-    isRedisConnected,
-    persistent: requireProductionPersistence,
-  })
+  const { enabledItemIds } = mountOnlineSales(app, store)
 
   app.get('/api/square/public-catalog', async (req, res) => {
     try {
@@ -71,11 +67,6 @@ export function mountSquare(app, { redisClient, isRedisConnected, requireProduct
   }
 
   mountSquareCatalog(app, { invalidatePublicCatalog })
-  mountSquareInventory(app, {
-    redisClient,
-    isRedisConnected,
-    requireProductionPersistence,
-    invalidatePublicCatalog,
-  })
-  mountSquareSales(app, {})
+  mountSquareInventory(app, store, { invalidatePublicCatalog })
+  mountSquareSales(app)
 }

@@ -1,50 +1,36 @@
-import storeConfig from './storeConfig.json' with { type: 'json' }
-import { mountRecords } from './routes/records.js'
+import './loadEnv.js'
+import express from 'express'
+import cors from 'cors'
+import cookieParser from 'cookie-parser'
+import rateLimit from 'express-rate-limit'
+
 import { errorHandler, AppError } from './middleware/errorHandler.js'
-import { requiresPersistence } from './services/persistence.js'
-import { mountInventoryExport } from './routes/inventoryExport.js'
-import { mountSquare } from './routes/square.js'
+import { createRedisStore } from './services/redis.js'
+import { initAuth } from './auth.js'
+import { initInventoryExport, startInventoryExportScheduler } from './inventoryExport.js'
+import {
+  initSquarePublicCatalogCache,
+  bootstrapSquarePublicCatalogCache,
+} from './squarePublicCatalogCache.js'
+import { startWarmWindowSelfPing } from './warmWindow.js'
 import { mountAuth } from './routes/auth.js'
-// Catch all uncaught errors
+import { mountRecords } from './routes/records.js'
+import { mountSquare } from './routes/square.js'
+import { mountInventoryExport } from './routes/inventoryExport.js'
+
 process.on('uncaughtException', error => {
   console.error('❌ UNCAUGHT EXCEPTION:', error)
   process.exit(1)
 })
-
 process.on('unhandledRejection', (reason, promise) => {
   console.error('❌ UNHANDLED REJECTION at:', promise, 'reason:', reason)
   process.exit(1)
 })
 
-console.log('🚀 Starting API server...')
-console.log('📍 Node version:', process.version)
-console.log('📂 Working directory:', process.cwd())
-console.log('🔧 Environment:', process.env.NODE_ENV || 'development')
-
-import dotenv from 'dotenv'
-import path from 'node:path'
-import { fileURLToPath } from 'node:url'
-
-// Load the repo-root .env explicitly — dotenv's default lookup is relative to
-// process.cwd(), which is api/ under the documented `cd api && npm run dev`
-// workflow, so it silently found nothing there. In production, real platform
-// env vars (Fly secrets) always win regardless, since dotenv never overrides
-// an already-set process.env value.
-dotenv.config({ path: path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '.env') })
-
-import express from 'express'
-import cors from 'cors'
-import cookieParser from 'cookie-parser'
-import rateLimit from 'express-rate-limit'
-import { createClient } from 'redis'
-import {
-  initSquarePublicCatalogCache,
-  bootstrapSquarePublicCatalogCache,
-} from './squarePublicCatalogCache.js'
-import { initAuth } from './auth.js'
-import { initInventoryExport, startInventoryExportScheduler } from './inventoryExport.js'
-
-console.log('✅ Modules imported successfully')
+const PORT = process.env.API_PORT || 3001
+const REDIS_URL = process.env.REDIS_URL || 'redis://redis:6379'
+console.log(`🚀 Starting API (Node ${process.version}, ${process.env.NODE_ENV || 'development'})`)
+console.log('📡 Redis URL configured:', REDIS_URL.replace(/:[^:@]+@/, ':****@'))
 
 const app = express()
 
@@ -55,13 +41,6 @@ const app = express()
 // expect), and req.ip would resolve to the last proxy rather than the real client.
 app.set('trust proxy', 2)
 
-const PORT = process.env.API_PORT || 3001
-const REDIS_URL = process.env.REDIS_URL || 'redis://redis:6379'
-
-console.log('📡 Redis URL configured:', REDIS_URL.replace(/:[^:@]+@/, ':****@'))
-console.log('🌐 Port configured:', PORT)
-
-// Middleware
 const DEFAULT_ALLOWED_ORIGINS = [
   'https://outpostgamesrgv.com',
   'https://www.outpostgamesrgv.com',
@@ -89,13 +68,10 @@ app.use(
 app.use(express.json())
 app.use(cookieParser())
 
-console.log('✅ Middleware configured')
-
-// Rate limiting is applied to the login route only — there is deliberately no
-// general/global limiter on this app, so don't read this block as "the strict
-// one" of a pair. A single-admin password login is the one endpoint worth
-// throttling, and only failed attempts count against it (skipSuccessfulRequests)
-// so a legitimate admin never gets locked out by their own successful logins.
+// Rate limiting is applied to the login route only (checkout has its own, in
+// routes/onlineSales.js) — there is deliberately no global limiter. Only failed
+// attempts count (skipSuccessfulRequests), so a legitimate admin never gets
+// locked out by their own successful logins.
 const loginRateLimiter = rateLimit({
   windowMs:
     parseInt(process.env.LOGIN_RATE_LIMIT_WINDOW, 10) ||
@@ -108,163 +84,54 @@ const loginRateLimiter = rateLimit({
   message: { error: 'Too many login attempts, please try again later' },
 })
 
-// Redis client setup with TLS support for Upstash
-const redisClient = createClient({
-  url: REDIS_URL,
-  socket: {
-    tls: REDIS_URL.includes('upstash.io'),
-    reconnectStrategy: retries => {
-      if (retries > 10) {
-        console.log('Too many attempts to reconnect to Redis, giving up')
-        return new Error('Too many retries')
-      }
-      return retries * 100
-    },
-  },
+// One Redis connection, shared by every module that stores anything.
+const store = createRedisStore(REDIS_URL)
+initAuth(store)
+initInventoryExport(store)
+initSquarePublicCatalogCache(store)
+
+// Non-blocking: routes answer from the memory fallback (or 503 in production)
+// until Redis is up. Background jobs start once the connection state is settled.
+store.connect().then(() => {
+  bootstrapSquarePublicCatalogCache()
+  // Checks hourly for the 1st of the month (store-local time); no-ops until
+  // GMAIL_USER/GMAIL_APP_PASSWORD are configured.
+  startInventoryExportScheduler()
 })
 
-redisClient.on('error', err => {
-  console.error('Redis Client Error:', err.message)
-  if (!redisClient.isReady) redisConnected = false
-})
-redisClient.on('ready', () => {
-  redisConnected = true
-})
-redisClient.on('end', () => {
-  redisConnected = false
-})
-redisClient.on('connect', () => console.log('✅ Connected to Redis'))
-redisClient.on('reconnecting', () => console.log('🔄 Reconnecting to Redis...'))
-
-let redisConnected = false
-const requireProductionPersistence = requiresPersistence()
-
-// Wire each module to server.js's single Redis client + the live connection
-// flag (passed as a getter so it always reads the current value).
-initSquarePublicCatalogCache({ redisClient, isRedisConnected: () => redisConnected })
-initAuth({ redisClient, isRedisConnected: () => redisConnected })
-initInventoryExport({ redisClient, isRedisConnected: () => redisConnected })
-
-// Try to connect to Redis (non-blocking)
-;(async () => {
-  try {
-    await redisClient.connect()
-    redisConnected = true
-  } catch (err) {
-    redisConnected = false
-    console.warn(
-      requireProductionPersistence
-        ? '⚠️  Redis unavailable: production persistence is degraded:'
-        : '⚠️  Redis unavailable: development memory fallback is active:',
-      err.message
-    )
-  } finally {
-    // Kick off the initial catalog refresh once the Redis state is settled
-    // (connected or not).
-    bootstrapSquarePublicCatalogCache()
-    // Checks hourly for the 1st of the month (store-local time); no-ops until
-    // GMAIL_USER/GMAIL_APP_PASSWORD are configured.
-    startInventoryExportScheduler()
-  }
-})()
-
-// Health check endpoint
 app.get('/api/health', (req, res) => {
+  const connected = store.isRedisConnected()
   res.json({
-    status: redisConnected ? 'ok' : 'degraded',
+    status: connected ? 'ok' : 'degraded',
     message: 'API is running',
-    redis: redisConnected
+    redis: connected
       ? 'connected'
-      : requireProductionPersistence
+      : store.persistent
         ? 'unavailable'
         : 'disconnected (development memory fallback)',
-    persistent: redisConnected,
+    persistent: connected,
     timestamp: new Date().toISOString(),
   })
 })
 
 mountAuth(app, loginRateLimiter)
-
-mountRecords(app, {
-  redisClient,
-  isRedisConnected: () => redisConnected,
-  persistent: requireProductionPersistence,
-})
-
-mountSquare(app, {
-  redisClient,
-  isRedisConnected: () => redisConnected,
-  requireProductionPersistence,
-})
-
+mountRecords(app, store)
+mountSquare(app, store)
 mountInventoryExport(app)
 
-// ─── Warm-hours self-ping (belt-and-suspenders) ─────────────────────────────
-// The .github/workflows/warm-hours.yml cron is the primary mechanism that
-// guarantees the machine is awake for the noon-midnight America/Chicago
-// window (see that file for the full DST-handling writeup). This is a
-// fallback that keeps it warm for the *rest* of the window even if that
-// workflow run fails or is delayed.
-//
-// This has to hit the machine through Fly's real public endpoint to count as
-// activity — Fly's auto-stop watches for connections at its edge PROXY, not
-// inside the process, so a plain in-process timer or a loopback fetch to
-// 127.0.0.1 would be invisible to it and wouldn't actually prevent idle-stop.
-// Off by default (WARM_WINDOW_SELF_PING unset) since the cron job above is
-// sufficient on its own; this only adds redundancy.
-const WARM_WINDOW_TIMEZONE = storeConfig.timeZone
-const WARM_WINDOW_START_HOUR = 12 // noon — keep in sync with the cron schedule in warm-hours.yml
-const SELF_PING_INTERVAL_MS = 2 * 60 * 1000 // well under Fly's ~5 min idle-stop timeout
-
-const isInsideWarmWindow = () => {
-  const hour = Number(
-    new Intl.DateTimeFormat('en-US', {
-      timeZone: WARM_WINDOW_TIMEZONE,
-      hour: 'numeric',
-      hour12: false,
-    }).format(new Date())
-  )
-  return hour >= WARM_WINDOW_START_HOUR
-}
-
-if (process.env.WARM_WINDOW_SELF_PING === 'true') {
-  const selfPingUrl =
-    process.env.WARM_WINDOW_SELF_PING_URL ||
-    (process.env.FLY_APP_NAME ? `https://${process.env.FLY_APP_NAME}.fly.dev/api/health` : null)
-
-  if (!selfPingUrl) {
-    console.warn(
-      '⚠️  WARM_WINDOW_SELF_PING is set but no target URL could be determined (need FLY_APP_NAME or WARM_WINDOW_SELF_PING_URL) — skipping'
-    )
-  } else {
-    setInterval(() => {
-      if (!isInsideWarmWindow()) return
-      // Best-effort — a failed ping just means the next one tries again in
-      // SELF_PING_INTERVAL_MS; nothing here should ever crash the process.
-      fetch(selfPingUrl).catch(() => {})
-    }, SELF_PING_INTERVAL_MS)
-    console.log(
-      `🔥 Warm-window self-ping enabled — pinging ${selfPingUrl} every ${SELF_PING_INTERVAL_MS / 1000}s from ${WARM_WINDOW_START_HOUR}:00 Central`
-    )
-  }
-}
+startWarmWindowSelfPing()
 
 app.use(errorHandler)
 
 const server = app.listen(PORT, '0.0.0.0', () => {
   console.log(`🚀 API server running on port ${PORT}`)
-  console.log(`📊 Health check: http://localhost:${PORT}/api/health`)
-  if (!redisConnected) {
-    console.log('⚠️  Running without Redis - data will not persist across restarts')
-  }
 })
 
-// Graceful shutdown
-process.on('SIGTERM', async () => {
+process.on('SIGTERM', () => {
   console.log('SIGTERM signal received: closing HTTP server')
   const timeout = setTimeout(() => process.exit(1), 10000).unref()
   server.close(async () => {
-    if (redisClient.isOpen) await redisClient.quit().catch(console.error)
+    await store.close()
     clearTimeout(timeout)
     process.exit(0)
   })

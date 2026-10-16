@@ -1,20 +1,11 @@
-import storeConfig from './storeConfig.json' with { type: 'json' }
-import {
-  createSquarePosClient,
-  resolveSquareCredentials,
-  loadSquareEnvironment,
-  listSquareCatalogItems,
-  resolveTopLevelCategoryMap,
-} from './squarePosClient.js'
+import storeConfig from '../storeConfig.json' with { type: 'json' }
+import { clientFromEnv } from './client.js'
+import { listSquareCatalogItems } from './catalog.js'
+import { resolveTopLevelCategoryMap } from './categories.js'
 
 const ORDERS_PAGE_SAFETY_CAP = 200
 const STORE_TIMEZONE = storeConfig.timeZone
 const DAY_NAMES = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday']
-
-const clientFromEnv = (env = process.env) => {
-  loadSquareEnvironment()
-  return createSquarePosClient(resolveSquareCredentials(env))
-}
 
 // Bucket key for a given ISO timestamp: 'day' -> 'YYYY-MM-DD', 'week' -> the
 // Monday of that week as 'YYYY-MM-DD', 'month' -> 'YYYY-MM'. Bucketing is done

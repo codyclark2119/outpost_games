@@ -21,9 +21,7 @@
 // catalog snapshot itself.
 
 import crypto from 'node:crypto'
-import { createSquarePosClient, loadSquareEnvironment } from '../squarePosClient.js'
-
-loadSquareEnvironment()
+import { createSquarePosClient } from '../square/index.js'
 
 const APPLY = process.argv.includes('--apply')
 const COPY_INVENTORY = process.argv.includes('--with-inventory')
@@ -66,7 +64,7 @@ const fetchInventoryCounts = async (client, catalogObjectIds, locationId) => {
   for (const batch of chunk(catalogObjectIds, INVENTORY_BATCH_SIZE)) {
     const payload = await client.request('/v2/inventory/counts/batch-retrieve', {
       method: 'POST',
-      // IN_STOCK only — see listSquareInventory in squarePosClient.js for why.
+      // IN_STOCK only — see listSquareInventory in square/inventory.js for why.
       body: { catalog_object_ids: batch, location_ids: [locationId], states: ['IN_STOCK'] },
     })
     counts.push(...(payload.counts || []))

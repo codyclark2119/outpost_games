@@ -8,7 +8,7 @@ import {
   getSquareCatalogItem,
   resolveTopLevelCategoryMap,
   createSquarePaymentLink,
-} from '../squarePosClient.js'
+} from '../square/index.js'
 import { isMagicCategory, onlineQuantity, shopReserve } from '../onlineSales.js'
 import { SITE_URL } from '../siteUrl.js'
 
@@ -33,11 +33,8 @@ const checkoutRateLimiter = rateLimit({
 // Online ordering: which Magic products an admin has switched on (stored in
 // Redis as { itemId, enabledAt } rows), the admin list that switches them,
 // and the public endpoint that turns a product into a Square checkout link.
-export function mountOnlineSales(app, { redisClient, isRedisConnected, persistent }) {
-  const optIns = createCollection(
-    { redisClient, isRedisConnected, persistent },
-    'outpost:onlineSales'
-  )
+export function mountOnlineSales(app, store) {
+  const optIns = createCollection(store, 'outpost:onlineSales')
 
   // Fails closed: if the switches can't be read, nothing is for sale online.
   const enabledItemIds = async () => {

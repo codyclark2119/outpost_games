@@ -1,17 +1,18 @@
 import storeConfig from './storeConfig.json' with { type: 'json' }
 import { AppError } from './middleware/errorHandler.js'
+import { createValue } from './services/persistence.js'
 // ─── Public Square catalog cache ─────────────────────────────────────────────
 // The public Products page reads live Square inventory, but hitting Square on
 // every page view would be slow for customers and needless load on the POS
-// API — so results are cached and served stale-while-refreshing, same
-// Redis-with-memory-fallback convention as the other Redis-backed modules.
+// API — so results are cached and served stale-while-refreshing, kept in the
+// shared Redis store (services/redis.js) with a memory fallback.
 //
 // Refresh cadence intentionally tracks store hours rather than a flat TTL:
 // during open hours the floor is fresher (customers browsing while in/near
 // the store, stock genuinely moving) at once an hour; outside open hours the
 // catalog can't realistically change, so refreshes back off to once a day.
 
-import { getSquareConfigurationStatus, getPublicSquareCatalog } from './squarePosClient.js'
+import { getSquareConfigurationStatus, getPublicSquareCatalog } from './square/index.js'
 
 const CACHE_KEY = 'outpost:square:public-catalog'
 const STORE_TIMEZONE = storeConfig.timeZone
@@ -48,42 +49,27 @@ const isStoreOpenNow = () => {
 
 const getTtlMs = () => (isStoreOpenNow() ? OPEN_HOURS_TTL_MS : CLOSED_TTL_MS)
 
-// Injected from server.js (see initSquarePublicCatalogCache).
-let redisClient = null
-let isRedisConnected = () => false
-
-let memoryCache = null // { fetchedAt, environment, itemCount, items }
+// Injected from server.js (see initSquarePublicCatalogCache). Not required:
+// without Redis the cache simply lives in this process's memory.
+let cacheValue = createValue({ isRedisConnected: () => false }, CACHE_KEY, { required: false })
 
 let refreshInProgress = null
 let warnedNotConfigured = false
 
-export const initSquarePublicCatalogCache = ({
-  redisClient: client,
-  isRedisConnected: connectedFn,
-}) => {
-  redisClient = client
-  if (typeof connectedFn === 'function') isRedisConnected = connectedFn
+export const initSquarePublicCatalogCache = store => {
+  cacheValue = createValue(store, CACHE_KEY, { required: false })
 }
 
 const readCache = async () => {
-  if (!isRedisConnected() || !redisClient) return memoryCache
+  const raw = await cacheValue.get()
   try {
-    const data = await redisClient.get(CACHE_KEY)
-    return data ? JSON.parse(data) : memoryCache
+    return raw ? JSON.parse(raw) : null
   } catch {
-    return memoryCache
+    return null
   }
 }
 
-const writeCache = async cache => {
-  memoryCache = cache // write-through mirror
-  if (!isRedisConnected() || !redisClient) return
-  try {
-    await redisClient.set(CACHE_KEY, JSON.stringify(cache))
-  } catch (err) {
-    console.warn('⚠️  Failed to persist Square public catalog cache to Redis:', err.message)
-  }
-}
+const writeCache = cache => cacheValue.set(JSON.stringify(cache))
 
 // Force a synchronous full refresh from Square. Overlapping calls share one refresh.
 export const refreshSquarePublicCatalog = async () => {

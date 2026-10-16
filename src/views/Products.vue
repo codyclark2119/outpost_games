@@ -21,14 +21,7 @@
       </label>
     </PageHeader>
 
-    <div v-if="!PRODUCTS_CATALOG_LIVE" class="page-shell py-4">
-      <ComingSoonPanel
-        title="Our online catalog is getting a refresh"
-        message="Live inventory isn't online just yet. Everything is still stocked in store — come see the full selection in person."
-      />
-    </div>
-
-    <div v-else-if="catalogStore.error && !hasCatalog" class="page-shell py-4">
+    <div v-if="catalogStore.error && !hasCatalog" class="page-shell py-4">
       <div class="card text-center">
         <p class="text-slate-600">Products are temporarily unavailable.</p>
         <button type="button" class="btn-secondary mt-4" @click="catalogStore.fetchCatalog">
@@ -134,7 +127,6 @@ import { MagnifyingGlassIcon, ArrowRightIcon } from '@heroicons/vue/24/outline'
 import { useSquareCatalogStore, matchesSearch, slugify } from '../stores/squareCatalog'
 import { gameMeta } from '../config/games'
 import { usePageMeta } from '../composables/usePageMeta'
-import { PRODUCTS_CATALOG_LIVE } from '../config/featureFlags'
 import PageHeader from '../components/PageHeader.vue'
 import GameNav from '../components/GameNav.vue'
 import ProductCard from '../components/ProductCard.vue'
@@ -173,6 +165,6 @@ const searchResults = computed(() =>
 )
 
 onMounted(() => {
-  if (PRODUCTS_CATALOG_LIVE) catalogStore.ensureCatalog()
+  catalogStore.ensureCatalog()
 })
 </script>

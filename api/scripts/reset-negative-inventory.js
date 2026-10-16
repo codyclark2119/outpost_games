@@ -17,10 +17,7 @@ import {
   getSquareInventoryReport,
   adjustSquareInventoryCount,
   resolveSquareCredentials,
-  loadSquareEnvironment,
-} from '../squarePosClient.js'
-
-loadSquareEnvironment()
+} from '../square/index.js'
 
 const APPLY = process.argv.includes('--apply')
 
