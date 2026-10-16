@@ -40,3 +40,4 @@ lerna-debug.log*
 # Local data / import staging (not committed)
 api/data/wotc-imports/*
 !api/data/wotc-imports/.gitkeep
+api/data/catalog-snapshot/

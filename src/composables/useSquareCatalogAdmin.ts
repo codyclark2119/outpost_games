@@ -1,6 +1,7 @@
 import { ref, computed, onScopeDispose } from 'vue'
 import type { StockRow, CategoryGroup, SquareCategory } from '../components/admin/catalog/types'
 import { squareAdminApi } from '../services/squareAdminApi'
+import { splitCategoryGroups, type CategorySections } from '../utils/adminCategoryGroups'
 export function useSquareCatalogAdmin() {
   const rows = ref<StockRow[]>([])
   const categories = ref<SquareCategory[]>([])
@@ -18,8 +19,9 @@ export function useSquareCatalogAdmin() {
   })
 
   // Grouped by top-level Square category so a large catalog can be scanned and
-  // edited section-by-section instead of one long flat table.
-  const groupedFilteredRows = computed((): CategoryGroup[] => {
+  // edited section-by-section instead of one long flat table, card games
+  // first and snacks/accessories in their own section after them.
+  const groupedFilteredRows = computed((): CategorySections<CategoryGroup> => {
     const byName = new Map<string, CategoryGroup>()
     for (const row of filteredRows.value) {
       const name = row.categoryName || 'Uncategorized'
@@ -30,11 +32,7 @@ export function useSquareCatalogAdmin() {
       }
       group.rows.push(row)
     }
-    return [...byName.values()].sort((a, b) => {
-      if (a.name === 'Uncategorized') return 1
-      if (b.name === 'Uncategorized') return -1
-      return a.name.localeCompare(b.name)
-    })
+    return splitCategoryGroups([...byName.values()], group => group.rows.length)
   })
 
   const expandedCategories = ref(new Set<string>())

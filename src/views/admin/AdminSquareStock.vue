@@ -54,77 +54,88 @@
         <p class="text-gray-500">No items returned from Square.</p>
       </div>
 
-      <!-- Category groups -->
-      <div v-else class="space-y-3">
-        <div
-          v-for="group in groupedItems"
-          :key="group.name"
-          class="bg-white rounded-xl shadow border border-gray-200 overflow-hidden"
+      <!-- Category groups: card games first, snacks and accessories after -->
+      <template v-else>
+        <section
+          v-for="section in sections"
+          :key="section.title"
+          class="mb-8"
+          :aria-label="section.title"
         >
-          <div
-            class="flex items-center gap-3 px-4 py-3 bg-outpost-navy text-white cursor-pointer select-none"
-            @click="toggleCategory(group.name)"
-          >
-            <span
-              class="text-lg transition-transform duration-200"
-              :class="expandedCategories.has(group.name) ? 'rotate-90' : ''"
-              >▶</span
+          <h2 class="font-display font-bold text-xl text-outpost-navy mb-1">{{ section.title }}</h2>
+          <p class="text-sm text-gray-500 mb-3">{{ section.hint }}</p>
+          <div class="space-y-3">
+            <div
+              v-for="group in section.groups"
+              :key="group.name"
+              class="bg-white rounded-xl shadow border border-gray-200 overflow-hidden"
             >
-            <span class="font-display font-bold text-lg flex-1">{{ group.name }}</span>
-            <span class="text-xs text-white/60"
-              >{{ group.items.length }} item{{ group.items.length !== 1 ? 's' : '' }}</span
-            >
-          </div>
+              <div
+                class="flex items-center gap-3 px-4 py-3 bg-outpost-navy text-white cursor-pointer select-none"
+                @click="toggleCategory(group.name)"
+              >
+                <span
+                  class="text-lg transition-transform duration-200"
+                  :class="expandedCategories.has(group.name) ? 'rotate-90' : ''"
+                  >▶</span
+                >
+                <span class="font-display font-bold text-lg flex-1">{{ group.name }}</span>
+                <span class="text-xs text-white/60"
+                  >{{ group.items.length }} item{{ group.items.length !== 1 ? 's' : '' }}</span
+                >
+              </div>
 
-          <div v-if="expandedCategories.has(group.name)" class="overflow-x-auto">
-            <table class="w-full text-sm">
-              <thead>
-                <tr
-                  class="border-b border-gray-200 text-left text-xs uppercase tracking-wide text-gray-500"
-                >
-                  <th class="px-3 py-3 sm:px-4">Item</th>
-                  <th class="hidden px-4 py-3 sm:table-cell">SKU</th>
-                  <th class="hidden px-4 py-3 text-right sm:table-cell">Price</th>
-                  <th class="px-2 py-3 text-right sm:px-4">Qty</th>
-                  <th class="px-3 py-3 sm:px-4">Status</th>
-                </tr>
-              </thead>
-              <tbody>
-                <tr
-                  v-for="item in group.items"
-                  :key="item.id"
-                  class="border-b border-gray-100 last:border-0 hover:bg-gray-50"
-                >
-                  <td class="px-3 py-2.5 font-medium text-gray-800 sm:px-4">
-                    {{ item.displayName }}
-                    <span class="block text-xs font-normal text-gray-500 sm:hidden">
-                      {{ formatPrice(item)
-                      }}<template v-if="item.sku"> · SKU {{ item.sku }}</template>
-                    </span>
-                  </td>
-                  <td class="hidden px-4 py-2.5 text-gray-500 sm:table-cell">
-                    {{ item.sku || '—' }}
-                  </td>
-                  <td class="hidden px-4 py-2.5 text-right text-gray-700 sm:table-cell">
-                    {{ formatPrice(item) }}
-                  </td>
-                  <td class="px-2 py-2.5 text-right text-gray-700 sm:px-4">
-                    {{ item.quantity ?? '—' }}
-                  </td>
-                  <td class="px-3 py-2.5 sm:px-4">
-                    <span
-                      class="text-xs px-2 py-0.5 rounded-full font-semibold"
-                      :class="statusClass(item)"
+              <div v-if="expandedCategories.has(group.name)" class="overflow-x-auto">
+                <table class="w-full text-sm">
+                  <thead>
+                    <tr
+                      class="border-b border-gray-200 text-left text-xs uppercase tracking-wide text-gray-500"
                     >
-                      {{ statusLabel(item) }}
-                    </span>
-                  </td>
-                </tr>
-              </tbody>
-            </table>
+                      <th class="px-3 py-3 sm:px-4">Item</th>
+                      <th class="hidden px-4 py-3 sm:table-cell">SKU</th>
+                      <th class="hidden px-4 py-3 text-right sm:table-cell">Price</th>
+                      <th class="px-2 py-3 text-right sm:px-4">Qty</th>
+                      <th class="px-3 py-3 sm:px-4">Status</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr
+                      v-for="item in group.items"
+                      :key="item.id"
+                      class="border-b border-gray-100 last:border-0 hover:bg-gray-50"
+                    >
+                      <td class="px-3 py-2.5 font-medium text-gray-800 sm:px-4">
+                        {{ item.displayName }}
+                        <span class="block text-xs font-normal text-gray-500 sm:hidden">
+                          {{ formatPrice(item)
+                          }}<template v-if="item.sku"> · SKU {{ item.sku }}</template>
+                        </span>
+                      </td>
+                      <td class="hidden px-4 py-2.5 text-gray-500 sm:table-cell">
+                        {{ item.sku || '—' }}
+                      </td>
+                      <td class="hidden px-4 py-2.5 text-right text-gray-700 sm:table-cell">
+                        {{ formatPrice(item) }}
+                      </td>
+                      <td class="px-2 py-2.5 text-right text-gray-700 sm:px-4">
+                        {{ item.quantity ?? '—' }}
+                      </td>
+                      <td class="px-3 py-2.5 sm:px-4">
+                        <span
+                          class="text-xs px-2 py-0.5 rounded-full font-semibold"
+                          :class="statusClass(item)"
+                        >
+                          {{ statusLabel(item) }}
+                        </span>
+                      </td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
           </div>
-        </div>
-      </div>
+        </section>
+      </template>
     </template>
   </AdminPage>
 </template>
@@ -133,6 +144,7 @@
 import AdminPage from '../../components/admin/AdminPage.vue'
 import { squareAdminApi } from '../../services/squareAdminApi'
 import { ref, computed, onMounted } from 'vue'
+import { splitCategoryGroups } from '../../utils/adminCategoryGroups'
 
 import type { SquareStockItem, SquareInventoryReport } from '../../services/squareAdminTypes'
 
@@ -167,11 +179,22 @@ const groupedItems = computed((): CategoryGroup[] => {
     }
     group.items.push(item)
   }
-  return [...byName.values()].sort((a, b) => {
-    if (a.name === 'Uncategorized') return 1
-    if (b.name === 'Uncategorized') return -1
-    return a.name.localeCompare(b.name)
-  })
+  return [...byName.values()]
+})
+
+const sections = computed(() => {
+  const { games, snacksAndAccessories } = splitCategoryGroups(
+    groupedItems.value,
+    group => group.items.length
+  )
+  return [
+    { title: 'Card games', hint: 'What the online shop lists.', groups: games },
+    {
+      title: 'Snacks, accessories and tournaments',
+      hint: 'Sold in store only.',
+      groups: snacksAndAccessories,
+    },
+  ].filter(section => section.groups.length > 0)
 })
 
 const expandedCategories = ref(new Set<string>())
